@@ -1,0 +1,7 @@
+/*
+!/addon/
+!/build/
+!/core/
+!/mod/
+!/.gitignore
+!/Makefile

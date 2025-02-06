@@ -1,0 +1,14 @@
+{
+	"$schema": "https://raw.githubusercontent.com/LuaLS/LLS-Addons/main/schemas/addon_config.schema.json",
+	"words": ["array%s*%{"],
+	"settings": {
+		"Lua.runtime.version" : "LuaJIT",
+		"Lua.diagnostics.globals" : [
+			"global1",
+			"global2"
+		],
+		"Lua.runtime.special" : {
+			"import" : "require"
+		}
+	}
+}
