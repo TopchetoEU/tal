@@ -16,8 +16,12 @@ function exports.pwd()
 	return os.getenv "PWD" or "./";
 end
 
+--- @param path string
 function exports.ls(path)
-	return os.execute("ls ")
+	local f = assert(io.popen("ls " .. path:quotesh()));
+	local res = f:read "*a";
+	f:close();
+	return res;
 end
 
 return exports;
