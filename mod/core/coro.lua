@@ -3,7 +3,6 @@
 -- Written by Cosmin Apreutesei. Public Domain.
 
 -- Reworked from the (in)famous coro lib
----@diagnostic disable: duplicate-set-field
 
 local old_create = coroutine.create;
 local old_close = coroutine.close;

@@ -213,7 +213,7 @@ function exports.main(...)
 			elseif mod and type(mod.main) == "function" then
 				return mod.main(...);
 			end
-		end, ...);
+		end, unpack(args));
 	else
 		return exports.repl();
 	end
