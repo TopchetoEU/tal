@@ -9,7 +9,7 @@ return function (glob)
 
 		if sep == "" then
 			for i = 1, #self do
-				lines:push(self:sub(1, 1));
+				lines:push(self:at(i));
 			end
 		else
 			while true do
