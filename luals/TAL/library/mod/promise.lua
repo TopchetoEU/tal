@@ -3,7 +3,7 @@
 --- @alias promise<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> promiselib | { when: fun(ful: fun(p1: T1, p2: T2, p3: T3, p4: T4, p5: T5, p6: T6, p7: T7, p8: T8, p9: T9, p10: T10), rej: fun(err)) }
 
 --- @class promiselib
-promise = {};
+local promise = {};
 promise.__index = promise;
 
 --- @generic T1, T2, T3, T4, T5, T6, T7, T8, T9, T10

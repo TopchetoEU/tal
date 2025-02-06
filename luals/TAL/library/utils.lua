@@ -3,6 +3,7 @@
 box = table.pack;
 unbox = table.unpack;
 exit = os.exit;
+promise = require "promise";
 
 --- @param box table
 --- @param s? number

@@ -31,8 +31,8 @@ function arrays.append(self, ...) end
 
 --- Adds all the given elements to the end of this array
 --- @generic T
---- @param self T[]
---- @param ... T[]
+--- @param self array<T>
+--- @param ... T
 --- @return self
 function arrays.push(self, ...) end
 
