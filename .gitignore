@@ -5,3 +5,5 @@
 !/mod/
 !/.gitignore
 !/Makefile
+!/README.md
+!/License
