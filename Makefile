@@ -1,4 +1,4 @@
-.PHONY: clean install-mods install
+.PHONY: clean install-mods install build-c
 
 install: clean install-mods
 	luajit build/init.lua --linux
@@ -11,3 +11,7 @@ install-mods: clean
 clean:
 	rm -rf ~/.local/bin/tal
 	rm -rf ~/.local/lib/.tal_mod
+	make -C native clean
+
+build-c:
+	make -C native build
