@@ -1,6 +1,5 @@
 --- @meta
 
-
 --- Splits the given string with the given delimiter
 --- @param self string
 --- @param sep string The delimiter to split by. Defaults to an empty string
