@@ -3,7 +3,9 @@
 I am very sorry for the hastily written README, I will refactor it.
 
 ***BIG NOTE NUMERO NIL:*** This is a project I use for myself. If you decide (for some ungodly reason) to use this project, you use it at your own sanity's risk
+
 ***BIG NOTE NUMERO UNO:*** As the name suggest, I *STRONGLY* suggest that you ***DO NOT*** use this in production.
+
 ***BIG NOTE NUMERO DOS:*** The project supports **ONLY** Linux (and probably Mac, IDK tho). I plan to support Windows, but it's not a priority for me
 
 This is a pseudo-runtime for lua, written in lua. Most importantly, it includes the following shinies:
