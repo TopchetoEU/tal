@@ -126,7 +126,7 @@ local function parse_impl(str, pos, end_delim)
 	elseif c == "[" then
 		pos = pos + 1
 
-		local arr = array {};
+		local arr = {};
 		local val;
 		local delim_found = true;
 
@@ -135,7 +135,7 @@ local function parse_impl(str, pos, end_delim)
 			if val == json_end then return arr, pos end
 			if not delim_found then error("Comma missing between array items: " .. str:sub(pos, pos + 25)) end
 
-			arr:push(val);
+			table.insert(arr, val);
 			pos, delim_found = skip_delim(str, pos, ",");
 		end
 	elseif c == "\"" then	-- Parse a string.

@@ -8,6 +8,8 @@ local old_load = ffi.load;
 local function override_path(override, old)
 	old = old or nil;
 
+	if override == nil then return old end
+
 	if override == ";;" then
 		return old;
 	elseif override:match "^;;" then
