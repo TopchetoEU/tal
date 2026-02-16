@@ -8,50 +8,33 @@ I am very sorry for the hastily written README, I will refactor it.
 
 ***BIG NOTE NUMERO DOS:*** The project supports **ONLY** Linux (and probably Mac, IDK tho). I plan to support Windows, but it's not a priority for me
 
-This is a pseudo-runtime for lua, written in lua. Most importantly, it includes the following shinies:
+A runtime, based on luajit. This runtime adds the following features:
 
-- The event loop (as it stands it's pretty useless, because there aren't any async functions)
-- Pseudo-arrays (objects with a special prototypes with some nice-to-have functions)
-- Symmetric coroutines by default, via a modified version of "coro" (avoids some painful problems with asymmetric coroutines)
-- A nicer REPL with better values display (via the "pprint" function, aka pretty-print)
-- A better module system (C modules not yet supported), that provides relative imports and global scope isolation
+- An async I/O API, using libuv (node's I/O event loop thingie), combined with lua's threads
+- Wrappers on top of coroutines, called generators. Coroutines are only delegated to low-level work
+- A nicer REPL with `readline` and history support
+- Nice value printing! (no more `for k, v in pairs(obj) do print(k, v)`)
+- Module imports are now relative to the program entry, instead of the CWD (you can run your lua programs from anywhere without much hassle!)
+- Backwards-compatible with *most* lua code
 - Some utility modules, like "json", "path" for path manipulation and "args" for CLI args reading
 
 ## Installing
 
-The included Makefile can be used to copy the necessary files where they need to be - on linux machines, it should be enough to run `make install`. This command will copy `tal` into `~/.local/bin` and will copy the stdlibs into `~/.local/lib/.tal_mod`. Feel free to do that manually
+You will need `luajit` and `libuv.so` (optionally `libreadline.so`) in your path (when we get to windows support, the downloads will have the DLLs bundles in the .zip).
+
+Installing is as simple as copying `lib/*` to you lua libs and `tal` to your bin folder. After that, it should be as easy as invoking your scripts/programs with `tal`, instead of `lua`.
+
+The included Makefile can be used to do the above process. You can specify a custom prefix with the `PREFIX` makefile/env variable.
 
 ## Usage
 
 The runtime is used through the CLI `tal` command. It works pretty much like the `lua` command, for more details, read the `--help` output.
 
-One major difference is that the executed file will be imported as a module, and it is expected that it either:
-
-- Exports the main function
-- Exports a field `main` that is a function or
-- Defines a `main` global that is a function
-
-You can still write scripts that don't exports a main function, but they won't be able to accept CLI arguments.
+By default, the script is run as a script - the whole function is executed as if inside a main function. You can run the file as a module, using the `-m` flag (like python). This will call the exported value from the module as a function, with the argv arguments passed to the function as arguments.
 
 ## Module system
 
-The module system is inspired both by CommonJS and Lua's module system. I believe that I have achieved a pretty nice balance between both.
-
-You have two ways of importing modules - with `import` and with `require`. Using `import` requires you specify the real "path" to the module, aka "./my/precious/module.lua". On the other hand, `require` supports the lua-styled syntax - ".my.precious.module". Note that to use relative imports you need to prefix the module ID with at least one dot. Every additional prefix dot equates to one `../` prepended to the id. Example: `.a.b.c -> ./a/b/c.lua`, `..a.b -> ../a/b.lua`, `...a.b -> ../../a/b`.
-
-If the imported ID doesn't start with `./`, `../` or `/`, it will be searched for in the `module.path` array. If it isn't found there, an error will occur. On the other hand, if the ID has one of these prefixes, it won't be searched in the `module.path` folders. This ensures that you know exactly which module you are importing.
-
-Exporting can happen in several ways:
-
-- Just returning - this works exactly how lua's module system would - it will override the default `exports` object with the return value. Note that if you return zero values, no overriding will occur. This has the best IDE support
-- Assigning to the `exports` global - like NodeJS's module system, `exports` is a reference to the default `module.exports` object. This has no IDE support
-- Assigning to the `module.exports` field - will work like CommonJS
-- Assigning to `module.returns` - this will expect the return of `box`, aka a tuple with an integer `n` field. In this way, you can specify what values will be returned by an eventual `import` of the module. This is how the values, `return`-ed by the module are stored
-- By using the `export` function - this function accepts one object and will assign all of its fields to `module.exports`. This has *no* IDE support, and frankly, IDK if it's possible.
-
-## Existing code support
-
-none. don't even try.
+The module system is basically stock lua, but imports, if relative, are relative to the entrypoint, not the working dir. The module exports what the lua file returns.
 
 ## LuaLS support
 

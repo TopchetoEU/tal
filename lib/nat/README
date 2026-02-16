@@ -1,0 +1,10 @@
+luajit FFI wrappers of native libraries. Must be a thin layer over the
+libraries. It is preferable that these are cross-platform. Platform-specific
+wrappers must be put in the windows/linux/macos/(other) folders.
+
+Wrappers can implement some metatables, but the API must be as close as
+possible to the original library (unless the wrapper implements cross-compat
+between linux and windows libraries which have nothing in common).
+
+Libraries must be named the same as the .so/.dll file they correspond to - for
+example, libsodium.so becomes libsodium.lua.
