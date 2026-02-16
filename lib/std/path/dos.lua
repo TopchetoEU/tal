@@ -79,7 +79,7 @@ function dos_path:split(...)
 
 	return res, back_n, dir;
 end
----@param parts array<string>
+---@param parts string[]
 ---@param back_i integer | string
 ---@param dir boolean | "all"
 function dos_path:stringify(parts, back_i, dir)

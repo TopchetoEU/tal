@@ -45,7 +45,7 @@ function path:split(...)
 	return res, back_n, dir;
 end
 
----@param parts array<string>
+---@param parts string[]
 ---@param i integer?
 ---@param dir boolean | "all"
 function path:stringify(parts, i, dir)
