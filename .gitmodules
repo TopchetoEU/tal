@@ -1,0 +1,9 @@
+[submodule "deps/luajit"]
+	path = deps/luajit
+	url = https://github.com/LuaJIT/LuaJIT
+[submodule "deps/libev"]
+	path = deps/libev
+	url = https://git.topcheto.eu/topchetoeu/libev
+[submodule "deps/libsodium"]
+	path = deps/libsodium
+	url = https://github.com/jedisct1/libsodium

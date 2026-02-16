@@ -1,9 +1,9 @@
 /*
-!/luals/
-!/build/
-!/core/
-!/mod/
+!/lib/
+!/deps/
+
 !/.gitignore
+!/.gitmodules
 !/Makefile
 !/README.md
 !/License
