@@ -41,7 +41,7 @@ function io.open(path, mode)
 		error("invalid open path specified", 2);
 	end
 
-	local fd, err = fs.open(path, flags, 777);
+	local fd, err = fs.open(path, flags, "666");
 	if not fd then return nil, err end
 
 	return stream.new(fd, nil, true);

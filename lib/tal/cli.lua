@@ -147,18 +147,19 @@ cli.main = args.cli {
 		ctx.args = { select(2, ...) };
 	end,
 	next = function (ctx)
+		if ctx.help then
+			cli.print_version();
+			cli.print_help();
+			return;
+		end
+
 		local runners = {};
 		local req_runners = {};
 		local use_req = false;
 		local args = ctx.args;
 
-		if ctx.help then ctx.version = true end
-
-		if ctx.version or ctx.help then
+		if ctx.version then
 			table.insert(runners, cli.print_version);
-		end
-		if ctx.help then
-			table.insert(runners, cli.print_help);
 		end
 
 		for i = 1, #ctx.requires do
@@ -192,7 +193,16 @@ cli.main = args.cli {
 
 			table.insert(runners, function ()
 				cli.stacktrace_call(function ()
-					return require(ctx.module)(table.unpack(ctx.args));
+					local mod = require(ctx.module);
+					if type(mod) == "table" then
+						if mod.__main then
+							return mod.__main(table.unpack(ctx.args));
+						else
+							return mod.main(table.unpack(ctx.args));
+						end
+					else
+						return mod(table.unpack(ctx.args));
+					end
 				end);
 			end);
 		elseif ctx.file then

@@ -4,10 +4,11 @@ local ev = require "nat.libev";
 local loop = require "tal.loop";
 debug = require "tal.globs.debug";
 
-local has_dbg, debugger = pcall(require, "lldebugger");
-if has_dbg then debugger.start() end
+pcall(function ()
+	require "lldebugger".start();
+end);
 
-return function (module, ...)
+return function (...)
 	return assert(loop.run(ev.new(), function (...)
 		local env = setmetatable({}, { __index = _G });
 		env._G = env;
@@ -16,12 +17,16 @@ return function (module, ...)
 
 		require "std.printing";
 		require "tal.globs";
-		local entry = require(module);
+		local entry = require "tal.cli";
 
-		if type(entry) == "table" and type(entry.main) == "function" then
-			return entry.main(...);
-		else
-			return entry(...);
+		if type(entry) == "table" then
+			if type(entry.__main) == "function" then
+				return entry.main(...);
+			elseif type(entry.main) == "function" then
+				return entry.main(...);
+			end
 		end
+
+		return entry(...);
 	end, ...));
 end

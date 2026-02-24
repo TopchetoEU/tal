@@ -91,12 +91,20 @@ local function num_flag(name)
 end
 --- @param name string
 --- @return args.consumer
-local function str_arr(name)
+local function str_arr_flag(name)
 	return function (ctx, val, ...)
 		ctx[name] = ctx[name] or {};
 		val = assert(val, "expected string value for array flag '" .. name .. "'");
 		table.insert(ctx[name], val);
 		return ...;
+	end
+end
+--- @param name string
+--- @return args.consumer
+local function rest_flag(name)
+	return function (ctx, ...)
+		ctx[name] = { ... };
+		return;
 	end
 end
 
@@ -127,5 +135,6 @@ return {
 	bool = bool_flag,
 	num = num_flag,
 	str = str_flag,
-	str_arr = str_arr,
+	str_arr = str_arr_flag,
+	rest = rest_flag,
 };
