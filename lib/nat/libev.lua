@@ -236,7 +236,6 @@ local ev_cbs = prop();
 local ev = {};
 ev.__index = ev;
 function ev:__gc()
-	print("SADFDSAF");
 	libev.ev_free(self);
 end
 ev._ctype = ffi.metatype("struct ev", ev);

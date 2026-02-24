@@ -6,7 +6,7 @@ local old_load = ffi.load;
 
 --- @return string
 local function override_path(override, old)
-	old = old or nil;
+	old = old or "";
 
 	if override == nil then return old end
 
@@ -40,8 +40,11 @@ if os.getenv "FFI_PATH" then
 end
 
 ffi.path = override_path(";;?", ffi.path);
+ffi.preload = {};
 
 function ffi_over.load(name, glob)
+	if ffi.preload[name] then return ffi.C end
+
 	local errors = {};
 
 	for seg in ffi.path:gmatch "[^;]+" do
