@@ -1,11 +1,13 @@
+local _base = require "std.path._base";
+
 ---@diagnostic disable: cast-local-type
-local path = setmetatable({}, { __index = require "std.path._base" });
+local unix_path = {};
 
 ---@param ... string
 ---@return string[] parts
 ---@return integer? back_n
 ---@return boolean dir
-function path:split(...)
+function unix_path.split(...)
 	--- @type integer | nil
 	local back_n = 0;
 	--- @type string[]
@@ -48,7 +50,7 @@ end
 ---@param parts string[]
 ---@param i integer?
 ---@param dir boolean | "all"
-function path:stringify(parts, i, dir)
+function unix_path.stringify(parts, i, dir)
 	if #parts == 0 then
 		if i == nil then
 			return dir and "/" or "/.";
@@ -70,4 +72,29 @@ function path:stringify(parts, i, dir)
 	end
 end
 
-return path;
+function unix_path.join(...)
+	return _base.join(unix_path.split, unix_path.stringify, ...);
+end
+function unix_path.join_dir(...)
+	return _base.join_dir(unix_path.split, unix_path.stringify, ...);
+end
+function unix_path.join_file(...)
+	return _base.join_file(unix_path.split, unix_path.stringify, ...);
+end
+function unix_path.is_dir(...)
+	return _base.is_dir(unix_path.split, ...);
+end
+function unix_path.chroot(...)
+	return _base.safejoin(unix_path.split, unix_path.stringify, ...);
+end
+function unix_path.cwd(...)
+	return _base.cwd(unix_path.split, unix_path.stringify, ...);
+end
+function unix_path.dirname(...)
+	return _base.dirname(unix_path.split, unix_path.stringify, ...);
+end
+function unix_path.filename(...)
+	return _base.filename(unix_path.split, ...);
+end
+
+return unix_path;

@@ -1,5 +1,7 @@
+local _base = require "std.path._base";
+
 ---@diagnostic disable: cast-local-type
-local dos_path = setmetatable({}, { __index = require "std.path._base" });
+local dos_path = {};
 
 local function split_init(first)
 	-- TODO: This is incorrect but i literally cannot be bothered with full support
@@ -25,7 +27,7 @@ end
 ---@return string[] parts
 ---@return integer | string back_n
 ---@return boolean dir
-function dos_path:split(...)
+function dos_path.split(...)
 	--- @type integer | string
 		local back_n = 0;
 	--- @type string[]
@@ -82,7 +84,7 @@ end
 ---@param parts string[]
 ---@param back_i integer | string
 ---@param dir boolean | "all"
-function dos_path:stringify(parts, back_i, dir)
+function dos_path.stringify(parts, back_i, dir)
 	if #parts == 0 then
 		if type(back_i) == "string" then
 			return dir and back_i or (back_i .. ".");
@@ -104,6 +106,31 @@ function dos_path:stringify(parts, back_i, dir)
 	else
 		return back_i .. str;
 	end
+end
+
+function dos_path.join(...)
+	return _base.join(dos_path.split, dos_path.stringify, ...);
+end
+function dos_path.join_dir(...)
+	return _base.join_dir(dos_path.split, dos_path.stringify, ...);
+end
+function dos_path.join_file(...)
+	return _base.join_file(dos_path.split, dos_path.stringify, ...);
+end
+function dos_path.is_dir(...)
+	return _base.is_dir(dos_path.split, ...);
+end
+function dos_path.chroot(...)
+	return _base.safejoin(dos_path.split, dos_path.stringify, ...);
+end
+function dos_path.cwd(...)
+	return _base.cwd(dos_path.split, dos_path.stringify, ...);
+end
+function dos_path.dirname(...)
+	return _base.dirname(dos_path.split, dos_path.stringify, ...);
+end
+function dos_path.filename(...)
+	return _base.filename(dos_path.split, ...);
 end
 
 return dos_path;

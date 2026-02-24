@@ -1,41 +1,53 @@
 --- @diagnostic disable: cast-local-type
-local path = {};
+local path_base = {};
 
----@param ... string
----@return string path
----@return boolean dir
-function path:join(...)
-	local parts, i, dir = self:split(...);
-	return self:stringify(parts, i, dir), dir;
+--- @alias std.path.split fun(...: string): string[], integer | string, boolean
+--- @alias std.path.stringify fun(parts: string[], back_i: integer | string, dir: boolean | "all"): string
+
+--- @param split std.path.split
+--- @param stringify std.path.stringify
+--- @param ... string
+--- @return string path
+--- @return boolean dir
+function path_base.join(split, stringify, ...)
+	local parts, i, dir = split(...);
+	return stringify(parts, i, dir), dir;
 end
 
----@param ... string
----@return string
-function path:join_dir(...)
-	local p, i = self:split(...);
-	return self:stringify(p, i, true);
+--- @param split std.path.split
+--- @param stringify std.path.stringify
+--- @param ... string
+--- @return string
+function path_base.join_dir(split, stringify, ...)
+	local p, i = split(...);
+	return stringify(p, i, true);
 end
----@param ... string
----@return string
-function path:join_file(...)
-	local p, i = self:split(...);
-	return self:stringify(p, i, false);
+--- @param split std.path.split
+--- @param stringify std.path.stringify
+--- @param ... string
+--- @return string
+function path_base.join_file(split, stringify, ...)
+	local p, i = split(...);
+	return stringify(p, i, false);
 end
----@param ... string
----@return boolean
-function path:is_dir(...)
-	local parts, i, dir = self:split(...);
+--- @param split std.path.split
+--- @param ... string
+--- @return boolean
+function path_base.is_dir(split, ...)
+	local parts, i, dir = split(...);
 	return dir;
 end
 
----@param ... string
----@return string
----@return boolean dir
-function path:chroot(...)
-	local parts, i, dir = self:split((...));
+--- @param split std.path.split
+--- @param stringify std.path.stringify
+--- @param ... string
+--- @return string
+--- @return boolean dir
+function path_base.safejoin(split, stringify, ...)
+	local parts, i, dir = split((...));
 
 	for i = 2, select("#", ...) do
-		local new_parts, _, new_dir = self:split((select(i, ...)));
+		local new_parts, _, new_dir = split((select(i, ...)));
 		dir = new_dir;
 
 		for j = 1, #new_parts do
@@ -43,16 +55,18 @@ function path:chroot(...)
 		end
 	end
 
-	return self:stringify(parts, i, dir), dir;
+	return stringify(parts, i, dir), dir;
 end
 
----@param ... string
----@return string
-function path:cwd(...)
+--- @param split std.path.split
+--- @param stringify std.path.stringify
+--- @param ... string
+--- @return string
+function path_base.cwd(split, stringify, ...)
 	local parts, back_i, dir = {}, 0, false;
 
 	for i = 1, select("#", ...) do
-		local new_parts, new_back_i, new_dir = self:split((select(i, ...)));
+		local new_parts, new_back_i, new_dir = split((select(i, ...)));
 		dir = new_dir;
 
 		if type(new_back_i) == "number" then
@@ -69,21 +83,24 @@ function path:cwd(...)
 		end
 	end
 
-	return self:stringify(parts, back_i, dir);
+	return stringify(parts, back_i, dir);
 end
 
----@param ... string
----@return string
-function path:dirname(...)
-	local parts, i = self:split(...);
+--- @param split std.path.split
+--- @param stringify std.path.stringify
+--- @param ... string
+--- @return string
+function path_base.dirname(split, stringify, ...)
+	local parts, i = split(...);
 	table.remove(parts);
-	return self:stringify(parts, i, true);
+	return stringify(parts, i, true);
 end
 
----@param ... string
----@return string
-function path:filename(...)
-	return table.remove(self:split(...)) or "";
+--- @param split std.path.split
+--- @param ... string
+--- @return string
+function path_base.filename(split, ...)
+	return table.remove(split(...)) or "";
 end
 
-return path;
+return path_base;
