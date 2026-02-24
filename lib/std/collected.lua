@@ -1,22 +1,5 @@
 local field = require "std.field";
 
--- If __gc on tables is natively supported to begin with, don't even bother
-local native_supported = false;
-setmetatable({}, { __gc = function ()
-	native_supported = true;
-end });
-
-collectgarbage();
-
-if native_supported then
-	--- @generic T
-	--- @param tab T
-	--- @return T
-	return function (tab, force_lightweight)
-		return tab;
-	end
-end
-
 -- A field of every collectable table, referring to its token
 local token_field = field();
 
@@ -24,13 +7,16 @@ local token_field = field();
 
 local meta_proxy = newproxy(true);
 local meta = getmetatable(meta_proxy);
-function meta:__gc()
+--- @param self userdata
+function meta.__gc(self)
 	local obj = debug.getuservalue(self);
 	if obj == nil then return end
 
-	local meta = getmetatable(obj);
-	if type(meta) == "table" and type(meta.__gc) == "function" then
-		return meta.__gc(obj);
+	local obj_meta = getmetatable(obj);
+	if obj_meta == meta then
+		return obj.func(obj.tab);
+	elseif type(obj_meta) == "table" and type(obj_meta.__gc) == "function" then
+		return obj_meta.__gc(obj);
 	end
 end
 function meta:__tostring()
@@ -41,16 +27,17 @@ end
 --- This will create a proxy, associate it with the table, and when the proxy is collected, the object will be collected, too
 ---
 --- This function is lightweight, it only creates one userdata object.
----
---- However, it is a real possibility for the underlying implementation to start using another method, if luajit's GC changes its behavior.
---- In such a case, set 'force_lightweight' to true, so that
 --- @generic T
 --- @param tab T
---- @param force_lightweight? boolean
+--- @param func? fun() If passed, instead of tab's __gc metamethod, this function will be called upon collection
 --- @return T
-return function (tab, force_lightweight)
+return function (tab, func)
 	local token = newproxy(meta_proxy);
-	debug.setuservalue(token, tab);
+	if func then
+		debug.setuservalue(token, setmetatable({ func = func, tab = tab }, meta));
+	else
+		debug.setuservalue(token, tab);
+	end
 	token_field:set(tab, token);
 	return tab;
 end
