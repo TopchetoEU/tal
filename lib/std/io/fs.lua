@@ -1,5 +1,6 @@
 local prop = require "std.field";
 local loop = require "tal.loop";
+local collected = require "std.collected";
 local fs = {};
 
 --- @class std.fs.stat
@@ -161,6 +162,12 @@ function fs.stat(path)
 	if not res then return nil, err end
 	return res;
 end
+
+--- @param path string
+--- @param mode? integer | string
+function fs.mkdir(path, mode)
+	return loop.curr.ev:smkdir(path, mode);
+end
 --- @param path string
 --- @return std.io.dir?
 --- @return string? err
@@ -173,6 +180,25 @@ function fs.opendir(path)
 	dir_closed:set(self, false);
 
 	return self;
+end
+function fs.readdir(path)
+	local dir, err = fs.opendir(path);
+	if not dir then return nil, err end
+
+	collected(dir, dir.close);
+
+	return function ()
+		if not dir then return nil, "closed" end
+
+		local next, err = dir:read();
+		if not next then
+			dir:close();
+			dir = nil;
+		end
+
+		if err then return nil, err end
+		return next;
+	end
 end
 
 --- @param path string
