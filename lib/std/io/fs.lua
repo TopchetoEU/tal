@@ -46,7 +46,7 @@ function file_index:read(n)
 	local offset = file_offset:get(self);
 	local fd = file_fd:get(self);
 
-	local data, err = loop.curr.ev:sread(fd, offset, n);
+	local data, err = loop.curr.ev:sfile_read(fd, offset, n);
 	if err then return nil, err end
 
 	file_offset:set(self, offset + #data);
@@ -60,7 +60,7 @@ function file_index:write(data)
 	local offset = file_offset:get(self);
 	local fd = file_fd:get(self);
 
-	local n, err = loop.curr.ev:swrite(fd, offset, data);
+	local n, err = loop.curr.ev:sfile_write(fd, offset, data);
 	if err then return nil, err end
 
 	file_offset:set(self, offset + n);
@@ -68,7 +68,7 @@ function file_index:write(data)
 end
 function file_index:flush()
 	if file_closed:get(self) then return nil, "file is closed" end
-	return loop.curr.ev:ssync(file_fd:get(self));
+	return loop.curr.ev:sfile_sync(file_fd:get(self));
 end
 --- @param offset? integer
 --- @param whence? "set" | "cur" | "end"
@@ -84,7 +84,7 @@ function file_index:seek(offset, whence)
 	elseif whence == "cur" then
 		new_offset = new_offset + offset;
 	elseif whence == "end" then
-		local stat, err = loop.curr.ev:sstat(file_fd:get(self));
+		local stat, err = loop.curr.ev:sfile_stat(file_fd:get(self));
 		if not stat then return nil, err end
 
 		new_offset = stat.size + offset;
@@ -98,7 +98,7 @@ end
 function file_index:stat()
 	if file_closed:get(self) then return nil, "file closed" end
 
-	local stat, err = loop.curr.ev:sstat(file_fd:get(self));
+	local stat, err = loop.curr.ev:sfile_stat(file_fd:get(self));
 	if not stat then return nil, err end
 
 	return stat;
@@ -129,11 +129,11 @@ local dir_closed = prop();
 local dir_index = {};
 function dir_index:read()
 	if dir_closed:get(self) then return nil end
-	return loop.curr.ev:sreaddir(dir_fd:get(self));
+	return loop.curr.ev:sdir_next(dir_fd:get(self));
 end
 function dir_index:close()
 	if dir_closed:get(self) or dir_fd:get(self) == nil then return end
-	loop.curr.ev:closedir(dir_fd:get(self));
+	loop.curr.ev:dir_close(dir_fd:get(self));
 	dir_closed:set(self, true);
 end
 
@@ -148,7 +148,7 @@ dir_meta.__gc = dir_index.close;
 --- @return std.io.fs.file?
 --- @return string? err
 function fs.open(path, flags, mode)
-	local fd, err = loop.curr.ev:sopen(path, flags, mode);
+	local fd, err = loop.curr.ev:sfile_open(path, flags, mode);
 	if not fd then return nil, err end
 	return mkfile(fd);
 end
@@ -166,13 +166,13 @@ end
 --- @param path string
 --- @param mode? integer | string
 function fs.mkdir(path, mode)
-	return loop.curr.ev:smkdir(path, mode);
+	return loop.curr.ev:sdir_new(path, mode);
 end
 --- @param path string
 --- @return std.io.dir?
 --- @return string? err
 function fs.opendir(path)
-	local fd, err = loop.curr.ev:sopendir(path);
+	local fd, err = loop.curr.ev:sdir_open(path);
 	if not fd then return nil, err end
 
 	local self = newproxy(dir_identity);
