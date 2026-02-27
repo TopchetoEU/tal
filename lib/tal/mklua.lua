@@ -11,16 +11,24 @@ local ffi = require "ffi";
 --- @field output? string | file*
 --- @field entries string[]
 --- @field args? string[]
---- @field g? boolean
+--- @field debug? boolean
 --- @field main? boolean
 --- @field entry? boolean
+--- @field noinc? boolean
+
+local int_libs = {
+	string = true,
+	table = true,
+	ffi = true,
+	["table.clear"] = true,
+	["table.new"] = true,
+}
 
 --- @class tal.mklua.out
 --- @field f? file*
 --- @field deps? table<string, string>
 --- @field ffi_deps? table<string, string>
 --- @field libs? string[]
---- @field alibs? string[]
 
 local help_msg = [[
 A tool that walks a lua dependency tree and emits a C file, used to
@@ -56,6 +64,9 @@ TALB_EXPORT int TALB_ENTRY_NAME(lua_State *ctx, int argc, const char **argv) {
 	int larg, lerrcb, i, ok;
 	lua_checkstack(ctx, argc + %d + 16);
 
+	lua_createtable(ctx, argc, 0);
+	lua_setfield(ctx, LUA_REGISTRYINDEX, "_FFI_PRELOAD");
+
 	/* Emit other requiref-s */
 	%s
 
@@ -84,7 +95,6 @@ TALB_EXPORT int TALB_ENTRY_NAME(lua_State *ctx, int argc, const char **argv) {
 	return ok;
 }
 ]];
-
 local main_format = [[
 #ifndef TALB_MAIN_NAME
 	#define TALB_MAIN_NAME main
@@ -98,6 +108,76 @@ TALB_EXPORT int TALB_MAIN_NAME(int argc, const char **argv) {
 	ok = TALB_ENTRY_NAME(ctx, argc, argv);
 	lua_close(ctx);
 	return ok ? 0 : 1;
+}
+]];
+
+local lua_declares = [[
+#include <stddef.h>
+#include <stdio.h>
+
+#define LUA_REGISTRYINDEX (-10000)
+#define LUA_GLOBALSINDEX (-10002)
+
+typedef ptrdiff_t lua_Integer;
+typedef struct lua_State lua_State;
+typedef int (*lua_CFunction) (lua_State *L);
+typedef void *(*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
+
+extern lua_State *(lua_newstate) (lua_Alloc f, void *ud);
+extern void (lua_close) (lua_State *L);
+
+extern void (lua_settable) (lua_State *L, int idx);
+extern void (lua_getfield) (lua_State *L, int idx, const char *k);
+extern void (lua_setfield) (lua_State *L, int idx, const char *k);
+extern void (lua_createtable) (lua_State *L, int narr, int nrec);
+
+extern void  (lua_call) (lua_State *L, int nargs, int nresults);
+extern int   (lua_pcall) (lua_State *L, int nargs, int nresults, int errfunc);
+
+extern int (lua_gettop) (lua_State *L);
+extern void (lua_settop) (lua_State *L, int idx);
+extern void (lua_pushvalue) (lua_State *L, int idx);
+extern int (lua_checkstack) (lua_State *L, int sz);
+
+extern void (lua_pushinteger) (lua_State *L, lua_Integer n);
+extern void (lua_pushstring) (lua_State *L, const char *s);
+extern void (lua_pushcclosure) (lua_State *L, lua_CFunction fn, int n);
+
+extern const char *(lua_tolstring) (lua_State *L, int idx, size_t *len);
+
+#define lua_pop(L,n) lua_settop(L, -(n)-1)
+#define lua_pushcfunction(L,f) lua_pushcclosure(L, (f), 0)
+#define lua_tostring(L,i) lua_tolstring(L, (i), NULL)
+#define lua_setglobal(L,s) lua_setfield(L, LUA_GLOBALSINDEX, (s))
+
+extern lua_State *(luaL_newstate) (void);
+extern int (luaL_error) (lua_State *L, const char *fmt, ...);
+extern int (luaL_loadbufferx) (lua_State *L, const char *buff, size_t sz, const char *name, const char *mode);
+
+extern void luaL_openlibs(lua_State *L);
+]];
+local lua_includes = [[
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+]];
+local prolog = [[
+#ifndef TALB_INTERNAL
+	#define TALB_INTERNAL static
+#endif
+#ifndef TALB_EXPORT
+	#ifdef TALB_HEADER
+		#define TALB_EXPORT static
+	#else
+		#define TALB_EXPORT extern
+	#endif
+#endif
+
+TALB_INTERNAL void talb_register(lua_State *ctx, const char *modname, lua_CFunction openf) {
+	lua_getfield(ctx, LUA_REGISTRYINDEX, "_PRELOAD");
+	lua_pushcfunction(ctx, openf);
+	lua_setfield(ctx, -2, modname);
+	lua_pop(ctx, 1);
 }
 ]];
 
@@ -126,11 +206,17 @@ end
 
 --- @param src string
 local function find_lua(src)
-	return src:gmatch "require%s*%(?%s*[\"']([^\n\\\"']-)[\"']%s*%)?";
+	local func = src:gmatch "require%s*([\"'])([^\n\\\"']-)%1";
+	return function ()
+		return select(2, func());
+	end
 end
 --- @param src string
 local function find_ffi(src)
-	return src:gmatch "ffi%.load%s*%(?%s*[\"']([^\n\\\"']-)[\"']%s*%)?";
+	local func = src:gmatch "ffi%.load%s*([\"'])([^\n\\\"']-)%1";
+	return function ()
+		return select(2, func());
+	end
 end
 
 --- @param ctx tal.mklua.ctx
@@ -152,16 +238,7 @@ end
 --- @param ctx tal.mklua.ctx
 --- @param dep string
 local function resolve_ffi(ctx, dep)
-	local path = package.searchpath(dep, ctx.ffi_path or ffi.path);
-	if not path then
-		return nil;
-	end
-
-	if path:find "%.dll$" or path:find "%.so$" then
-		return path, (path:gsub("%.[dlso]-$", ".a"));
-	end
-
-	return path;
+	return package.searchpath(dep, ctx.ffi_path or ffi.path);
 end
 
 --- @param ctx tal.mklua.ctx
@@ -173,7 +250,8 @@ end
 local function emit_lua(ctx, name, filename, func, out, passed)
 	if passed[name] then return end
 
-	local dep_libs = {};
+	local lua_deps = {};
+	local c_deps = {};
 
 	if not func then
 		local f = assert(io.open(filename, "r"));
@@ -188,17 +266,18 @@ local function emit_lua(ctx, name, filename, func, out, passed)
 			end
 
 			if kind == "lua" then
+				table.insert(lua_deps, dep);
 				emit_lua(ctx, dep, path --[[@as string]], func, out, passed);
 			elseif kind == "c" then
-				table.insert(dep_libs, dep);
-				passed[name] = "luaopen_" .. name:gsub("[%.%-]", "_");
-			elseif not kind then
+				table.insert(c_deps, dep);
+				passed[dep] = "luaopen_" .. dep:gsub("[%.%-]", "_");
+			elseif not kind and not int_libs[dep] then
 				io.stderr:write("Module '" .. dep .. "' could not be resolved!\n");
 			end
 		end
 
 		for dep in find_ffi(src) do
-			local path, path_a = resolve_ffi(ctx, dep);
+			local path = resolve_ffi(ctx, dep);
 
 			if out.ffi_deps then
 				out.ffi_deps[dep] = path;
@@ -206,10 +285,8 @@ local function emit_lua(ctx, name, filename, func, out, passed)
 
 			if not path then
 				io.stderr:write("FFI library '" .. dep .. "' could not be resolved!\n");
-			elseif path_a and out.alibs then
-				table.insert(out.alibs, path_a);
-			elseif path and out.libs then
-				table.insert(out.libs, path_a);
+			elseif out.libs then
+				table.insert(out.libs, path);
 			end
 		end
 
@@ -218,13 +295,16 @@ local function emit_lua(ctx, name, filename, func, out, passed)
 
 	local funcname = "talb_open_" .. name:gsub("[%.%-]", "_");
 
-	local bc = string.dump(func, not ctx.g);
+	local bc = string.dump(func, not ctx.debug);
 
 	if out.f then
 		out.f:write("TALB_INTERNAL int " .. funcname .. "(lua_State *ctx) {\n");
 
-		for i = 1, #dep_libs do
-			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(dep_libs[i], "luaopen_" .. dep_libs[i]:gsub("%.", "_")));
+		for i = 1, #lua_deps do
+			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(lua_deps[i], "talb_open_" .. lua_deps[i]:gsub("%.", "_")));
+		end
+		for i = 1, #c_deps do
+			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(c_deps[i], "luaopen_" .. c_deps[i]:gsub("%.", "_")));
 		end
 
 		out.f:write (("\n\tif (luaL_loadbufferx(ctx, %s, %d, %q, \"b\")) {\n"):format(c_escape(bc), #bc, "@" .. filename));
@@ -270,30 +350,15 @@ end
 --- @param out tal.mklua.out
 local function gen(ctx, out)
 	if out.f then
-		out.f:write [[/* Generated by tal bundle */
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
+		out.f:write "/* Generated by tal bundle */";
 
-#ifndef TALB_INTERNAL
-	#define TALB_INTERNAL static
-#endif
-#ifndef TALB_EXPORT
-	#ifdef TALB_HEADER
-		#define TALB_EXPORT static
-	#else
-		#define TALB_EXPORT extern
-	#endif
-#endif
+		if ctx.noinc then
+			out.f:write(lua_declares);
+		else
+			out.f:write(lua_includes);
+		end
 
-TALB_INTERNAL void talb_register(lua_State *ctx, const char *modname, lua_CFunction openf) {
-	lua_getfield(ctx, LUA_REGISTRYINDEX, "_PRELOAD");
-	lua_pushcfunction(ctx, openf);
-	lua_setfield(ctx, -2, modname);
-	lua_pop(ctx, 1);
-}
-
-]];
+		out.f:write(prolog);
 	end
 
 	--- @type table<string, string>
@@ -357,6 +422,7 @@ return {
 		flags = {
 			help = args.bool "help",
 			debug = args.bool "debug",
+			noinc = args.bool "noinc",
 			main = args.bool "main",
 			entry = args.bool "entry",
 			header = args.bool "header",
