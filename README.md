@@ -20,11 +20,13 @@ A runtime, based on luajit. This runtime adds the following features:
 
 ## Installing
 
-You will need `luajit` and `libuv.so` (optionally `libreadline.so`) in your path (when we get to windows support, the downloads will have the DLLs bundles in the .zip).
+NOTE: currently, libsodium is not used, but will be in the future.
 
-Installing is as simple as copying `lib/*` to you lua libs and `tal` to your bin folder. After that, it should be as easy as invoking your scripts/programs with `tal`, instead of `lua`.
+You can use the makefile to build all required libraries (`libev`, `libsodium` and `luajit`) and copy them into your system.
 
-The included Makefile can be used to do the above process. You can specify a custom prefix with the `PREFIX` makefile/env variable.
+The makefile has two variables:
+- `SYSLIBS` - if set to "yes", skips dependency building and assumes your system already has them installed (luajit is still built, as there is a degree of customization)
+- `PREFIX` - where to store the results (by default set to `/usr/local/lib`)
 
 ## Usage
 

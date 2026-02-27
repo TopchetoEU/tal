@@ -4,9 +4,8 @@ local ev = require "nat.libev";
 local loop = require "tal.loop";
 debug = require "tal.globs.debug";
 
-pcall(function ()
-	require "lldebugger".start();
-end);
+local has_dbg, dbg = pcall(require, "lldebugger");
+if has_dbg then dbg.start() end
 
 return function (...)
 	return assert(loop.run(ev.new(), function (...)

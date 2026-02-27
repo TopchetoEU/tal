@@ -3,11 +3,11 @@ _ENV = _G;
 
 exit = os.exit;
 
+require "tal.globs.loading";
+require "tal.globs.errors";
 require "std.printing";
 require "std.string";
 require "nat.ffi";
-require "tal.globs.loading";
-require "tal.globs.errors";
 
 table.clear = require "table.clear";
 table.new = require "table.new";
