@@ -40,11 +40,8 @@ if os.getenv "FFI_PATH" then
 end
 
 ffi.path = override_path(";;?", ffi.path);
-ffi.preload = {};
 
 function ffi_over.load(name, glob)
-	if ffi.preload[name] then return ffi.C end
-
 	local errors = {};
 
 	for seg in ffi.path:gmatch "[^;]+" do
