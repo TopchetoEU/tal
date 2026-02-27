@@ -1,5 +1,6 @@
 local args = require "std.fmt.args";
 local mklua= require "tal.mklua"
+local spawn = require "std.proc";
 
 local help_msg = [[tal bundle by TopchetoEU
 
@@ -24,7 +25,6 @@ return args.cli {
 		output = args.str "output",
 		deps = args.bool "deps",
 		libs = args.bool "libs",
-		alibs = args.bool "alibs",
 
 		bootstrap = args.str "bootstrap",
 
@@ -48,29 +48,31 @@ return args.cli {
 			cpath = package.cpath,
 			entry = true,
 			main = true,
+			noinc = true,
 		};
 
 		if ctx.compile_cmd then
-			io.stderr:write "error: compile command is not supported\n";
+			local comp_proc = assert(spawn {
+				argv = ctx.compile_cmd,
+				stdin = "pipe",
+				env = { PATH = os.getenv "PATH" or "" }
+			});
+
+			mklua.gen(mklua_ctx, { f = assert(comp_proc.stdin) --[[@as file*]] });
+			comp_proc.stdin:close();
+			assert(comp_proc:wait());
 		elseif ctx.output then
 			local f, close = mklua.open_w(ctx.output);
 			mklua.gen(mklua_ctx, { f = f });
 			close(f);
-		elseif ctx.libs or ctx.alibs then
+		elseif ctx.libs then
 			local libs = {};
-			local alibs = {};
 
-			mklua.gen(mklua_ctx, { libs = libs, alibs = alibs });
+			mklua.gen(mklua_ctx, { libs = libs });
 
 			if ctx.libs then
 				for i = 1, #libs do
 					io.stdout:write(libs[i] .. "\n");
-				end
-			end
-
-			if ctx.alibs then
-				for i = 1, #alibs do
-					io.stdout:write(alibs[i] .. "\n");
 				end
 			end
 		elseif ctx.deps then
