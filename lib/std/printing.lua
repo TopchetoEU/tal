@@ -1,5 +1,3 @@
-local io = require "std.io";
-
 local default_colors = {
 	func_kw = "\x1B[34m",
 	func_name = "\x1B[93m",
