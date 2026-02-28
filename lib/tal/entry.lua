@@ -1,5 +1,6 @@
 require "nat.ffi";
 require "tal.globs.errors";
+require "std.printing";
 local ev = require "nat.libev";
 local loop = require "tal.loop";
 debug = require "tal.globs.debug";
@@ -14,7 +15,6 @@ return function (...)
 		env._ENV = env;
 		setfenv(0, env);
 
-		require "std.printing";
 		require "tal.globs";
 		local entry = require "tal.cli";
 
