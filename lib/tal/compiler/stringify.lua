@@ -130,7 +130,9 @@ function walkers.table(self, node)
 		if key.type == "str" and key.val:match "^[a-zA-Z_][a-zA-Z0-9_]*$" then
 			emit(self, key, key.val);
 		else
+			suffix(self, "[");
 			walk(self, key);
+			suffix(self, "]");
 		end
 
 		suffix(self, "=");
