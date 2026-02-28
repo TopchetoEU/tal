@@ -263,6 +263,7 @@ local function parse_exp_table(toks, i)
 			j, val = parse_exp(toks, j);
 			if not val then return syntax_error(toks, j, "expected expression") end
 
+			table.insert(keys, key);
 			table.insert(values, val);
 		else
 			j, val = parse_exp(toks, j);
