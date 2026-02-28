@@ -1,6 +1,5 @@
 local readline = require "nat.libreadline";
 local args = require "std.fmt.args";
-local loading = require "tal.compiler.loading";
 local printing = require "std.printing";
 local traceback = require "tal.traceback";
 local cli = {};
@@ -22,9 +21,7 @@ end
 
 function cli.stacktrace_call(func, ...)
 	return stacktrace_fin(xpcall(func, function (err)
-		err = loading.err_map(err);
 		local trace = traceback(3);
-
 		return { err = err, trace = trace };
 	end, ...));
 end
