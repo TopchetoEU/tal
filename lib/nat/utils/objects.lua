@@ -9,10 +9,8 @@ local objects = {};
 --- @return integer
 function objects.add(obj)
 	next = next + 1;
-	local key = next;
-
-	map[key] = obj;
-	return key;
+	map[next] = obj;
+	return next;
 end
 --- @param id integer
 --- @return any
