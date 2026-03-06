@@ -1,51 +1,31 @@
 ---@class ffilib
 local ffi = require "ffi";
+require "tal.globs.package";
+require "std.printing";
+
 local ffi_over = ffi;
 
 local old_load = ffi.load;
 
---- @return string
-local function override_path(override, old)
-	old = old or "";
-
-	if override == nil then return old end
-
-	if override == ";;" then
-		return old;
-	elseif override:match "^;;" then
-		if old == "" then
-			return override:sub(3);
-		else
-			return old .. ";" .. override:sub(3);
-		end
-	elseif override:match ";;$" then
-		if old == "" then
-			return override:sub(1, -3);
-		else
-			return override:sub(1, -3) .. ";" .. old;
-		end
-	elseif old == "" then
-		return (override:gsub(";;", ";", 1));
-	else
-		return (override:gsub(";;", ";" .. old .. ";", 1));
-	end
+if jit.os == "Windows" then
+	ffi.path = package.overridepath(ffi.path,
+		"C:\\Windows\\System32\\?.dll;C:\\Windows\\System32\\?;;@\\?;@\\?.dll;@\\lib?.dll;?",
+		os.getenv "FFI_PATH"
+	);
+	ffi.apath = ffi.path:gsub("%.dll", ".lib");
+else
+	ffi.path = package.overridepath(ffi.path,
+		"/lib/lib?.so;/usr/local/lib/?.so;;@/?;@/lib?.so;?",
+		os.getenv "FFI_PATH"
+	);
+	ffi.apath = ffi.path:gsub("%.so", ".a");
 end
-
-if ffi.os ~= "Windows" then
-	ffi.path = override_path("/usr/lib/?.so;/usr/lib/?;/usr/local/lib/?.so;/usr/local/lib/?;;", ffi.path);
-end
-
-if os.getenv "FFI_PATH" then
-	ffi.path = override_path(os.getenv "FFI_PATH", ffi.path);
-end
-
-ffi.path = override_path(";;?", ffi.path);
 
 function ffi_over.load(name, glob)
 	local errors = {};
 
-	for seg in ffi.path:gmatch "[^;]+" do
-		local real_seg = seg:gsub("%?", name, 1);
+	for _, seg in ffi.path:split ";" do
+		local real_seg = seg:gsub("[%?%@]", { ["?"] = name, ["@"] = package.root or "." });
 
 		local ok, res = pcall(old_load, real_seg, glob);
 		if ok then return res end

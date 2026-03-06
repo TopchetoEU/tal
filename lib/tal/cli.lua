@@ -2,6 +2,8 @@ local readline = require "nat.libreadline";
 local args = require "std.fmt.args";
 local printing = require "std.printing";
 local traceback = require "tal.traceback";
+local fs = require "std.io.fs";
+local path = require "std.path";
 local cli = {};
 
 local function stacktrace_fin(ok, ...)
@@ -190,6 +192,8 @@ cli.main = args.cli {
 
 			table.insert(runners, function ()
 				cli.stacktrace_call(function ()
+					package.root = fs.path "cwd";
+
 					local mod = require(ctx.module);
 					if type(mod) == "table" then
 						if mod.__main then
@@ -210,6 +214,8 @@ cli.main = args.cli {
 					local f = assert(io.open(ctx.file));
 					local src = f:read "a";
 					f:close();
+
+					package.root = path.dirname(ctx.file);
 
 					local func, err = load(src, "@" .. ctx.file, "t");
 					if not func then error(err, 0) end

@@ -1,5 +1,9 @@
+local path;
+
 if jit.os == "Windows" then
-	return require "std.path.dos";
+	path = require "std.path.dos";
 else
-	return require "std.path.unix";
+	path = require "std.path.unix";
 end
+
+return path;
