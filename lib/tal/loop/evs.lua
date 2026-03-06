@@ -23,13 +23,13 @@ libev.srawwrite = syncify(libev.rawwrite);
 --- @type fun(self: ev, path: string, flags: std.fs.open_flags, mode?: string | integer): ev.handle?, string?
 libev.sfile_open = syncify(libev.file_open);
 --- @type fun(self: ev, fd: ev.handle): std.fs.stat?, string?
-libev.sfile_stat = syncify(libev.file_stat);
+libev.sfile_stat = syncify(libev.stat);
 --- @type fun(self: ev, fd: ev.handle, offset: integer, n: integer): string?, string?
 libev.sfile_read = syncify(libev.file_read);
 --- @type fun(self: ev, fd: ev.handle, offset: integer, data: string): integer?, string?
 libev.sfile_write = syncify(libev.file_write);
 --- @type fun(self: ev, fd: ev.handle): true?, string?
-libev.sfile_sync = syncify(libev.file_sync);
+libev.sfile_sync = syncify(libev.sync);
 --- @type fun(self: ev, fd: ev.handle, offset: integer, n: integer, buff: ffi.cdata*): integer?, ffi.cdata* | string?
 libev.sfile_rawread = syncify(libev.file_rawread);
 --- @type fun(self: ev, fd: ev.handle, offset: integer, n: integer, buff: ffi.cdata*): integer?, ffi.cdata* | string?
@@ -56,8 +56,6 @@ libev.sproc_wait = syncify(libev.proc_wait);
 
 --- @type fun(self: ev, name: string, flags?: std.net.addrinfo_flags): string[]?, string?
 libev.sgetaddrinfo = syncify(libev.getaddrinfo);
---- @type fun(self: ev, type: "home" | "config" | "data" | "cache" | "runtime" | "cwd"): string?, string?
-libev.sgetpath = syncify(libev.getpath);
 
 libev.syncify = syncify;
 
