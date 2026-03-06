@@ -3,6 +3,7 @@ local stream = require "std.io.stream";
 local field = require "std.field";
 local collected = require "std.collected";
 local handle = require "std.io.handle";
+local path = require "std.path";
 
 local proc_fd = field();
 
@@ -30,6 +31,7 @@ end
 
 --- @class std.proc.opts
 --- @field argv string[]
+--- @field path? string | boolean Supports package.overridepath, set to ";;" or true to use PATH env variable. Set to false for no path resolution
 --- @field env? { [string]: string, [integer]: { [1]: string, [2]: string } }
 --- @field cwd? string
 --- @field stdin? "inherit" | "pipe" | std.io.stream
@@ -43,6 +45,32 @@ return function (opts)
 	opts.stdin = opts.stdin or "inherit";
 	opts.stdout = opts.stdout or "inherit";
 	opts.stderr = opts.stderr or "inherit";
+
+	local os_path = (os.getenv "PATH" or ""):gsub(":", ";");
+
+	if opts.path == nil then
+		opts.path = true;
+	end
+
+	if opts.path == true then
+		opts.path = os_path;
+	elseif opts.path then
+		opts.path = package.overridepath(os_path, opts.path);
+	else
+		opts.path = nil;
+	end
+
+	if opts.path and not opts.argv[1]:find "[/\\%.]" then
+		for _, part in opts.path:split ";" do
+			local filename = path.join(part, opts.argv[1]);
+			local f = io.open(path.join(part, opts.argv[1]), "r");
+			if f then
+				f:close();
+				opts.argv[1] = filename;
+				break;
+			end
+		end
+	end
 
 	if
 		opts.stdin ~= "inherit" and opts.stdin ~= "pipe" or
