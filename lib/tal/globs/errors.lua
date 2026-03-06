@@ -1,11 +1,8 @@
-local loading = require "tal.compiler.loading";
 local old_error = error;
-
-local _G = _G;
 
 --- @param msg unknown
 --- @param level? integer
-function _G.error(msg, level)
+function error(msg, level)
 	level = level or 1;
 
 	if type(msg) ~= "string" or level < 1 then
@@ -26,12 +23,16 @@ function _G.error(msg, level)
 
 	return old_error(msg, 0);
 end
-function _G.assert(...)
-	local v, message = ...;
 
-	if not v then
-		error(message or "assertion failed!", 2);
+--- @generic T
+--- @param val T | nil | false
+--- @return T, ...
+function assert(val, ...)
+	local message = ...;
+
+	if not val then
+		return error(message or "assertion failed!", 2);
 	else
-		return ...;
+		return val, ...;
 	end
 end

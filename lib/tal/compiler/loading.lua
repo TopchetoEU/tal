@@ -76,8 +76,12 @@ function loading.err_map(err, fallback)
 
 	local sname = loading.short_name(name);
 
-	if loc and sname and maps[sname] and (fallback or maps[sname][loc.row]) then
-		loc = (maps[sname] or fallback)[loc.row];
+	if sname then
+		local map = maps[sname] or fallback;
+
+		if loc and sname and map and map[loc.row] then
+			loc = map[loc.row];
+		end
 	end
 
 	return loading.err_stringify(name, loc, msg);
@@ -131,17 +135,7 @@ function loading.load(chunk, name, mode, env, no_map)
 		maps[name:sub(2)] = map;
 	end
 
-	return fun
-end
-
---- @param name string
-function loading.mod_searcher(name)
-	local file, err = package.searchpath(name, package.path);
-	if not file then return err end
-
-	local res, err = loading.load(io.lines(file, 4096), "@" .. file, "t");
-	if not res then error(err, 0) end
-	return res, file;
+	return fun;
 end
 
 return loading;

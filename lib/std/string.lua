@@ -26,29 +26,13 @@ end
 
 --- @param self string
 function string:quote()
-	return ("%q"):format(self);
+	return (("%q"):format(self):gsub("\\\n", "\\n"));
 end
 
 --- Might not be safe...
 --- @param self string
 function string:quotesh()
-	return "'" .. self
-		:gsub("%*", "\\*")
-		:gsub("%?", "\\?")
-		:gsub("%~", "\\~")
-		:gsub("%$", "\\$")
-		:gsub("%&", "\\&")
-		:gsub("%|", "\\|")
-		:gsub("%;", "\\;")
-		:gsub("%<", "\\<")
-		:gsub("%>", "\\>")
-		:gsub("%(", "\\)")
-		:gsub("%[", "\\]")
-		:gsub("%{", "\\}")
-		:gsub("%%\\", "\\\\")
-		:gsub("%\'", "\\\'")
-		:gsub("%\"", "\\\"")
-		:gsub("%`", "\\`") .. "'";
+	return "'" .. self:gsub("[*?~$&|;<>%(%)%[%]%{%}\\\'\"`%z\x01-\x1F]", "\\%1") .. "'";
 end
 
 return string;

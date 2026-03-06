@@ -79,20 +79,13 @@ local function walk_all(self, nodes, sep)
 	end
 end
 
-local str_escapes = {
-	["\0"] = "\\0",
-	["\n"] = "\\n",
-	["\\"] = "\\\\",
-	["\""] = "\\\"",
-}
-
 --- @param node node.var
 function walkers.var(self, node)
 	emit(self, node, node.name);
 end
 --- @param node node.str
 function walkers.str(self, node)
-	emit(self, node, "\"" .. (node.val:gsub("[\n\\\"]", str_escapes)) .. "\"");
+	emit(self, node, node.val:quote());
 end
 --- @param node node.nil
 walkers["nil"] = function(self, node)
@@ -127,13 +120,15 @@ function walkers.table(self, node)
 	for i = 1, #node.keys do
 		local key, val = node.keys[i], node.vals[i];
 
-		if key.type == "str" and key.val:match "^[a-zA-Z_][a-zA-Z0-9_]*$" then
-			emit(self, key, key.val);
-		else
+		-- TODO: use simple keys when possible, check for keywords
+
+		-- if key.type == "str" and key.val:match "^[a-zA-Z_][a-zA-Z0-9_]*$" then
+		-- 	emit(self, key, key.val);
+		-- else
 			suffix(self, "[");
 			walk(self, key);
 			suffix(self, "]");
-		end
+		-- end
 
 		suffix(self, "=");
 		walk(self, val);
