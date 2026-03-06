@@ -111,7 +111,7 @@ function loop_index:run()
 
 		if not timeout and not self.ev:busy() then return true end
 
-		local ok, err = loop_handle(self, self.ev:poll(true, timeout));
+		local ok, err = loop_handle(self, self.ev:poll(timeout));
 		if ok == nil then return nil, err end
 	end
 end

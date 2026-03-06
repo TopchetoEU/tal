@@ -1,6 +1,7 @@
 local prop = require "std.field";
 local loop = require "tal.loop";
 local collected = require "std.collected";
+local libev = require "nat.libev";
 local fs = {};
 
 --- @class std.fs.stat
@@ -222,7 +223,7 @@ end
 
 --- @param type? std.fs.path = "cwd"
 function fs.path(type)
-	return loop.curr.ev:sgetpath(type or "cwd");
+	return libev.getpath(type or "cwd");
 end
 
 fs.stdin = mkfile(loop.curr.ev:stdin());

@@ -127,23 +127,12 @@ typedef struct {
 	uint32_t links;
 } ev_stat_t;
 
-typedef enum {
-	EV_POLL_OK,
-	EV_POLL_EMPTY = -1,
-	EV_POLL_TIMEOUT = -2,
-} ev_poll_res_t;
-
-// Gets the time, elapsed since the unix epoch (CLOCK_REALTIME)
-int ev_realtime(ev_time_t *pres);
-// Gets a reliably and monotonically ticking time, unaffected by the system time (CLOCK_MONOTONIC)
-// You should use this instead of `ev_realtime` when dealing with ev_poll's timeouts, and in general,
-// when you care about time offsets more than the actual current time, which is almost always the case
-int ev_monotime(ev_time_t *pres);
-
 // Adds the two times together
 ev_time_t ev_timeadd(ev_time_t a, ev_time_t b);
 // Subtracts the two times
 ev_time_t ev_timesub(ev_time_t a, ev_time_t b);
+// Compares both timestamps, in a strcmp fashion
+int ev_timecmp(ev_time_t a, ev_time_t b);
 // Converts the time to a millisecond count
 int64_t ev_timems(ev_time_t time);
 
@@ -174,13 +163,13 @@ ev_code_t ev_push(ev_t ev, void *udata, ev_code_t err);
 // sync - if true, will side-step the thread pool and will instead call the worker immediately
 ev_code_t ev_exec(ev_t ev, void *udata, ev_worker_t worker, void *pargs, bool sync);
 
-// Gets the next message in the message queue
-// If the queue is empty:
-//     If the loop is closed, returns EV_POLL_EMPTY and frees the loop
-//     If block is false, returns EV_POLL_EMPTY
-//     If block is true, blocks until a message is available and returns it
-// If ptimeout is not NULL and is reached, EV_POLL_TIMEOUT is returned. ptimeout is relative to the monotonic clock
-ev_poll_res_t ev_poll(ev_t ev, bool block, const ev_time_t *ptimeout, void **pudata, int *perr);
+// Gets the next message in the message queue, or times out when ptimeout occurs, if not NULL
+// You may run this function in three modes: peeking, timed or polling
+// - peeking - by setting ptimeout to a time that has already occurred, you effectively check if a message exists, without blocking
+// - timed - by setting ptimeout to any future time, the function will either return a message or timeout, hence acting as a timer
+// - polling - by setting ptimeout to NULL, the function will never timeout, hence you will be polling for just a message
+// If a message was delivered, true is returned. If timed out, false is returned
+bool ev_poll(ev_t ev, const ev_time_t *ptimeout, void **pudata, int *perr);
 
 // Returns a reference to the stdin stream
 ev_handle_t ev_stdin(ev_t ev);
@@ -189,29 +178,32 @@ ev_handle_t ev_stdout(ev_t ev);
 // Returns a reference to the stderr stream
 ev_handle_t ev_stderr(ev_t ev);
 
-// Equivalent to posix's read
-ev_code_t ev_read(ev_t ev, void *udata, ev_handle_t stream, char *buff, size_t *pn);
-// Equivalent to posix's write
-ev_code_t ev_write(ev_t ev, void *udata, ev_handle_t stream, char *buff, size_t *pn);
-// Unlike all other functions, close will complete synchronously, and will never error out
-// Equivalent to posix's close
-void ev_close(ev_t ev, ev_handle_t fd);
 
 // These are the I/O wrapper functions - they will return 0 on success and a negative errno code on error
 // All the other arguments are self-explanatory. All of these functions return their results in a pointer, provided by the callee
 
-// Exceptions to the model are the ev_close and ev_closedir functions, which are synchronous - this makes them fit to be called in a GC
+// A handle roughly equates to a fd (or a windows HANDLE/socket). Such may be an opened file, socket, tty or a pipe.
+
+// Equivalent to posix's read
+ev_code_t ev_read(ev_t ev, void *udata, ev_handle_t stream, char *buff, size_t *pn);
+// Equivalent to posix's write
+ev_code_t ev_write(ev_t ev, void *udata, ev_handle_t stream, char *buff, size_t *pn);
+// Equivalent to posix's sync
+ev_code_t ev_sync(ev_t ev, void *udata, ev_handle_t fd);
+// Equivalent to posix's stat
+ev_code_t ev_stat(ev_t ev, void *udata, ev_handle_t fd, ev_stat_t *buff);
+
+// File-specific functions. They must be exclusively used on handles, generated from ev(s)_file_open.
+// Mixing the file and generic RW functions on a file handle will work as expected (the generic handles will read
+// the file as a stream, as if the file operations aren't occurring)
+// Using a file RW operation on a non-file handle is UB, but will either succeed "weirdly" or fail with an error of an invalid seek. Don't do it!
 
 // Equivalent to posix's open
 ev_code_t ev_file_open(ev_t ev, void *udata, ev_handle_t *pres, const char *path, ev_open_flags_t flags, int mode);
-// Equivalent to posix's pread
+// A file-specific read function
 ev_code_t ev_file_read(ev_t ev, void *udata, ev_handle_t fd, const char *buff, size_t *pn, size_t offset);
-// Equivalent to posix's pwrite
+// A file-specific write function
 ev_code_t ev_file_write(ev_t ev, void *udata, ev_handle_t fd, char *buff, size_t *pn, size_t offset);
-// Equivalent to posix's sync
-ev_code_t ev_file_sync(ev_t ev, void *udata, ev_handle_t fd);
-// Equivalent to posix's stat
-ev_code_t ev_file_stat(ev_t ev, void *udata, ev_handle_t fd, ev_stat_t *buff);
 
 // Equivalent to posix's mkdir
 ev_code_t ev_dir_create(ev_t ev, void *udata, const char *path, int mode);
@@ -219,14 +211,13 @@ ev_code_t ev_dir_create(ev_t ev, void *udata, const char *path, int mode);
 ev_code_t ev_dir_open(ev_t ev, void *udata, ev_dir_t *pres, const char *path);
 // Equivalent to posix's readdir
 ev_code_t ev_dir_next(ev_t ev, void *udata, ev_dir_t fd, char **pname);
-// Equivalent to posix's closedir
-void ev_dir_close(ev_t ev, ev_dir_t fd);
+
+// Unlike posix, I decided it would make sense to split off bound sockets from connected sockets, as the two have completely different usages
 
 // Equivalent to socket() + bind()
 ev_code_t ev_server_bind(ev_t ev, void *udata, ev_server_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n);
 // Equivalent to posix's accept
 ev_code_t ev_server_accept(ev_t ev, void *udata, ev_handle_t *pres, ev_addr_t *paddr, uint16_t *pport, ev_server_t server);
-void ev_server_close(ev_t ev, ev_server_t server);
 
 // Equivalent to socket() + connect()
 ev_code_t ev_socket_connect(ev_t ev, void *udata, ev_handle_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port);
@@ -247,8 +238,65 @@ ev_code_t ev_proc_wait(ev_t ev, void *udata, ev_proc_t proc, int *psig, int *pco
 
 // Equivalent to posix's getaddrinfo (with a few simplifications)
 ev_code_t ev_getaddrinfo(ev_t ev, void *udata, ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags);
+
+
+// These functions give you more or less direct access to the underlying OS I/O functions
+// Most of these have async versions, except for environment, path, time and close functions, which aren't meant to be async
+
+ev_code_t evs_read(ev_handle_t fd, char *buff, size_t *pn);
+ev_code_t evs_write(ev_handle_t fd, char *buff, size_t *pn);
+void evs_close(ev_handle_t fd);
+
+ev_code_t evs_file_open(ev_handle_t *pres, const char *path, ev_open_flags_t flags, int mode);
+ev_code_t evs_file_read(ev_handle_t fd, char *buff, size_t *n, size_t offset);
+ev_code_t evs_file_write(ev_handle_t fd, char *buff, size_t *n, size_t offset);
+ev_code_t evs_sync(ev_handle_t fd);
+ev_code_t evs_stat(ev_handle_t fd, ev_stat_t *buff);
+
+ev_code_t evs_dir_new(const char *path, int mode);
+ev_code_t evs_dir_open(ev_dir_t *pres, const char *path);
+ev_code_t evs_dir_next(ev_dir_t dir, char **pname);
+void evs_dir_close(ev_dir_t dir);
+
+ev_code_t evs_server_bind(ev_server_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n);
+ev_code_t evs_server_accept(ev_handle_t *pres, ev_addr_t *paddr, uint16_t *pport, ev_server_t server);
+void evs_server_close(ev_server_t server);
+
+ev_code_t evs_socket_connect(ev_handle_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port);
+
+ev_code_t evs_proc_spawn(
+	ev_proc_t *pres,
+	const char **argv, const char **envp,
+	const char *cwd,
+	ev_spawn_stdio_flags_t in_flags, ev_handle_t *pin,
+	ev_spawn_stdio_flags_t out_flags, ev_handle_t *pout,
+	ev_spawn_stdio_flags_t err_flags, ev_handle_t *perr
+);
+ev_code_t evs_proc_wait(ev_proc_t proc, int *psig, int *pcode);
+
+ev_code_t evs_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags);
 // Gets a malloc'd string, representing the requested path
-ev_code_t ev_getpath(ev_t ev, void *udata, char **pres, ev_path_type_t type);
+ev_code_t evs_getpath(char **pres, ev_path_type_t type);
+
+// Gets an env variable from the current process
+ev_code_t evs_getenv(const char *name, char **pres);
+// Sets an env variable in the current process (if val is NULL, unsets it)
+ev_code_t evs_setenv(const char *name, const char *val);
+// Iterates all key-value env pairs and sets them to pit, as "KEY=VAL\0"
+// pit contains impl-specific iteration data. Passing the pointer, stored after an iteration more than once is UB
+// ppair is used to save the current pair, or NULL if the end of the list is reached
+// Modifying of the environment in between iterations leads to UB, and generally is a very, very bad idea
+ev_code_t evs_nextenv(void **pit, const char **ppair);
+
+// Gets the time, elapsed since the unix epoch (CLOCK_REALTIME)
+ev_code_t evs_realtime(ev_time_t *pres);
+// Gets a reliably and monotonically ticking time, unaffected by the system time (CLOCK_MONOTONIC)
+// You should use this instead of `ev_realtime` when dealing with ev_poll's timeouts, and in general,
+// when you care about time offsets more than the actual current time, which is almost always the case
+ev_code_t evs_monotime(ev_time_t *pres);
+
+// Sleeps until the monotone timestamp provided occurs
+void evs_sleep(ev_time_t time);
 ]];
 
 local libev_dyn = ffi.load "ev-dyn";
@@ -303,24 +351,21 @@ end
 function ev:busy()
 	return libev.ev_busy(self);
 end
---- @param block? boolean = true
 --- @param timeout? number
 --- @return boolean | "timeout"? ok
 --- @return any ...
-function ev:poll(block, timeout)
+function ev:poll(timeout)
 	local ptimeout = nil;
 	if timeout then
 		ptimeout = ffi.new "ev_time_t[1]";
 		ptimeout[0].sec = math.floor(timeout);
 		ptimeout[0].nsec = (timeout - math.floor(timeout)) * 1000000000;
 	end
-	if block == nil then block = true end
 
 	local pudata = ffi.new "void*[1]";
 	local perr = ffi.new "int[1]";
 
-	local code = assert(tonumber(libev.ev_poll(self, block, ptimeout, pudata, perr)));
-	if code == 0 then
+	if libev.ev_poll(self, ptimeout, pudata, perr) then
 		local iudata = assert(tonumber(ffi.cast("size_t", pudata[0])));
 
 		local ctx = objects.get(iudata);
@@ -336,8 +381,6 @@ function ev:poll(block, timeout)
 		else
 			return ctx.udata, nil, ffi.string(libev.ev_strerr(tonumber(perr[0]))), tonumber(perr[0]);
 		end
-	elseif code == 1 then
-		return false;
 	else
 		return "timeout";
 	end
@@ -410,8 +453,58 @@ function ev:write(udata, fd, data)
 	return ev_sync_call(libev.ev_write, self, objects.add(ctx), fd, ctx.buff, ctx.pn);
 end
 --- @param fd ev.handle
+--- @return string? err
+function ev:sync(udata, fd)
+	local ctx = {
+		udata = udata,
+		process = function () return true end
+	};
+
+	return ev_sync_call(libev.ev_sync, self, objects.add(ctx), fd);
+end
+--- @param fd ev.handle
+--- @return string? err
+function ev:stat(udata, fd)
+	local ctx = {
+		udata = udata,
+		pres = ffi.new("ev_stat_t[1]"),
+		process = function (self)
+			local file_type = "file";
+			if self.pres[0].type == 1 then
+				file_type = "dir";
+			elseif self.pres[0].type == 2 then
+				file_type = "link";
+			elseif self.pres[0].type == 3 then
+				file_type = "sock";
+			elseif self.pres[0].type == 4 then
+				file_type = "fifo";
+			elseif self.pres[0].type == 5 then
+				file_type = "char";
+			elseif self.pres[0].type == 6 then
+				file_type = "blk";
+			end
+
+			return {
+				type = file_type,
+				mode = assert(tonumber(self.pres[0].mode)),
+				gid = assert(tonumber(self.pres[0].gid)),
+				uid = assert(tonumber(self.pres[0].uid)),
+				atime = ev_numify_time(self.pres[0].atime),
+				ctime = ev_numify_time(self.pres[0].ctime),
+				mtime = ev_numify_time(self.pres[0].mtime),
+				size = assert(tonumber(self.pres[0].size)),
+				blksize = assert(tonumber(self.pres[0].blksize)),
+				inode = assert(tonumber(self.pres[0].inode)),
+				links = assert(tonumber(self.pres[0].links)),
+			};
+		end
+	};
+
+	return ev_sync_call(libev.ev_stat, self, objects.add(ctx), fd, ctx.pres);
+end
+--- @param fd ev.handle
 function ev:close(fd)
-	return libev.ev_close(self, fd);
+	return libev.evs_close(fd);
 end
 
 --- @param path string
@@ -510,56 +603,6 @@ function ev:file_write(udata, fd, offset, data)
 
 	return ev_sync_call(libev.ev_file_write, self, objects.add(ctx), fd, ctx.buff, ctx.pn, offset);
 end
---- @param fd ev.handle
---- @return string? err
-function ev:file_sync(udata, fd)
-	local ctx = {
-		udata = udata,
-		process = function () return true end
-	};
-
-	return ev_sync_call(libev.ev_file_sync, self, objects.add(ctx), fd);
-end
---- @param fd ev.handle
---- @return string? err
-function ev:file_stat(udata, fd)
-	local ctx = {
-		udata = udata,
-		pres = ffi.new("ev_stat_t[1]"),
-		process = function (self)
-			local file_type = "file";
-			if self.pres[0].type == 1 then
-				file_type = "dir";
-			elseif self.pres[0].type == 2 then
-				file_type = "link";
-			elseif self.pres[0].type == 3 then
-				file_type = "sock";
-			elseif self.pres[0].type == 4 then
-				file_type = "fifo";
-			elseif self.pres[0].type == 5 then
-				file_type = "char";
-			elseif self.pres[0].type == 6 then
-				file_type = "blk";
-			end
-
-			return {
-				type = file_type,
-				mode = assert(tonumber(self.pres[0].mode)),
-				gid = assert(tonumber(self.pres[0].gid)),
-				uid = assert(tonumber(self.pres[0].uid)),
-				atime = ev_numify_time(self.pres[0].atime),
-				ctime = ev_numify_time(self.pres[0].ctime),
-				mtime = ev_numify_time(self.pres[0].mtime),
-				size = assert(tonumber(self.pres[0].size)),
-				blksize = assert(tonumber(self.pres[0].blksize)),
-				inode = assert(tonumber(self.pres[0].inode)),
-				links = assert(tonumber(self.pres[0].links)),
-			};
-		end
-	};
-
-	return ev_sync_call(libev.ev_file_stat, self, objects.add(ctx), fd, ctx.pres);
-end
 
 --- @param path string
 --- @param mode? integer | string
@@ -610,7 +653,7 @@ function ev:dir_next(udata, dir)
 end
 --- @param dir ev.dir
 function ev:dir_close(dir)
-	return libev.ev_dir_close(self, dir);
+	return libev.evs_dir_close(dir);
 end
 
 --- @param addr string
@@ -655,7 +698,7 @@ function ev:server_accept(udata, server)
 end
 --- @param fd ev.server
 function ev:server_close(fd)
-	return libev.ev_server_close(self, fd);
+	return libev.evs_server_close(fd);
 end
 --- @param addr string
 --- @param port integer
@@ -806,39 +849,6 @@ function ev:getaddrinfo(udata, name, flags)
 
 	return ev_sync_call(libev.ev_getaddrinfo, self, objects.add(ctx), ctx.pres, name, real_flags);
 end
---- @param type "home" | "config" | "data" | "cache" | "runtime" | "cwd"
---- @return string? err
-function ev:getpath(udata, type)
-	local real_type;
-
-	if type == "home" then
-		real_type = 0;
-	elseif type == "config" then
-		real_type = 1;
-	elseif type == "data" then
-		real_type = 2;
-	elseif type == "cache" then
-		real_type = 3;
-	elseif type == "runtime" then
-		real_type = 4;
-	elseif type == "cwd" then
-		real_type = 5;
-	else
-		error "invalid param getpath type";
-	end
-
-	local ctx = {
-		udata = udata,
-		pres = ffi.new "char*[1]",
-		process = function (self)
-			local res = ffi.string(self.pres[0]);
-			libc.free(self.pres[0]);
-			return res;
-		end
-	};
-
-	return ev_sync_call(libev.ev_getpath, self, objects.add(ctx), ctx.pres, real_type);
-end
 
 local exec_cache = setmetatable({}, { __mode = "k" });
 
@@ -886,17 +896,86 @@ end
 
 function ev.realtime()
 	local res = ffi.new "ev_time_t[1]";
-	local code = libev.ev_realtime(res);
+	local code = libev.evs_realtime(res);
 	if code ~= 0 then error(ffi.string(libev.ev_strerr(code)), 2) end
 
 	return assert(tonumber(res[0].sec)) + assert(tonumber(res[0].nsec)) / 1000000000;
 end
 function ev.monotime()
 	local res = ffi.new "ev_time_t[1]";
-	local code = libev.ev_monotime(res);
+	local code = libev.evs_monotime(res);
 	if code ~= 0 then error(ffi.string(libev.ev_strerr(code)), 2) end
 
 	return assert(tonumber(res[0].sec)) + assert(tonumber(res[0].nsec)) / 1000000000;
+end
+
+--- @param type "home" | "config" | "data" | "cache" | "runtime" | "cwd"
+--- @return string? val
+--- @return string? err
+function ev.getpath(type)
+	local real_type;
+
+	if type == "home" then
+		real_type = 0;
+	elseif type == "config" then
+		real_type = 1;
+	elseif type == "data" then
+		real_type = 2;
+	elseif type == "cache" then
+		real_type = 3;
+	elseif type == "runtime" then
+		real_type = 4;
+	elseif type == "cwd" then
+		real_type = 5;
+	else
+		error "invalid param getpath type";
+	end
+
+	local pres = ffi.new "char*[1]";
+
+	local code = libev.evs_getpath(pres, real_type);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
+
+	local res = ffi.string(pres[0]);
+	libc.free(pres[0]);
+	return res;
+end
+--- @param name string
+--- @return string? val
+--- @return string? err
+function ev.getenv(name)
+	local pres = ffi.new "char*[1]";
+
+	local code = libev.evs_getenv(name, pres);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
+
+	local res = ffi.string(pres[0]);
+	libc.free(pres[0]);
+	return res;
+end
+--- @param name string
+--- @param val string
+--- @return true?
+--- @return string? err
+function ev.setenv(name, val)
+	local code = libev.evs_setenv(name, name, val);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
+	return true;
+end
+--- @return string? pair
+--- @return string? err
+function ev.nextenv(pit)
+	local pres = ffi.new "char *[1]";
+
+	local code = libev.evs_nextenv(pit, pres);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
+
+	local res = ffi.string(pres[0]);
+	libc.free(pres[0]);
+	return res;
+end
+function ev.iterenv()
+	return ev.nextenv, ffi.new "void *[1]";
 end
 
 return ev;
