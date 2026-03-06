@@ -45,8 +45,8 @@ bin/tal:
 	mkdir -p bin
 	echo "#!$(PREFIX)/bin/luajit" > bin/tal
 	echo 'local ffi = require "ffi";' >> bin/tal
-	echo "ffi.path = \"$(PREFIX)/lib/lib?.so;$(PREFIX)/lib/?\";" >> bin/tal
-	echo "return require \"tal.entry\" (...);" >> bin/tal
+	echo 'ffi.path = "'"$(PREFIX)/lib/lib?.so;$(PREFIX)/lib/?"'";' >> bin/tal
+	echo 'return require "tal.entry" (...);' >> bin/tal
 	chmod +x bin/tal
 
 $(LUAJIT_MK):
