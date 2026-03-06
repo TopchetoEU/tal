@@ -23,6 +23,8 @@ local function split_init(first)
 	return 0, 1;
 end
 
+dos_path.sep = "\\";
+
 ---@param ... string
 ---@return string[] parts
 ---@return integer | string back_n

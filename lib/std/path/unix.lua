@@ -3,6 +3,8 @@ local _base = require "std.path._base";
 ---@diagnostic disable: cast-local-type
 local unix_path = {};
 
+unix_path.sep = "/";
+
 ---@param ... string
 ---@return string[] parts
 ---@return integer? back_n
