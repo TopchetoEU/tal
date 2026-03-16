@@ -4,6 +4,3 @@
 [submodule "deps/libev"]
 	path = deps/libev
 	url = https://git.topcheto.eu/topchetoeu/libev
-[submodule "deps/libsodium"]
-	path = deps/libsodium
-	url = https://github.com/jedisct1/libsodium

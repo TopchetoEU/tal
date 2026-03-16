@@ -2,6 +2,7 @@ local prop = require "std.field";
 local loop = require "tal.loop";
 local collected = require "std.collected";
 local libev = require "nat.libev";
+local sig = require "std.sig";
 local fs = {};
 
 --- @class std.fs.stat
@@ -39,15 +40,16 @@ local file_offset = prop();
 
 --- @class std.io.fs.file: userdata
 local file_index = {};
---- @param n integer
+--- @param n? integer
 function file_index:read(n)
+	n = sig.optnum(n, "n");
 	local closed = file_closed:get(self);
 	if closed then return nil, "file is closed" end
 
 	local offset = file_offset:get(self);
 	local fd = file_fd:get(self);
 
-	local data, err = loop.curr.ev:sfile_read(fd, offset, n);
+	local data, err = loop.curr.ev:sfile_read(fd, offset, n or 8192);
 	if err then return nil, err end
 
 	file_offset:set(self, offset + #data);
@@ -55,6 +57,8 @@ function file_index:read(n)
 end
 --- @param data string
 function file_index:write(data)
+	data = sig.str(data, "data");
+
 	local closed = file_closed:get(self);
 	if closed then return nil, "file is closed" end
 
@@ -74,6 +78,8 @@ end
 --- @param offset? integer
 --- @param whence? "set" | "cur" | "end"
 function file_index:seek(offset, whence)
+	offset = sig.num(offset, "offset");
+
 	if file_closed:get(self) then return nil, "file closed" end
 	local new_offset = file_offset:get(self);
 
@@ -90,7 +96,7 @@ function file_index:seek(offset, whence)
 
 		new_offset = stat.size + offset;
 	else
-		error("invalid argument #2 (must be 'set', 'cur' or 'end')", 2);
+		sig.error_type(whence, "whence", "'set', 'cur' or 'end'");
 	end
 
 	file_offset:set(self, new_offset);
@@ -149,12 +155,22 @@ dir_meta.__gc = dir_index.close;
 --- @return std.io.fs.file?
 --- @return string? err
 function fs.open(path, flags, mode)
+	path = sig.str(path, "path");
+	flags = sig.str(flags, "flags");
+	if type(mode) == "string" then
+		mode = tonumber(mode, 8) or sig.error("mode", "not a valid base-8 number");
+	end
+
+	mode = sig.optnum(mode, "flags", 0x1FF);
+
 	local fd, err = loop.curr.ev:sfile_open(path, flags, mode);
 	if not fd then return nil, err end
 	return mkfile(fd);
 end
 --- @param path string
 function fs.stat(path)
+	path = sig.str(path, "path");
+
 	local fd, err = fs.open(path, "");
 	if not fd then return nil, err end
 
@@ -167,12 +183,17 @@ end
 --- @param path string
 --- @param mode? integer | string
 function fs.mkdir(path, mode)
+	path = sig.str(path, "path");
+	mode = sig.num(mode, "mode");
+
 	return loop.curr.ev:sdir_new(path, mode);
 end
 --- @param path string
 --- @return std.io.dir?
 --- @return string? err
 function fs.opendir(path)
+	path = sig.str(path, "path");
+
 	local fd, err = loop.curr.ev:sdir_open(path);
 	if not fd then return nil, err end
 
@@ -183,6 +204,8 @@ function fs.opendir(path)
 	return self;
 end
 function fs.readdir(path)
+	path = sig.str(path, "path");
+
 	local dir, err = fs.opendir(path);
 	if not dir then return nil, err end
 
@@ -204,12 +227,17 @@ end
 
 --- @param path string
 function fs.delete(path)
+	path = sig.str(path, "path");
+
 	-- TODO: TO BE DONE
 	return os.remove(path);
 end
 --- @param path string
 --- @param mod integer
 function fs.chmod(path, mod)
+	path = sig.str(path, "path");
+	mod = sig.num(mod, "mod");
+
 	-- TODO: TO BE DONE
 	return nil, "not implemented";
 end
@@ -217,12 +245,18 @@ end
 --- @param uid integer
 --- @param gid integer
 function fs.chown(path, uid, gid)
+	path = sig.str(path, "path");
+	uid = sig.num(uid, "uid");
+	gid = sig.num(gid, "gid");
+
 	-- TODO: TO BE DONE
 	return nil, "not implemented";
 end
 
 --- @param type? std.fs.path = "cwd"
 function fs.path(type)
+	type = sig.str(type, "type");
+
 	return libev.getpath(type or "cwd");
 end
 
