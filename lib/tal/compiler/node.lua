@@ -7,6 +7,9 @@ local node = {};
 --- @class node.base
 --- @field loc node.loc
 
+--- @class node.error: node.base
+--- @field type "error"
+
 --- @class node.decl: node.base
 --- @field type "decl"
 --- @field pre boolean
@@ -126,7 +129,7 @@ local node = {};
 --- @field type "fl"
 --- @field val number
 
---- @alias node.exp node.func | node.call | node.method | node.index | node.op | node.table | node.var | node.args | node.nil | node.str | node.bool | node.fl | node.int | node.paren
+--- @alias node.exp node.func | node.call | node.method | node.index | node.op | node.table | node.var | node.args | node.nil | node.str | node.bool | node.fl | node.int | node.paren | node.error
 --- @alias node.assign_target node.index | node.var
 --- @alias node.stm node.decl | node.assign | node.if | node.while | node.repeat | node.for | node.for_in | node.scope | node.return | node.break | node.call
 --- @alias node node.stm | node.exp
@@ -192,6 +195,11 @@ if jit then
 end
 
 
+--- @param line? node.loc
+--- @return node.error
+function node.error(line)
+	return { type = "error", loc = line };
+end
 --- @param line? node.loc
 --- @param pre? boolean If the variables are declared before or after the values
 --- @param values? node.exp[]
