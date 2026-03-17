@@ -70,6 +70,7 @@ function io.lines(filename, n)
 			return res;
 		end
 	else
+		n = n or "l";
 		return function ()
 			local res, err = io.stdin:read(n);
 			if err then error(err, 2) end

@@ -9,7 +9,7 @@ local handle_index = {};
 --- @param n integer
 function handle_index:read(n)
 	if handle_closed:get(self) then return nil, "file is closed" end
-	return loop.curr.ev:sread(handle_fd:get(self), n);
+	return loop.curr.ev:sread(handle_fd:get(self), n or 8192);
 end
 --- @param data string
 function handle_index:write(data)
