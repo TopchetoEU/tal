@@ -1,5 +1,6 @@
 local libev = require "nat.libev";
 require "tal.loop.evs";
+local invoke = require "std.sync.invoke";
 
 --- @class tal.looplib
 --- @field curr tal.loop
@@ -18,10 +19,10 @@ local function loop_with_fin(old, ...)
 	end
 	return ...;
 end
-local function loop_with(self, cb, ...)
+local function loop_with(self, ...)
 	local old = loop.curr;
 	loop.curr = self;
-	return loop_with_fin(old, cb(...));
+	return loop_with_fin(old, invoke(...));
 end
 local function loop_handle(self, cb, ...)
 	if cb == false then
@@ -31,15 +32,7 @@ local function loop_handle(self, cb, ...)
 	elseif cb == "timeout" then
 		return "timeout";
 	else
-		local ok, err;
-
-		if type(cb) == "function" then
-			ok, err = loop_with(self, pcall, cb, ...);
-		elseif type(cb) == "thread" then
-			ok, err = loop_with(self, coroutine.resume, cb, ...);
-		else
-			return nil, "invalid callback";
-		end
+		local ok, err = loop_with(self, cb, ...);
 
 		if ok then return true end
 		return nil, err;
@@ -47,11 +40,15 @@ local function loop_handle(self, cb, ...)
 end
 
 --- @param task function | thread
-function loop_index:push(task)
-	table.insert(self.tasks, task);
+function loop_index:push(task, ...)
+	if select("#", ...) > 0 then
+		table.insert(self.tasks, { cb = task, n = select("#", ...), ... });
+	else
+		table.insert(self.tasks, task);
+	end
 end
 function loop_index:fork(func, ...)
-	local ok, err = loop_with(self, coroutine.resume, coroutine.create(func), ...);
+	local ok, err = loop_with(self, coroutine.create(func), ...);
 	if not ok then error(err, 0) end
 end
 function loop_index:rest()
@@ -117,9 +114,9 @@ function loop_index:run()
 end
 
 --- @param task function | thread
-function loop.push(task)
+function loop.push(task, ...)
 	if not loop.curr then error("loop not running", 2) end
-	return loop.curr:push(task);
+	return loop.curr:push(task, ...);
 end
 function loop.fork(func, ...)
 	if not loop.curr then error("loop not running", 2) end
