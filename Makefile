@@ -11,14 +11,10 @@ LIBEV_LIBS := \
 	deps/libev/bin/$(OS)/libev-dyn.a deps/libev/bin/$(OS)/libev-dyn.so
 LIBEV_MK := deps/libev/Makefile
 
-LIBSODIUM_LIB := deps/libsodium/src/libsodium/.libs/libsodium.a
-LIBSODIUM_SO := bin/libsodium.so
-LIBSODIUM_MK := deps/libsodium/Makefile
-
 LIBS := $(LUAJIT_LIBS)
 
 ifneq ($(SYSLIBS),yes)
-	LIBS += $(LIBEV_LIBS) $(LIBSODIUM_SO) $(LIBSODIUM_LIB)
+	LIBS += $(LIBEV_LIBS)
 endif
 
 .PHONY: luajit build clean install uninstall
@@ -36,7 +32,6 @@ install: build
 clean: $(LUAJIT_MK) $(LIBEV_MK)
 	$(MAKE) -C deps/luajit clean
 	$(MAKE) -C deps/libev clean
-	$(MAKE) -C deps/libsodium clean
 	rm -rf bin
 
 build: bin/tal $(LIBS) $(LUAJIT_EXE)
@@ -58,13 +53,3 @@ $(LIBEV_MK):
 	git submodule update --init deps/libev
 $(LIBEV_LIBS)&: $(LIBEV_MK)
 	$(MAKE) -C deps/libev
-
-$(LIBSODIUM_MK):
-	git submodule update --init deps/libsodium
-$(LIBSODIUM_LIB)&: $(LIBSODIUM_MK)
-	cd deps/libsodium && ./autogen.sh -s && ./configure
-	$(MAKE) -C deps/libsodium
-	mkdir -p bin
-$(LIBSODIUM_SO): $(LIBSODIUM_LIB)
-	mkdir -p bin
-	gcc $^ -shared -o $@
