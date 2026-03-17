@@ -1,16 +1,16 @@
---- @class prop
-local prop = {};
-prop.__index = prop;
-prop.__mode = "k";
+--- @class std.field
+local field = {};
+field.__index = field;
+field.__mode = "k";
 
-function prop:get(obj)
+function field:get(obj)
 	return self[obj];
 end
-function prop:set(obj, val)
+function field:set(obj, val)
 	self[obj] = val;
 end
 
 --- A utility function for creating "private" properties, based on ephemeral (weak) tables
 return function ()
-	return setmetatable({}, prop);
+	return setmetatable({}, field);
 end
