@@ -127,7 +127,7 @@ function url.parse(raw)
 	if not i then return nil, "invalid URL syntax" end
 
 	path, i = raw:match("^([^?]*)()", i);
-	path, params = url.parse_params(path);
+	params = url.parse_params(path:sub(i));
 
 	return {
 		scheme = scheme,
@@ -136,7 +136,7 @@ function url.parse(raw)
 		host = host,
 		port = port,
 		path = path,
-		params = params,
+		params = params or {},
 	};
 end
 
