@@ -1,6 +1,8 @@
 --- @diagnostic disable: duplicate-set-field
 
 require "std.string";
+require "std.printing";
+local load = require "tal.compiler.loading".load;
 local path = require "std.path";
 
 package.pathsep = ".";
@@ -94,7 +96,7 @@ function package.searchlua(name)
 	f:close();
 
 	local res, err = load(src, "@" .. file, "t");
-	if not res then return err end
+	if not res then error(err, 0) end
 	return res, file;
 end
 --- @param name string

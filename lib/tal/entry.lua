@@ -12,7 +12,6 @@ return function (...)
 		env._G = env;
 		env._ENV = env;
 		setfenv(0, env);
-		setfenv(1, env);
 
 		require "tal.globs";
 		local entry = require "tal.cli";

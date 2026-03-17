@@ -11,9 +11,10 @@ require "nat.ffi";
 require "tal.globs.package";
 require "tal.globs.errors";
 
-
 table.clear = require "table.clear";
 table.new = require "table.new";
+table.unpack = unpack or table.unpack;
+unpack = table.unpack;
 debug = require "tal.globs.debug";
 io = require "std.io";
 

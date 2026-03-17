@@ -6,18 +6,19 @@
 function string:split(sep)
 	sep = sep or "";
 
+	--- @param self string
 	--- @param i? integer
-	local function splitter(_, i)
+	local function splitter(self, i)
 		if not i or i > #self then return nil end
 
-		local sep_f, sep_l = self:find(sep, i);
+		local sep_f, sep_l = self:find(sep, i + 1);
 		if not sep_f then
-			return #self + 1, self:sub(i);
+			return #self + 1, self:sub(i + 1);
 		else
-			return sep_l + 1, self:sub(i, sep_f - 1);
+			return sep_l, self:sub(i + 1, sep_f - 1);
 		end
 	end
-	return splitter, nil, 1;
+	return splitter, self, 0;
 end
 --- @param self string
 function string:at(i)
