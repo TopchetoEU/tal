@@ -3,7 +3,7 @@ local map = {};
 --- @type integer
 local next = 0;
 
-local objects = {};
+local objects = { _map = map };
 
 --- @param obj any
 --- @return integer
