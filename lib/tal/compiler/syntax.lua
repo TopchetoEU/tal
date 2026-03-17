@@ -98,123 +98,131 @@ local un_op_map = {
 	[OP_NOT] = node.ops.NOT,
 };
 
---- @alias syntax.exp
---- | integer
+--- @class syntax.ctx
+--- @field toks lex.tok[]
+--- @field errs { msg: string, loc: node.loc }[]
 
---- @class syntax.local
---- @field type "local"
---- @field name string
-
-local err_marker = {};
-
-
---- @param toks lex.tok[]
+--- @param ctx syntax.ctx
 --- @param i integer
 --- @param msg string
---- @return integer, ...
-local function syntax_error(toks, i, msg)
+local function syntax_error(ctx, i, msg)
 	local line;
-	if i > #toks then
-		line = toks[#toks].loc;
+	if i > #ctx.toks then
+		line = ctx.toks[#ctx.toks].loc;
+		msg = "unexpected eof: " .. msg;
 	else
-		line = toks[i].loc;
+		line = ctx.toks[i].loc;
 	end
 
-	error({
-		line = line,
-		msg = msg,
-		[err_marker] = true,
-	}, 0);
+	table.insert(ctx.errs, { msg = msg, loc = line });
+end
+
+local function syntax_loc(ctx, i)
+	if i > #ctx.toks then
+		return ctx.toks[#ctx.toks].loc;
+	else
+		return ctx.toks[i].loc;
+	end
 end
 
 local parse_stm, parse_stm_list;
 local parse_exp, parse_exp_list;
 
-local function parse_name_list(toks, i)
+local function parse_name_list(ctx, i)
 	local j = i;
 	--- @type string[]
 	local res = {};
 
 	while true do
-		if not toks[j] or not toks[j]:is_id() then
+		if not ctx.toks[j] or not ctx.toks[j]:is_id() then
 			if #res == 0 then return i end
-			return syntax_error(toks, j, "expected identifier");
+			syntax_error(ctx, j, "expected identifier");
+			break;
 		end
 
-		table.insert(res, toks[j].val);
+		table.insert(res, ctx.toks[j].val);
 		j = j + 1;
 
-		if not toks[j] or not toks[j]:is_op(OP_COMMA) then break end
+		if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_COMMA) then break end
 		j = j + 1;
 	end
 
 	return j, res;
 end
 
-local function parse_func_body(toks, i, args)
+local function parse_func_body(ctx, i, args)
 	local j = i;
 	args = args or {};
+	local first = false;
 	local var = false;
 	local body;
 
-	if not toks[j] or not toks[j]:is_op(OP_PAREN_OPEN) then
-		return syntax_error(toks, j, "expected open paren");
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_PAREN_OPEN) then
+		syntax_error(ctx, j, "expected open paren");
+	else
+		j = j + 1;
 	end
-	j = j + 1;
 
-	if toks[j] and toks[j]:is_op(OP_PAREN_CLOSE) then
+	if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
 		j = j + 1;
 	else
 		while true do
-			if toks[j] and toks[j]:is_id() then
-				table.insert(args, toks[j].val);
+			if ctx.toks[j] and ctx.toks[j]:is_id() then
+				table.insert(args, ctx.toks[j].val);
+				first = true;
 				j = j + 1;
 
-				if toks[j] and toks[j]:is_op(OP_PAREN_CLOSE) then
+				if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
 					j = j + 1;
 					break;
-				elseif toks[j] and toks[j]:is_op(OP_COMMA) then
+				elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
 					j = j + 1;
 				else
-					return syntax_error(toks, j, "expected paren or comma");
+					syntax_error(ctx, j, "expected ',' or ')'");
 				end
-			elseif toks[j] and toks[j]:is_op(OP_SPREAD) then
+			elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_SPREAD) then
 				var = true;
+				first = true;
 				j = j + 1;
 
-				if toks[j] and toks[j]:is_op(OP_PAREN_CLOSE) then
+				if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
 					j = j + 1;
 					break;
-				elseif toks[j] and toks[j]:is_op(OP_COMMA) then
-					return syntax_error(toks, j, "comma not allowed after '...'");
+				elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
+					j = j + 1;
+					syntax_error(ctx, j, "no arguments allowed after '...'");
 				else
-					return syntax_error(toks, j, "expected paren or comma");
+					syntax_error(ctx, j, "expected ',' or ')'");
 				end
+			elseif first then
+				syntax_error(ctx, j, "expected identifier, '...' or ')'");
+				break;
+			else
+				syntax_error(ctx, j, "expected identifier or '...'");
+				break;
 			end
 		end
 	end
 
-	j, body = parse_stm_list(toks, j, { OP_END });
-	if not body then return syntax_error(toks, j, "expected function body") end
-
-	return j, node.func(toks[i].loc, args, var, body);
+	j, body = parse_stm_list(ctx, j, "'end'", { OP_END });
+	return j, node.func(syntax_loc(ctx, i), args, var, body);
 end
 
 ------------ EXPRESSIONS ------------
 
-local function parse_exp_func(toks, i)
+local function parse_exp_func(ctx, i)
 	local j = i;
 	local res;
 
-	if not toks[j] or not toks[j]:is_op(OP_FUNCTION) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_FUNCTION) then return i end
 	j = j + 1;
 
-	j, res = parse_func_body(toks, j);
-	if not res then return syntax_error(toks, j, "expected function body") end
+	j, res = parse_func_body(ctx, j);
+	if not res then syntax_error(ctx, j, "expected function body") end
 
 	return j, res;
 end
-local function parse_exp_table(toks, i)
+local function parse_exp_table(ctx, i)
 	local j = i;
 
 	local keys = {};
@@ -223,64 +231,76 @@ local function parse_exp_table(toks, i)
 
 	local key, val;
 
-	if not toks[j] or not toks[j]:is_op(OP_BRACE_OPEN) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_BRACE_OPEN) then return i end
 	j = j + 1;
 
 	while true do
-		if toks[j] and toks[j]:is_op(OP_BRACE_CLOSE) then
+		if ctx.toks[j] and ctx.toks[j]:is_op(OP_BRACE_CLOSE) then
 			j = j + 1;
 			break;
 		end
 
 		if
-			toks[j] and toks[j]:is_id() and
-			toks[j + 1] and toks[j + 1]:is_op(OP_ASSIGN)
+			ctx.toks[j] and ctx.toks[j]:is_id() and
+			ctx.toks[j + 1] and ctx.toks[j + 1]:is_op(OP_ASSIGN)
 		then
-			table.insert(keys, node.str(toks[i].loc, toks[j].val --[[@as string]]));
-
+			table.insert(keys, node.str(syntax_loc(ctx, i), ctx.toks[j].val --[[@as string]]));
 			j = j + 2;
 
-			j, val = parse_exp(toks, j);
-			if not val then return syntax_error(toks, j, "expected expression") end
-
+			j, val = parse_exp(ctx, j);
+			if not val then
+				syntax_error(ctx, j, "expected expression");
+				val = node.error(syntax_loc(ctx, j));
+			end
 			table.insert(values, val);
-		elseif toks[j] and toks[j]:is_op(OP_BRACKET_OPEN) then
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_BRACKET_OPEN) then
 			j = j + 1;
 
-			j, key = parse_exp(toks, j);
-			if not key then return syntax_error(toks, j, "expected expression") end
-
-			if not toks[j] or not toks[j]:is_op(OP_BRACKET_CLOSE) then
-				return syntax_error(toks, j, "expected ']'");
+			j, key = parse_exp(ctx, j);
+			if not key then
+				syntax_error(ctx, j, "expected expression");
+				key = node.error(syntax_loc(ctx, j));
 			end
-			j = j + 1;
 
-			if not toks[j] or not toks[j]:is_op(OP_ASSIGN) then
-				return syntax_error(toks, j, "expected '='");
+			if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_BRACKET_CLOSE) then
+				syntax_error(ctx, j, "expected ']'");
+			else
+				j = j + 1;
 			end
-			j = j + 1;
 
-			j, val = parse_exp(toks, j);
-			if not val then return syntax_error(toks, j, "expected expression") end
+			if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_ASSIGN) then
+				syntax_error(ctx, j, "expected '='");
+			else
+				j = j + 1;
+			end
+
+			j, val = parse_exp(ctx, j);
+			if not val then
+				syntax_error(ctx, j, "expected expression");
+				val = node.error(syntax_loc(ctx, j));
+			end
 
 			table.insert(keys, key);
 			table.insert(values, val);
 		else
-			j, val = parse_exp(toks, j);
-			if not val then return syntax_error(toks, j, "expected expression") end
-
-			table.insert(array, val);
+			j, val = parse_exp(ctx, j);
+			if not val then
+				syntax_error(ctx, j, "expected expression or '}'");
+				break;
+			else
+				table.insert(array, val);
+			end
 		end
 
 		local any = false;
 		local eof = false;
 
 		while true do
-			if toks[j] and toks[j]:is_op(OP_BRACE_CLOSE) then
+			if ctx.toks[j] and ctx.toks[j]:is_op(OP_BRACE_CLOSE) then
 				j = j + 1;
 				eof = true;
 				break;
-			elseif toks[j] and (toks[j]:is_op(OP_COMMA) or toks[j]:is_op(OP_SEMICOLON)) then
+			elseif ctx.toks[j] and (ctx.toks[j]:is_op(OP_COMMA) or ctx.toks[j]:is_op(OP_SEMICOLON)) then
 				j = j + 1;
 				any = true;
 			else
@@ -291,128 +311,145 @@ local function parse_exp_table(toks, i)
 		if eof then
 			break;
 		elseif not any then
-			return syntax_error(toks, j, "expected ',', ';' or '}'");
+			syntax_error(ctx, j, "expected ',', ';' or '}'");
 		end
 	end
 
-	return j, node.table(toks[i].loc, keys, values, array);
+	return j, node.table(syntax_loc(ctx, i), keys, values, array);
 end
 
 --- @param i integer
-local function parse_exp_call_suffix(toks, i, prev)
+local function parse_exp_call_suffix(ctx, i, prev)
 	local j = i;
 	local name;
+	local has_method = false;
 
-	if toks[j] and toks[j]:is_op(OP_COLON) then
+	if ctx.toks[j] and ctx.toks[j]:is_op(OP_COLON) then
 		j = j + 1;
-		if not toks[j] or not toks[j]:is_id() then
-			return syntax_error(toks, j, "expected identifier");
+		has_method = true;
+		if not ctx.toks[j] or not ctx.toks[j]:is_id() then
+			syntax_error(ctx, j, "expected method name");
+			name = "<error>";
+		else
+			name = ctx.toks[j].val --[[@as string]];
+			j = j + 1;
 		end
-
-		name = toks[j].val --[[@as string]];
-		j = j + 1;
 	end
 
 	local args = {};
 
-	if toks[j] and toks[j]:is_str() then
-		table.insert(args, node.str(toks[i].loc, toks[j].val --[[@as string]]));
+	if ctx.toks[j] and ctx.toks[j]:is_str() then
+		table.insert(args, node.str(syntax_loc(ctx, i), ctx.toks[j].val --[[@as string]]));
 		j = j + 1;
-	elseif toks[j] and toks[j]:is_op(OP_BRACE_OPEN) then
+	elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_BRACE_OPEN) then
 		local arg;
-		j, arg = parse_exp_table(toks, j);
-		if not arg then return syntax_error(toks, j, "expected table literal") end
-
+		j, arg = parse_exp_table(ctx, j);
 		table.insert(args, arg);
-	elseif toks[j] and toks[j]:is_op(OP_PAREN_OPEN) then
+	elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_OPEN) then
 		j = j + 1;
 
-		if toks[j] and toks[j]:is_op(OP_PAREN_CLOSE) then
+		if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
 			j = j + 1;
 		else
 			while true do
 				local exp;
-				j, exp = parse_exp(toks, j);
-				if not exp then syntax_error(toks, j, "expected expression") end
+				j, exp = parse_exp(ctx, j);
+				if not exp then
+					syntax_error(ctx, j, "expected expression or ')'");
+					break;
+				else
+					table.insert(args, exp);
+				end
 
-				table.insert(args, exp);
-
-				if toks[j] and toks[j]:is_op(OP_PAREN_CLOSE) then
+				if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
 					j = j + 1;
 					break;
-				elseif toks[j] and toks[j]:is_op(OP_COMMA) then
+				elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
 					j = j + 1;
 				else
-					return syntax_error(toks, j, "expected paren or comma");
+					syntax_error(ctx, j, "expected paren or comma");
 				end
 			end
 		end
+	elseif has_method then
+		syntax_error(ctx, j, "expected '(', '{' or string literal");
 	else
-		if name then
-			return syntax_error(toks, j, "expected method call");
-		else
-			return i;
-		end
+		return i;
 	end
 
-	if name then
-		return j, node.method(toks[i].loc, prev, name, table.unpack(args));
+	if has_method then
+		return j, node.method(syntax_loc(ctx, i), prev, name, table.unpack(args));
 	else
-		return j, node.call(toks[i].loc, prev, table.unpack(args));
+		return j, node.call(syntax_loc(ctx, i), prev, table.unpack(args));
 	end
 end
-local function parse_exp_index_suffix(toks, i, prev)
+local function parse_exp_index_suffix(ctx, i, prev)
 	local j = i;
 
-	if toks[j] and toks[j]:is_op(OP_DOT) then
+	local key;
+
+ 	if ctx.toks[j] and ctx.toks[j]:is_op(OP_DOT) then
 		j = j + 1;
 
-		if not toks[j] or not toks[j]:is_id() then
-			return syntax_error(toks, j, "expected identifier");
+		if not ctx.toks[j] or not ctx.toks[j]:is_id() then
+			if ctx.toks[j] and ctx.toks[j]:is_str() then
+				syntax_error(ctx, j, "indexing with a string literal requires the bracket indexing syntax (obj['myprop'])");
+				key = node.str(syntax_loc(ctx, j), ctx.toks[j].val --[[@as string]]);
+				j = j + 1;
+			else
+				syntax_error(ctx, j, "expected identifier");
+				key = node.error(syntax_loc(ctx, j));
+			end
+		else
+			key = node.str(syntax_loc(ctx, j), ctx.toks[j].val --[[@as string]]);
+			j = j + 1;
+		end
+	elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_BRACKET_OPEN) then
+		j = j + 1;
+
+		j, key = parse_exp(ctx, j);
+		if not key then
+			syntax_error(ctx, j, "expected expression");
+			key = node.error(syntax_loc(ctx, j));
 		end
 
-		local name = toks[j].val --[[@as string]];
-		j = j + 1;
-
-		return j, node.index(toks[i].loc, prev, node.str(toks[i].loc, name));
-	end
-
-	if toks[j] and toks[j]:is_op(OP_BRACKET_OPEN) then
-		j = j + 1;
-
-		local key;
-		j, key = parse_exp(toks, j);
-		if not key then return syntax_error(toks, j, "expected expression") end
-
-		if not toks[j] or not toks[j]:is_op(OP_BRACKET_CLOSE) then
-			return syntax_error(toks, j, "expected ']'");
+		if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_BRACKET_CLOSE) then
+			syntax_error(ctx, j, "expected ']'");
+		else
+			j = j + 1;
 		end
-		j = j + 1;
-
-		return j, node.index(toks[i].loc, prev, key);
+	else
+		return i;
 	end
 
-	return i;
+	if key then
+		return j, node.index(syntax_loc(ctx, i), prev, key);
+	else
+		return j, prev;
+	end
 end
-local function parse_exp_prefix(toks, i, no_call)
+local function parse_exp_prefix(ctx, i, no_call)
 	local j = i;
 	local res;
 
-	if toks[j] and toks[j]:is_id() then
+	if ctx.toks[j] and ctx.toks[j]:is_id() then
 		j = j + 1;
-		res = node.var(toks[i].loc, toks[i].val --[[@as string]]);
-	elseif toks[j] and toks[i]:is_op(OP_PAREN_OPEN) then
-		j, res = parse_exp(toks, j + 1);
-		if not res then return syntax_error(toks, j, "expected expression") end
+		res = node.var(syntax_loc(ctx, i), ctx.toks[i].val --[[@as string]]);
+	elseif ctx.toks[j] and ctx.toks[i]:is_op(OP_PAREN_OPEN) then
+		j, res = parse_exp(ctx, j + 1);
+		if not res then
+			syntax_error(ctx, j, "expected expression");
+			res = node.error(syntax_loc(ctx, j));
+		end
 
-		if not toks[j] or not toks[j]:is_op(OP_PAREN_CLOSE) then
-			return syntax_error(toks, j, "expected ')'");
+		if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
+			syntax_error(ctx, j, "expected ')'");
 		end
 
 		j = j + 1;
 
 		if res.type ~= "paren" then
-			res = node.paren(toks[i].loc, res);
+			res = node.paren(syntax_loc(ctx, i), res);
 		end
 	else
 		return i;
@@ -422,11 +459,11 @@ local function parse_exp_prefix(toks, i, no_call)
 		local new_call, new_index;
 
 		if not no_call then
-			j, new_call = parse_exp_call_suffix(toks, j, res);
+			j, new_call = parse_exp_call_suffix(ctx, j, res);
 			if new_call then res = new_call end
 		end
 
-		j, new_index = parse_exp_index_suffix(toks, j, res);
+		j, new_index = parse_exp_index_suffix(ctx, j, res);
 		if new_index then res = new_index end
 
 		if not new_call and not new_index then break end
@@ -435,41 +472,41 @@ local function parse_exp_prefix(toks, i, no_call)
 	return j, res;
 end
 
-local function parse_exp_single(toks, i)
+local function parse_exp_single(ctx, i)
 	local j = i;
 
-	if toks[j] then
-		if toks[j]:is_op(OP_TRUE) then
-			return j + 1, node.bool(toks[i].loc, true);
-		elseif toks[j]:is_op(OP_FALSE) then
-			return j + 1, node.bool(toks[i].loc, false);
-		elseif toks[j]:is_op(OP_NIL) then
-			return j + 1, node._nil(toks[i].loc);
-		elseif toks[j].type == "int" then
-			return j + 1, node.int(toks[i].loc, toks[j].val --[[@as integer]]);
-		elseif toks[j].type == "fl" then
-			return j + 1, node.fl(toks[i].loc, toks[j].val --[[@as number]]);
-		elseif toks[j].type == "str" then
-			return j + 1, node.str(toks[i].loc, toks[j].val --[[@as string]]);
-		elseif toks[j]:is_op(OP_SPREAD) then
-			return j + 1, node.args(toks[i].loc);
-		elseif toks[j]:is_op(OP_FUNCTION) then
-			return parse_exp_func(toks, j);
-		elseif toks[j]:is_op(OP_BRACE_OPEN) then
-			return parse_exp_table(toks, j);
+	if ctx.toks[j] then
+		if ctx.toks[j]:is_op(OP_TRUE) then
+			return j + 1, node.bool(syntax_loc(ctx, i), true);
+		elseif ctx.toks[j]:is_op(OP_FALSE) then
+			return j + 1, node.bool(syntax_loc(ctx, i), false);
+		elseif ctx.toks[j]:is_op(OP_NIL) then
+			return j + 1, node._nil(syntax_loc(ctx, i));
+		elseif ctx.toks[j].type == "int" then
+			return j + 1, node.int(syntax_loc(ctx, i), ctx.toks[j].val --[[@as integer]]);
+		elseif ctx.toks[j].type == "fl" then
+			return j + 1, node.fl(syntax_loc(ctx, i), ctx.toks[j].val --[[@as number]]);
+		elseif ctx.toks[j].type == "str" then
+			return j + 1, node.str(syntax_loc(ctx, i), ctx.toks[j].val --[[@as string]]);
+		elseif ctx.toks[j]:is_op(OP_SPREAD) then
+			return j + 1, node.args(syntax_loc(ctx, i));
+		elseif ctx.toks[j]:is_op(OP_FUNCTION) then
+			return parse_exp_func(ctx, j);
+		elseif ctx.toks[j]:is_op(OP_BRACE_OPEN) then
+			return parse_exp_table(ctx, j);
 		else
-			return parse_exp_prefix(toks, j);
+			return parse_exp_prefix(ctx, j);
 		end
 	end
 end
 --- @return integer, node.exp?
-local function parse_exp_part(toks, i)
+local function parse_exp_part(ctx, i)
 	local j = i;
 	local prefix_ops = {};
 	local res;
 
-	while toks[j] and toks[j]:is_op() do
-		local op = un_op_map[toks[j].val];
+	while ctx.toks[j] and ctx.toks[j]:is_op() do
+		local op = un_op_map[ctx.toks[j].val];
 		if not op then break end
 
 		table.insert(prefix_ops, op);
@@ -477,29 +514,32 @@ local function parse_exp_part(toks, i)
 	end
 
 	if #prefix_ops == 0 then
-		return parse_exp_single(toks, j);
+		return parse_exp_single(ctx, j);
 	else
-		j, res = parse_exp(toks, j, node.ops.POW);
-		if not res then return syntax_error(toks, j, "expected expression") end
+		j, res = parse_exp(ctx, j, node.ops.POW);
+		if not res then
+			syntax_error(ctx, j, "expected expression");
+			res = node.error(syntax_loc(ctx, j));
+		end
 
 		for k = #prefix_ops, 1, -1 do
-			res = node.op(toks[i].loc, prefix_ops[k], res);
+			res = node.op(syntax_loc(ctx, i), prefix_ops[k], res);
 		end
 
 		return j, res;
 	end
 end
 
---- @param toks lex.tok[]
+--- @param ctx syntax.ctx
 --- @param i integer
 --- @param a node.exp
 --- @param max_op? integer
-local function parse_exp_op(toks, i, a, max_op)
+local function parse_exp_op(ctx, i, a, max_op)
 	local j = i;
 
-	if not toks[j] or not toks[j]:is_op() then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op() then return i end
 
-	local op = bin_op_map[toks[j].val];
+	local op = bin_op_map[ctx.toks[j].val];
 	if not op then return i end
 
 	j = j + 1;
@@ -512,27 +552,30 @@ local function parse_exp_op(toks, i, a, max_op)
 	end
 
 	local b;
-	j, b = parse_exp(toks, j, max_op);
-	if not b then return syntax_error(toks, j, "expected expression") end
+	j, b = parse_exp(ctx, j, max_op);
+	if not b then
+		syntax_error(ctx, j, "expected expression");
+		b = node.error(syntax_loc(ctx, j));
+	end
 
-	return j, node.op(toks[i].loc, op, a, b);
+	return j, node.op(syntax_loc(ctx, i), op, a, b);
 end
 
---- @param toks lex.tok[]
+--- @param ctx syntax.ctx
 --- @param i integer
 --- @param max_op? integer
 --- @return integer
 --- @return node.exp?
-function parse_exp(toks, i, max_op)
+function parse_exp(ctx, i, max_op)
 	local j = i;
 	local res;
 
-	j, res = parse_exp_part(toks, j);
+	j, res = parse_exp_part(ctx, j);
 	if not res then return i end
 
 	while true do
 		local new;
-		j, new = parse_exp_op(toks, j, res, max_op);
+		j, new = parse_exp_op(ctx, j, res, max_op);
 		if not new then break end
 
 		res = new;
@@ -541,23 +584,24 @@ function parse_exp(toks, i, max_op)
 	return j, res;
 end
 
---- @param toks lex.tok[]
+--- @param ctx syntax.ctx
 --- @param i integer
-function parse_exp_list(toks, i)
+function parse_exp_list(ctx, i)
 	local j = i;
 	--- @type node.exp[]
 	local res = {};
 
 	while true do
 		local exp;
-		j, exp = parse_exp(toks, j);
+		j, exp = parse_exp(ctx, j);
 		if not exp then
 			if #res == 0 then return i end
-			return syntax_error(toks, j, "expected expression");
+			syntax_error(ctx, j, "expected expression");
+			break;
 		end
 		table.insert(res, exp);
 
-		if not toks[j] or not toks[j]:is_op(OP_COMMA) then break end
+		if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_COMMA) then break end
 		j = j + 1;
 	end
 
@@ -566,7 +610,7 @@ end
 
 ------------ STATEMENTS ------------
 
-local function parse_if(toks, i)
+local function parse_if(ctx, i)
 	local j = i;
 
 	local conds = {};
@@ -574,454 +618,453 @@ local function parse_if(toks, i)
 	local default;
 	local start_op = OP_IF;
 
-	if not toks[j] or not toks[j]:is_op(OP_IF) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_IF) then return i end
 	j = j + 1;
 
 	while start_op ~= OP_END do
 		if start_op == OP_IF or start_op == OP_ELSEIF then
 			local cond, body;
 
-			j, cond = parse_exp(toks, j);
-			if not cond then return syntax_error(toks, j, "expected expression") end
-
-			if not toks[j] or not toks[j]:is_op(OP_THEN) then
-				return syntax_error(toks, j, "expected 'then'");
+			j, cond = parse_exp(ctx, j);
+			if not cond then
+				syntax_error(ctx, j, "expected expression");
+				cond = node.error(syntax_loc(ctx, j));
 			end
-			j = j + 1;
 
-			j, body, start_op = parse_stm_list(toks, j, { OP_ELSEIF, OP_ELSE, OP_END });
-			if not body then return syntax_error(toks, j, "expected if body") end
+			if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_THEN) then
+				syntax_error(ctx, j, "expected 'then'");
+			else
+				j = j + 1;
+			end
+
+			j, body, start_op = parse_stm_list(ctx, j, "'elseif', 'else' or 'end'", { OP_ELSEIF, OP_ELSE, OP_END });
 
 			table.insert(conds, cond);
 			table.insert(bodies, body);
 		elseif start_op == OP_ELSE then
-			local body;
-
-			j, body, start_op = parse_stm_list(toks, j, { OP_END });
-			if not body then return syntax_error(toks, j, "expected if body") end
-
-			default = body;
+			j, default, start_op = parse_stm_list(ctx, j, "'end'", { OP_END });
+			if not default then syntax_error(ctx, j, "expected if body") end
 			break;
 		end
 	end
 
-	return j, node._if(toks[i].loc, conds, bodies, default);
+	return j, node._if(syntax_loc(ctx, i), conds, bodies, default);
 end
-local function parse_while(toks, i)
+local function parse_while(ctx, i)
 	local j = i;
 
 	local cond, body;
 
-	if not toks[j] or not toks[j]:is_op(OP_WHILE) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_WHILE) then return i end
 	j = j + 1;
 
-	j, cond = parse_exp(toks, j);
-	if not cond then return syntax_error(toks, j, "expected expression") end
+	j, cond = parse_exp(ctx, j);
+	if not cond then
+		syntax_error(ctx, j, "expected expression");
+		cond = node.error(syntax_loc(ctx, j));
+	end
 
-	if not toks[j] or not toks[j]:is_op(OP_DO) then
-		return syntax_error(toks, j, "expected 'do'")
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_DO) then
+		syntax_error(ctx, j, "expected 'do'");
 	end
 	j = j + 1;
 
-	j, body = parse_stm_list(toks, j, { OP_END });
-	if not body then return syntax_error(toks, j, "expected while body") end
+	j, body = parse_stm_list(ctx, j, "'end'", { OP_END });
 
-	return j, node._while(toks[i].loc, cond, body);
+	return j, node._while(syntax_loc(ctx, i), cond, body);
 end
-local function parse_repeat(toks, i)
+local function parse_repeat(ctx, i)
 	local j = i;
 
 	local cond, body;
 
-	if not toks[j] or not toks[j]:is_op(OP_REPEAT) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_REPEAT) then return i end
 	j = j + 1;
 
-	j, body = parse_stm_list(toks, j, { OP_UNTIL });
-	if not body then return syntax_error(toks, j, "expected repeat body") end
+	j, body = parse_stm_list(ctx, j, "'until'", { OP_UNTIL });
 
-	j, cond = parse_exp(toks, j);
-	if not cond then return syntax_error(toks, j, "expected expression") end
+	j, cond = parse_exp(ctx, j);
+	if not cond then
+		syntax_error(ctx, j, "expected expression");
+		cond = node.error(syntax_loc(ctx, j));
+	end
 
-	return j, node._repeat(toks[i].loc, cond, body);
+	return j, node._repeat(syntax_loc(ctx, i), cond, body);
 end
-local function parse_for(toks, i)
+local function parse_for(ctx, i)
 	local j = i;
 
-	local name, init, last, step, body;
+	local names, values, init, last, step, body;
 
-	if not toks[j] or not toks[j]:is_op(OP_FOR) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_FOR) then return i end
 	j = j + 1;
 
-	if not toks[j] or not toks[j]:is_id() then
-		return syntax_error(toks, j, "expected for loop name");
+	j, names = parse_name_list(ctx, j);
+	if not names then
+		syntax_error(ctx, j, "expected identifier, then '=', or an identifier list, then 'in'");
+		names = {};
 	end
-	name = toks[j].val --[[@as string]];
-	j = j + 1;
 
-	if not toks[j] or not toks[j]:is_op(OP_ASSIGN) then
-		return syntax_error(toks, j, "expected for loop name");
-	end
-	j = j + 1;
-
-	j, init = parse_exp(toks, j);
-	if not init then return syntax_error(toks, j, "expected init expression") end
-
-	if not toks[j] or not toks[j]:is_op(OP_COMMA) then
-		return syntax_error(toks, j, "expected ','");
-	end
-	j = j + 1;
-
-	j, last = parse_exp(toks, j);
-	if not last then return syntax_error(toks, j, "expected last expression") end
-
-	if toks[j] and toks[j]:is_op(OP_COMMA) then
+	if ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN) then
 		j = j + 1;
 
-		j, step = parse_exp(toks, j);
-		if not step then return syntax_error(toks, j, "expected step expression") end
-	end
+		if #names ~= 1 then
+			syntax_error(ctx, j, "exactly one variable name must be specified before '='");
+		end
 
-	if not toks[j] or not toks[j]:is_op(OP_DO) then
-		return syntax_error(toks, j, step and "expected 'do'" or "expected ',' or 'do'");
-	end
-	j = j + 1;
+		j, init = parse_exp(ctx, j);
+		if not init then
+			syntax_error(ctx, j, "expected init expression");
+			init = node.error(syntax_loc(ctx, j));
+		end
 
-	j, body = parse_stm_list(toks, j, { OP_END });
-
-	return j, node._for(toks[i].loc, name, init, last, step, body);
-end
-local function parse_for_in(toks, i)
-	local j = i;
-
-	local names, values, last, step, body;
-
-	if not toks[j] or not toks[j]:is_op(OP_FOR) then return i end
-	j = j + 1;
-
-	j, names = parse_name_list(toks, j);
-	if not names then return syntax_error(toks, j, "expected identifier list") end
-
-	if not toks[j] or not toks[j]:is_op(OP_IN) then
-		if #names > 1 then
-			return syntax_error(toks, j, "expected 'in'");
+		if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_COMMA) then
+			syntax_error(ctx, j, "expected ','");
 		else
-			return i;
+			j = j + 1;
+		end
+
+		j, last = parse_exp(ctx, j);
+		if not last then
+			syntax_error(ctx, j, "expected last expression");
+			last = node.error(syntax_loc(ctx, j));
+		end
+
+		if ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
+			j = j + 1;
+
+			j, step = parse_exp(ctx, j);
+			if not step then
+				syntax_error(ctx, j, "expected step expression");
+				step = node.error(syntax_loc(ctx, j));
+			end
+		end
+	else
+		if not ctx.toks[j] and not ctx.toks[j]:is_op(OP_IN) then
+			syntax_error(ctx, j, "expected '=' or 'in'");
+		else
+			j = j + 1;
+		end
+
+		j, values = parse_exp_list(ctx, j);
+		if not values then
+			syntax_error(ctx, j, "expected value list");
+			values = {};
 		end
 	end
-	j = j + 1;
 
-	j, values = parse_exp_list(toks, j);
-	if not values then return syntax_error(toks, j, "expected value list") end
-
-	if not toks[j] or not toks[j]:is_op(OP_DO) then
-		return syntax_error(toks, j, "expected 'do'");
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_DO) then
+		syntax_error(ctx, j, step and "expected 'do'" or "expected ',' or 'do'");
+	else
+		j = j + 1;
 	end
-	j = j + 1;
 
-	j, body = parse_stm_list(toks, j, { OP_END });
+	j, body = parse_stm_list(ctx, j, "'end'", { OP_END });
 
-	return j, node.for_in(toks[i].loc, names, values, body);
+	if values then
+		return j, node.for_in(syntax_loc(ctx, i), names, values, body);
+	else
+		return j, node._for(syntax_loc(ctx, i), names[1] or "<error>", init, last, step, body);
+	end
 end
-local function parse_scope(toks, i)
+local function parse_scope(ctx, i)
 	local j = i;
+	local body;
 
-	local cond, body;
-
-	if not toks[j] or not toks[j]:is_op(OP_DO) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_DO) then return i end
 	j = j + 1;
 
-	j, body = parse_stm_list(toks, j, { OP_END });
-	if not body then return syntax_error(toks, j, "expected do body") end
+	j, body = parse_stm_list(ctx, j, "'end'", { OP_END });
 
-	return j, node.scope(toks[i].loc, body);
+	return j, node.scope(syntax_loc(ctx, i), body);
 end
-local function parse_return(toks, i)
+local function parse_return(ctx, i)
 	local j = i;
 
 	local vals;
 
-	if not toks[j] or not toks[j]:is_op(OP_RETURN) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_RETURN) then return i end
 	j = j + 1;
 
-	j, vals = parse_exp_list(toks, j);
+	j, vals = parse_exp_list(ctx, j);
 	vals = vals or {};
 
-	return j, node._return(toks[i].loc, table.unpack(vals));
+	return j, node._return(syntax_loc(ctx, i), table.unpack(vals));
 end
-local function parse_break(toks, i)
+local function parse_break(ctx, i)
 	local j = i;
 
-	if not toks[j] or not toks[j]:is_op(OP_BREAK) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_BREAK) then return i end
 	j = j + 1;
 
-	return j, node._break(toks[i].loc);
+	return j, node._break(syntax_loc(ctx, i));
 end
 
-local function parse_assign(toks, i)
+local function parse_exp_stm(ctx, i)
 	local j = i;
 	--- @type node.assign_target[]
 	local targets = {};
 	local values;
 
-	local err_i = nil;
+	local err_i
 
 	while true do
 		local exp;
 		local exp_i = j;
-		j, exp = parse_exp(toks, j);
+		j, exp = parse_exp_prefix(ctx, j);
 		if not exp then
-			if #targets == 0 then return i end
-			if #targets > 1 then
-				return syntax_error(toks, j, "expected assign target");
-			else
+			if #targets == 0 then
 				return i;
+			else
+				syntax_error(ctx, j, "expected member expression or variable name");
 			end
-		elseif not err_i and (exp.type ~= "index" and exp.type ~= "var") then
-			err_i = exp_i;
+		else
+			if exp.type ~= "index" and exp.type ~= "var" then
+				if #targets == 0 then
+					err_i = exp_i;
+				else
+					syntax_error(ctx, exp_i, "expected member expression or variable name");
+				end
+			end
+			table.insert(targets, exp);
 		end
 
-
-		table.insert(targets, exp);
-
-		if toks[j] then
-			if toks[j]:is_op(OP_COMMA) then
-				j = j + 1;
-			elseif toks[j]:is_op(OP_ASSIGN) then
-				j = j + 1;
-				break;
-			elseif #targets == 1 then
-				return j, targets[1];
-			else
-				return syntax_error(toks, j, "expected ',' or '='");
+		if ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
+			j = j + 1;
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN) then
+			j = j + 1;
+			break;
+		elseif #targets == 1 then
+			if targets[1].type ~= "call" and targets[1].type ~= "method" then
+				syntax_error(ctx, exp_i, "unexpected non-call expression statement");
 			end
+			return j, targets[1];
+		else
+			syntax_error(ctx, j, "expected ',' or '='");
 		end
 	end
 
-	if err_i then return syntax_error(toks, err_i, "assign target must be an index or a var") end
+	if err_i then
+		syntax_error(ctx, err_i, "expected member expression or variable name");
+	end
 
-	j, values = parse_exp_list(toks, j);
-	if not values then return syntax_error(toks, j, "expected value list") end
+	j, values = parse_exp_list(ctx, j);
+	if not values then
+		syntax_error(ctx, j, "expected value list");
+		values = {};
+	end
 
-	return j, node.assign(toks[i].loc, targets, values);
+	return j, node.assign(syntax_loc(ctx, i), targets, values);
 end
 
-local function parse_local(toks, i)
+local function parse_local(ctx, i)
 	local j = i;
 	local names, values;
 
-	if not toks[j] or not toks[j]:is_op(OP_LOCAL) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_LOCAL) then return i end
 	j = j + 1;
 
-	j, names = parse_name_list(toks, j);
+	j, names = parse_name_list(ctx, j);
 	if not names then
-		return syntax_error(toks, j, "expected name list");
+		syntax_error(ctx, j, "expected name list");
+		names = {};
 	end
 
-	if toks[j] and toks[j]:is_op(OP_ASSIGN) then
+	if ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN) then
 		j = j + 1;
 
-		j, values = parse_exp_list(toks, j);
+		j, values = parse_exp_list(ctx, j);
 		if not values then
-			return syntax_error(toks, j, "expected exp list");
+			syntax_error(ctx, j, "expected value list");
+			values = {};
 		end
 	end
 
-	return j, node.decl(toks[i].loc, false, names, values);
+	return j, node.decl(syntax_loc(ctx, i), false, names, values);
 end
-local function parse_local_func(toks, i)
+local function parse_local_func(ctx, i)
 	local j = i;
 	local name, func;
 
-	if not toks[j] or not toks[j]:is_op(OP_LOCAL) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_LOCAL) then return i end
 	j = j + 1;
 
-	if not toks[j] or not toks[j]:is_op(OP_FUNCTION) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_FUNCTION) then return i end
 	j = j + 1;
 
-	if not toks[j] or not toks[j]:is_id() then return i end
-	name = toks[j].val;
+	if not ctx.toks[j] or not ctx.toks[j]:is_id() then return i end
+	name = ctx.toks[j].val;
 	j = j + 1;
 
-	j, func = parse_func_body(toks, j);
-	if not func then return syntax_error(toks, j, "expected function body") end
+	j, func = parse_func_body(ctx, j);
 
-	return j, node.decl(toks[i].loc, true, { name }, { func });
+	return j, node.decl(syntax_loc(ctx, i), true, { name }, { func });
 end
-local function parse_assign_func(toks, i)
+local function parse_assign_func(ctx, i)
 	local j = i;
 	local target, func;
 
-	if not toks[j] or not toks[j]:is_op(OP_FUNCTION) then return i end
+	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_FUNCTION) then return i end
 	j = j + 1;
 
-	j, target = parse_exp_prefix(toks, j, true);
-	if not target then return syntax_error(toks, j, "expected function assign target") end
+	j, target = parse_exp_prefix(ctx, j, true);
+	if not target then
+		syntax_error(ctx, j, "expected function assign target");
+		target = node.error(syntax_loc(ctx, j));
+	end
 
 	local args;
-	if toks[j] and toks[j]:is_op(OP_COLON) then
-		local index_loc = toks[j].loc;
+	if ctx.toks[j] and ctx.toks[j]:is_op(OP_COLON) then
+		local index_loc = ctx.toks[j].loc;
 		j = j + 1;
 
-		local name_loc = toks[j].loc;
-		if not toks[j] or not toks[j]:is_id() then
-			return syntax_error(toks, j, "expected identifier");
+		local name_loc = ctx.toks[j].loc;
+		local name;
+		if not ctx.toks[j] or not ctx.toks[j]:is_id() then
+			syntax_error(ctx, j, "expected identifier");
+		else
+			name = ctx.toks[j].val --[[@as string]];
+			j = j + 1;
 		end
-		j = j + 1;
 
 		args = { "self" };
-		target = node.index(index_loc, target, node.str(name_loc, toks[j - 1].val --[[@as string]]));
+		if name then
+			target = node.index(index_loc, target, node.str(name_loc, name));
+		end
 	end
 
 	--- @cast target node.assign_target
-	j, func = parse_func_body(toks, j, args);
-	if not func then return syntax_error(toks, j, "expected function body") end
+	j, func = parse_func_body(ctx, j, args);
 
-	return j, node.assign(toks[i].loc, { target }, { func });
+	return j, node.assign(syntax_loc(ctx, i), { target }, { func });
 end
 
---- @param toks lex.tok[]
+--- @param ctx syntax.ctx
 --- @param i integer
-function parse_stm(toks, i)
+function parse_stm(ctx, i)
 	local j = i;
 	local res;
 
-	j, res = parse_if(toks, i);
+	j, res = parse_if(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_while(toks, i);
+	j, res = parse_while(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_repeat(toks, i);
+	j, res = parse_repeat(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_for_in(toks, i);
+	j, res = parse_for(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_for(toks, i);
+	j, res = parse_scope(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_scope(toks, i);
+	j, res = parse_return(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_return(toks, i);
+	j, res = parse_break(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_break(toks, i);
+	j, res = parse_local_func(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_local_func(toks, i);
+	j, res = parse_local(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_local(toks, i);
+	j, res = parse_assign_func(ctx, i);
 	if res then return j, res end
 
-	j, res = parse_assign_func(toks, i);
+	j, res = parse_exp_stm(ctx, i);
 	if res then return j, res end
-
-	j, res = parse_assign(toks, i);
-	if res then return j, res end
-
-	j, res = parse_exp_prefix(toks, i);
-	if res and res.type == "call" then return j, res end
 
 	return i;
 end
 
 
---- @param toks lex.tok[]
+--- @param ctx syntax.ctx
 --- @param i integer
+--- @param eof_name string
 --- @param eof? integer[]
 --- @return integer
 --- @return node.stm[]
 --- @return integer
-function parse_stm_list(toks, i, eof)
+function parse_stm_list(ctx, i, eof_name, eof)
 	local j = i;
 	local res = {};
 
+	local last_bad = false;
+
 	while true do
-		while toks[j] and toks[j]:is_op(OP_SEMICOLON) do
+		while ctx.toks[j] and ctx.toks[j]:is_op(OP_SEMICOLON) do
 			j = j + 1;
 		end
 
-		if j > #toks then
-			if eof then return syntax_error(toks, j, "expected statement or <EOF>") end
+		if j > #ctx.toks then
+			if eof then
+				syntax_error(ctx, j, "expected statement or " .. eof_name)
+			end
 			return j, res, OP_END;
 		end
 
 		if eof then
 			for k = 1, #eof do
-				if toks[j]:is_op(eof[k]) then
-					return j + 1, res, toks[j].val --[[@as integer]];
+				if ctx.toks[j]:is_op(eof[k]) then
+					return j + 1, res, ctx.toks[j].val --[[@as integer]];
 				end
 			end
 		end
 
 		if #res > 0 and res[#res].type == "return" then
-			return syntax_error(toks, j, "expected <EOF> after return");
+			syntax_error(ctx, j, "expected " .. eof_name .. " after return");
 		end
 
 		local stm;
-		j, stm = parse_stm(toks, j);
+		j, stm = parse_stm(ctx, j);
 		if not stm then
-			return syntax_error(toks, j, "bad syntax");
+			if not last_bad then
+				syntax_error(ctx, j, "bad syntax");
+			end
+			last_bad = true;
+			j = j + 1;
+		else
+			last_bad = false;
 		end
 
 		table.insert(res, stm);
 	end
 end
 
---- @param src lex.tok[] | string
+--- @param src syntax.ctx | string
 --- @param strip? boolean
---- @return node.stm[]?
---- @return string? msg
---- @return node.loc? msg_loc
 local function parse_stm_wrap(src, strip)
 	if type(src) == "string" then
 		local toks, err, loc = lex.parse(src, strip);
-		if not toks then return nil, err, loc end
-		src = toks;
+		if not toks then return {}, { { msg = err, loc = loc } } end
+		src = { toks = toks, errs = {} };
 	end
 
-	local ok, i, res = pcall(parse_stm_list, src, 1, nil);
-	if not ok then
-		if type(i) == "table" and i[err_marker] then
-			return nil, i.msg, i.line;
-		else
-			error(i, 0);
-		end
-	end
-
-	return res;
+	local i, res = parse_stm_list(src, 1, "end of file", nil);
+	return res, src.errs;
 end
---- @param src lex.tok[] | string
+--- @param src syntax.ctx | string
 --- @param strip? boolean
---- @return node.stm[]?
---- @return string? msg
---- @return node.loc? msg_loc
 local function parse_exp_wrap(src, strip)
 	if type(src) == "string" then
 		local toks, err, loc = lex.parse(src, strip);
-		if not toks then return nil, err, loc end
-		src = toks;
+		if not toks then return node.error(), { { msg = err, loc = loc } } end
+		src = { toks = toks, errs = {} };
 	end
 
-	local ok, i, res = pcall(parse_exp, src, 1, nil);
-	if not ok then
-		if type(i) == "table" and i[err_marker] then
-			return nil, i.msg, i.line;
-		else
-			error(i, 0);
-		end
-	end
-
+	local i, res = parse_exp(src, 1, nil);
 	if i <= #src then
-		return nil, "unexpected syntax", src[i].loc;
+		table.insert(src.errs, { msg = "unexpected syntax", src[i].loc });
 	end
 
-	return res;
+	return res, src.errs;
 end
 
 return {
 	parse_exp = parse_exp_wrap,
 	parse = parse_stm_wrap,
-}
+};

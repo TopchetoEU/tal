@@ -39,7 +39,6 @@ lexer.operators = {
 
 	SEMICOLON = 60,
 	COLON = 61,
-	ARROW = 62,
 	LABEL = 63,
 	COMMA = 64,
 	DOT = 65,
@@ -106,10 +105,7 @@ lexer.kw_map = {
 
 local op_map = {
 	["+"] = { lexer.operators.ADD },
-	["-"] = {
-		lexer.operators.SUB,
-		[">"] = { lexer.operators.ARROW },
-	},
+	["-"] = { lexer.operators.SUB },
 
 	["*"] = { lexer.operators.MUL },
 	["/"] = {

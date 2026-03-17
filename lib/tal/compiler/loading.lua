@@ -121,8 +121,14 @@ function loading.load(chunk, name, mode, env, no_map)
 		end
 	end
 
-	local ast, err, loc = syntax.parse(chunk);
-	if not ast then return nil, loading.err_stringify(name, loc, err --[[@as string]]) end
+	local ast, errs = syntax.parse(chunk);
+	if #errs > 0 then
+		local parts = {};
+		for i = 1, #errs do
+			table.insert(parts, loading.err_stringify(name, errs[i].loc, errs[i].msg));
+		end
+		return nil, table.concat(parts, "\n");
+	end
 
 	ast = fix(ast);
 
