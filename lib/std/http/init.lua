@@ -117,46 +117,78 @@ function parse.read_body(str, headers)
 	end
 
 	if chunked then
-		local funcs = {};
+		local self = { str = str, done = false };
 
-		--- @param self { [1]?: std.io.stream }
-		function funcs:read(self)
-			local str = self[1];
-			if not str then return nil, "closed" end
+		function self:read()
+			if not self.str then return nil, "closed" end
+			if self.done then return nil end
 
-			local line, err = str:read "L";
-			if not line then return nil, err or "EOF" end
+			local line, err = self.str:read "L";
+			if not line then return nil, err or "broken pipe" end
 
 			local len = line:match "^([%da-zA-Z]+)\r\n$";
 			if not len then return nil, "malformed chunked encoding" end
 			len = tonumber(len, 16);
 
 			if len == 0 then
-				str:close();
-				self[1] = nil;
-				return "";
+				self.done = true;
+				return nil;
 			end
 
-			local line, err = str:read(len);
-			if not line then return nil, err or "EOF" end
+			local line, err = self.str:read(len);
+			if not line then return nil, err or "broken pipe" end
 
-			local term, err = str:read(2);
-			if not term then return nil, err or "EOF" end
+			local term, err = self.str:read(2);
+			if not term then return nil, err or "broken pipe" end
 			if term ~= "\r\n" then return nil, "malformed chunked encoding" end
 
 			return line;
 		end
-		function funcs:write()
+		function self:write()
 			return nil, "readonly";
 		end
-		function funcs:close(self)
-			self[1]:close();
-			self[1] = nil;
+		function self:close()
+			if self.str then
+				self.str:close();
+				self.str = nil;
+			end
 		end
 
-		return stream.new({ str }, funcs, true);
+		return stream.new(self, true);
 	elseif len then
-		return str;
+		local self = {
+			str = str,
+			n = len,
+		};
+
+		--- @param n? integer
+		function self:read(n)
+			if not self.str then return nil, "closed" end
+			if self.n == 0 then return nil end
+
+			n = n or 8192;
+			if n > self.n then
+				n = self.n;
+			end
+
+			local part, err = self.str:read(n);
+			if err then return nil, err end
+			if not part then return nil end
+
+			self.n = self.n - n;
+			return part;
+		end
+		function self:write()
+			return nil, "readonly";
+		end
+		function self:close()
+			if self.str then
+				self.str:close();
+				self.str = nil;
+			end
+		end
+
+		return stream.new(self, true);
 	else
 		return nil;
 	end
