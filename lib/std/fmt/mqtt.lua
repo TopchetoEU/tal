@@ -371,109 +371,109 @@ local function pk_wrap(type, flags, parts)
 	return table.concat(res);
 end
 
--- local writers = {};
+local writers = {};
 
--- function writers.connect(pk)
--- 	local flags = 0;
+function writers.connect(pk)
+	local flags = 0;
 
--- 	if pk.clean_session then flags = flags + 2 end
--- 	if pk.password then flags = flags + 64 end
--- 	if pk.username then flags = flags + 128 end
+	if pk.clean_session then flags = flags + 2 end
+	if pk.password then flags = flags + 64 end
+	if pk.username then flags = flags + 128 end
 
--- 	if pk.will then
--- 		flags = flags + 4;
--- 		if pk.will.retian then flags = flags + 32 end
--- 		flags = flags + bit.band(pk.will.qos, 3) * 8;
--- 	end
+	if pk.will then
+		flags = flags + 4;
+		if pk.will.retian then flags = flags + 32 end
+		flags = flags + bit.band(pk.will.qos, 3) * 8;
+	end
 
--- 	local parts = {
--- 		string.pack("!1> s2 I1 I1 I2 s2", "MQIsdp", 3, flags, pk.keepalive_max, pk.client_id),
--- 	};
+	local parts = {
+		string.pack("!1> s2 I1 I1 I2 s2", "MQIsdp", 3, flags, pk.keepalive_max, pk.client_id),
+	};
 
--- 	if pk.will then
--- 		parts[#parts + 1] = string.pack("!1> s2 s2", pk.will.topic, pk.will.msg);
--- 	end
--- 	if pk.username then
--- 		parts[#parts + 1] = string.pack("!1> s2", pk.username);
--- 	end
--- 	if pk.password then
--- 		parts[#parts + 1] = string.pack("!1> s2", pk.password);
--- 	end
+	if pk.will then
+		parts[#parts + 1] = string.pack("!1> s2 s2", pk.will.topic, pk.will.msg);
+	end
+	if pk.username then
+		parts[#parts + 1] = string.pack("!1> s2", pk.username);
+	end
+	if pk.password then
+		parts[#parts + 1] = string.pack("!1> s2", pk.password);
+	end
 
--- 	return pk_wrap(1, 0, parts);
--- end
--- function writers.ack(pk)
--- 	return pk_wrap(2, 0, { string.pack("!1> I1 I1", 0, pk.code or 0) });
--- end
--- function writers.publish(pk)
--- 	local flags = ((pk.qos or 0) & 3) << 1;
--- 	if pk.retain then flags = flags | 1 end
--- 	if pk.dup then flags = flags | 8 end
+	return pk_wrap(1, 0, parts);
+end
+function writers.ack(pk)
+	return pk_wrap(2, 0, { string.pack("!1> I1 I1", 0, pk.code or 0) });
+end
+function writers.publish(pk)
+	local flags = ((pk.qos or 0) & 3) << 1;
+	if pk.retain then flags = flags | 1 end
+	if pk.dup then flags = flags | 8 end
 
--- 	return pk_wrap(3, flags, { string.pack("!1> s2 I2", pk.topic, pk.id), pk.data });
--- end
--- function writers.puback(pk)
--- 	return pk_wrap(4, 2, { string.pack("!1> I2", pk.id) });
--- end
--- function writers.pubrec(pk)
--- 	return pk_wrap(5, 0, { string.pack("!1> I2", pk.id) });
--- end
--- function writers.pubrel(pk)
--- 	return pk_wrap(6, 0, { string.pack("!1> I2", pk.id) });
--- end
--- function writers.pubcomp(pk)
--- 	return pk_wrap(7, 0, { string.pack("!1> I2", pk.id) });
--- end
--- function writers.subscribe(pk)
--- 	local parts = { string.pack("!1> I2", pk.id) };
+	return pk_wrap(3, flags, { string.pack("!1> s2 I2", pk.topic, pk.id), pk.data });
+end
+function writers.puback(pk)
+	return pk_wrap(4, 2, { string.pack("!1> I2", pk.id) });
+end
+function writers.pubrec(pk)
+	return pk_wrap(5, 0, { string.pack("!1> I2", pk.id) });
+end
+function writers.pubrel(pk)
+	return pk_wrap(6, 0, { string.pack("!1> I2", pk.id) });
+end
+function writers.pubcomp(pk)
+	return pk_wrap(7, 0, { string.pack("!1> I2", pk.id) });
+end
+function writers.subscribe(pk)
+	local parts = { string.pack("!1> I2", pk.id) };
 
--- 	for i = 1, #pk.topics do
--- 		parts[i + 1] = string.pack("!1> s2 I1", pk.topics[i].name, pk.topics[i].qos);
--- 	end
+	for i = 1, #pk.topics do
+		parts[i + 1] = string.pack("!1> s2 I1", pk.topics[i].name, pk.topics[i].qos);
+	end
 
--- 	return pk_wrap(8, 2, parts);
--- end
--- function writers.suback(pk)
--- 	local parts = { string.pack("!1> I2", pk.id) };
+	return pk_wrap(8, 2, parts);
+end
+function writers.suback(pk)
+	local parts = { string.pack("!1> I2", pk.id) };
 
--- 	for i = 1, #pk.topics do
--- 		parts[i + 1] = string.pack("!1> I1", pk.granted_qos[i]);
--- 	end
+	for i = 1, #pk.topics do
+		parts[i + 1] = string.pack("!1> I1", pk.granted_qos[i]);
+	end
 
--- 	return pk_wrap(9, 0, parts);
--- end
--- function writers.unsubscribe(pk)
--- 	local parts = { string.pack("!1> I2", pk.id) };
+	return pk_wrap(9, 0, parts);
+end
+function writers.unsubscribe(pk)
+	local parts = { string.pack("!1> I2", pk.id) };
 
--- 	for i = 1, #pk.topics do
--- 		parts[i + 1] = string.pack("!1> s2", pk.topics[i]);
--- 	end
+	for i = 1, #pk.topics do
+		parts[i + 1] = string.pack("!1> s2", pk.topics[i]);
+	end
 
--- 	return pk_wrap(10, 2, parts);
--- end
--- function writers.unsuback(pk)
--- 	return pk_wrap(11, 0, { string.pack("!1> I2", pk.id) });
--- end
--- function writers.pingreq()
--- 	return pk_wrap(12, 0, {});
--- end
--- function writers.pingresp()
--- 	return pk_wrap(13, 0, {});
--- end
--- function writers.disconnect()
--- 	return pk_wrap(14, 0, {});
--- end
+	return pk_wrap(10, 2, parts);
+end
+function writers.unsuback(pk)
+	return pk_wrap(11, 0, { string.pack("!1> I2", pk.id) });
+end
+function writers.pingreq()
+	return pk_wrap(12, 0, {});
+end
+function writers.pingresp()
+	return pk_wrap(13, 0, {});
+end
+function writers.disconnect()
+	return pk_wrap(14, 0, {});
+end
 
--- local function write_packet(pk)
--- 	local writer = writers[pk.type];
--- 	if writer == nil then
--- 		error(table.concat { "Unknown packet type '", pk.type or "(nil)", "'" });
--- 	end
+local function write_packet(pk)
+	local writer = writers[pk.type];
+	if writer == nil then
+		error(table.concat { "Unknown packet type '", pk.type or "(nil)", "'" });
+	end
 
--- 	return writer(pk);
--- end
+	return writer(pk);
+end
 
 return {
 	read = packet_reader,
-	-- write = write_packet,
+	write = write_packet,
 };

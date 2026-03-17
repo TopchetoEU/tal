@@ -19,13 +19,16 @@ local function kind_of(obj)
 	end
 end
 
+--- @param s string
 local function escape_str(s)
 	local in_char = { "\\", "\"", "/", "\b", "\f", "\n", "\r", "\t" };
 	local out_char = { "\\", "\"", "/", "b", "f", "n", "r", "t" };
+
 	for i, c in ipairs(in_char) do
 		s = s:gsub(c, "\\" .. out_char[i]);
 	end
-	return s
+
+	return s;
 end
 
 -- Returns pos, did_find; there are two cases:
@@ -208,14 +211,12 @@ local function stringify_impl(obj, all, indent_str, n)
 		return "\"" .. escape_str(obj) .. "\"";
 	elseif kind == "number" then
 		return tostring(obj);
-	elseif kind == 'boolean' then
+	elseif kind == "boolean" then
 		return tostring(obj);
 	elseif kind == "nil" then
 		return "null";
 	elseif all then
 		return tostring(obj);
-	else
-		return nil;
 	end
 end
 
