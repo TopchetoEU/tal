@@ -1,8 +1,8 @@
-require "std.error";
-require "nat.ffi";
-
 local has_dbg, dbg = pcall(require, "lldebugger");
-if has_dbg then dbg.start() end
+if has_dbg then
+	debug = require "std.debug";
+	dbg.start();
+end
 
 return function (...)
 	local env = setmetatable({}, { __index = _G });
@@ -10,7 +10,7 @@ return function (...)
 	env._ENV = env;
 	setfenv(0, env);
 
-	require "tal.globs";
+	require "std.globals";
 	local loop = require "std.loop";
 	local entry = require "tal.cli";
 
@@ -26,5 +26,9 @@ return function (...)
 		entry(...);
 	end
 
-	return assert(loop.run());
+	assert(loop.run());
+
+	-- Run one more time to collect __gc tables
+	collectgarbage();
+	assert(loop.run());
 end
