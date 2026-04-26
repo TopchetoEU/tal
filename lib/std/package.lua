@@ -2,11 +2,17 @@
 
 require "std.string";
 require "std.printing";
-local load = require "tal.compiler.loading".load;
+local load = require "std.compiler.loading".load;
 local path = require "std.path";
 
-package.pathsep = ".";
-package.pathrep = path.sep;
+local package = {
+	path = package.path,
+	cpath = package.cpath,
+	loaded = package.loaded,
+	preload = package.preload,
+	pathsep = ".",
+	pathrep = path.sep,
+};
 
 local function override_one(old, override)
 	local prev_i = 1;
@@ -159,4 +165,4 @@ end
 package.loaders = { package.searchpreload, package.searchlua, package.searchc };
 package.searchers = package.loaders;
 
-require = package.require;
+return package;

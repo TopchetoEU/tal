@@ -1,4 +1,4 @@
-local nodes = require "tal.compiler.node";
+local nodes = require "std.compiler.node";
 --- @class stringify.ctx
 --- @field parts string[]
 --- @field map table<integer, node.loc>

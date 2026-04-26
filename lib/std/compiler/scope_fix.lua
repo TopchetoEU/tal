@@ -1,4 +1,4 @@
-local walk = require "tal.compiler.walk";
+local walk = require "std.compiler.walk";
 
 --- @class compiler.scope_fix.scope
 --- @field parent? compiler.scope_fix.scope

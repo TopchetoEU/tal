@@ -1,4 +1,4 @@
-local ops = require "tal.compiler.node".ops;
+local ops = require "std.compiler.node".ops;
 
 --- @alias compiler.walk.target "multi" | "single" | "bool"
 
