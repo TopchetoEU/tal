@@ -1,6 +1,6 @@
-local nodes = require "tal.compiler.node";
-local syntax = require "tal.compiler.syntax";
-local walk   = require "tal.compiler.walk"
+local nodes = require "std.compiler.node";
+local syntax = require "std.compiler.syntax";
+local walk   = require "std.compiler.walk"
 
 --- @class compiler.downgrade.ctx
 --- @field parts node.stm[]

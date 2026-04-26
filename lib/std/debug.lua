@@ -1,6 +1,6 @@
 -- Since our compiler supports columns, we need to patch lua's debug library to use our mappings
 
-local loading = require "tal.compiler.loading";
+local loading = require "std.compiler.loading";
 
 local old_getinfo = debug.getinfo;
 local old_sethook = debug.sethook;
@@ -11,7 +11,7 @@ local old_sethook = debug.sethook;
 --- @field lastcoldefined integer?
 --- @field activecols integer[]?
 
-local new_dbg = {
+local debug = {
 	debug = debug.debug,
 	getfenv = debug.getfenv,
 	gethook = debug.gethook,
@@ -29,7 +29,6 @@ local new_dbg = {
 	setupvalue = debug.setupvalue,
 	setuservalue = debug.setuservalue,
 	traceback = debug.traceback,
-	real_traceback = debug.traceback,
 
 	upvalueid = debug.upvalueid,
 	upvaluejoin = debug.upvaluejoin,
@@ -43,7 +42,7 @@ local function fix_args(...)
 	end
 end
 
-function new_dbg.sethook(...)
+function debug.sethook(...)
 	local th, f, mask, cnt = fix_args(...);
 
 	if mask and mask:find "l" and type(f) == "function" then
@@ -65,7 +64,7 @@ function new_dbg.sethook(...)
 		return old_sethook(f, mask, cnt);
 	end
 end
-function new_dbg.getinfo(...)
+function debug.getinfo(...)
 	local th, lvl, mask = fix_args(...);
 
 	if type(lvl) == "number" then
@@ -132,4 +131,4 @@ function new_dbg.getinfo(...)
 	return info;
 end
 
-return new_dbg;
+return debug;

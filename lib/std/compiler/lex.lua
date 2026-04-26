@@ -1,4 +1,4 @@
-local node = require "tal.compiler.node";
+local node = require "std.compiler.node";
 local lexer = {};
 
 lexer.operators = {

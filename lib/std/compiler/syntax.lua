@@ -1,5 +1,5 @@
-local lex = require "tal.compiler.lex";
-local node = require "tal.compiler.node";
+local lex = require "std.compiler.lex";
+local node = require "std.compiler.node";
 
 local OP_AND = lex.operators.AND;
 local OP_OR = lex.operators.OR;

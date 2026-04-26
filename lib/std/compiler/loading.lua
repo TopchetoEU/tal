@@ -1,7 +1,7 @@
-local syntax = require "tal.compiler.syntax";
-local downgrade = require "tal.compiler.downgrade";
-local stringify = require "tal.compiler.stringify";
-local node = require "tal.compiler.node";
+local syntax = require "std.compiler.syntax";
+local downgrade = require "std.compiler.downgrade";
+local stringify = require "std.compiler.stringify";
+local node = require "std.compiler.node";
 local loading = {};
 
 local load_raw = load;
