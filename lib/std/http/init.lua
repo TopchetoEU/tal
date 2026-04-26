@@ -1,5 +1,8 @@
 local headers = require "std.http.headers";
 local stream = require "std.io.stream";
+local buffer = require "string.buffer";
+local ffi    = require "ffi"
+local mutex  = require "std.sync.mutex"
 
 local codes_msgs = {
 	[100] = "Continue",
@@ -117,32 +120,43 @@ function parse.read_body(str, headers)
 	end
 
 	if chunked then
-		local self = { str = str, done = false };
+		local self = { str = str, done = false, buff = buffer.new() };
 
-		function self:read()
-			if not self.str then return nil, "closed" end
+		function self:read(ptr, n)
+			if not self.str then return "closed" end
 			if self.done then return nil end
 
-			local line, err = self.str:read "L";
-			if not line then return nil, err or "broken pipe" end
+			if #self.buff == 0 then
+				-- TODO: make async
+				local line, err = self.str:read "L";
+				if not line then return err or "broken pipe" end
 
-			local len = line:match "^([%da-zA-Z]+)\r\n$";
-			if not len then return nil, "malformed chunked encoding" end
-			len = tonumber(len, 16);
+				local slen = line:match "^([%da-zA-Z]+)\r\n$";
+				if not slen then return "malformed chunked encoding" end
+				local len = tonumber(slen, 16);
 
-			if len == 0 then
-				self.done = true;
-				return nil;
+				if len == 0 then
+					self.done = true;
+					return nil;
+				end
+
+				local line, err = self.str:read(len);
+				if not line then return err or "broken pipe" end
+
+				self.buff:put(line);
+
+				local term, err = self.str:read(2);
+				if not term then return err or "broken pipe" end
+				if term ~= "\r\n" then return "malformed chunked encoding" end
 			end
 
-			local line, err = self.str:read(len);
-			if not line then return nil, err or "broken pipe" end
+			if n > #self.buff then
+				n = #self.buff;
+			end
+			ffi.copy(ptr, self.buff:ref(), n);
+			self.buff:skip(n);
 
-			local term, err = self.str:read(2);
-			if not term then return nil, err or "broken pipe" end
-			if term ~= "\r\n" then return nil, "malformed chunked encoding" end
-
-			return line;
+			return n;
 		end
 		function self:write()
 			return nil, "readonly";
@@ -161,8 +175,7 @@ function parse.read_body(str, headers)
 			n = len,
 		};
 
-		--- @param n? integer
-		function self:read(n)
+		function self:read(ptr, n)
 			if not self.str then return nil, "closed" end
 			if self.n == 0 then return nil end
 
@@ -171,14 +184,9 @@ function parse.read_body(str, headers)
 				n = self.n;
 			end
 
-			local part, err = self.str:read(n);
-			if err then return nil, err end
-			if not part then return nil end
-
-			self.n = self.n - n;
-			return part;
+			return self.str:ptrread(false, ptr, n);
 		end
-		function self:write()
+		function self:write(n, ptr)
 			return nil, "readonly";
 		end
 		function self:close()
@@ -251,17 +259,12 @@ end
 --- @param stream std.io.stream
 --- @param headers http_headers
 function parse.write_headers(stream, headers)
-	local it = headers:iter();
-	local function iterator(stream, headers, it, k, ...)
-		if not k then
-			return parse.write_header(stream);
-		end
-
-		local _, err = parse.write_header(stream, k, ...);
+	for key in headers:keys() do
+		local _, err = parse.write_header(stream, key, headers:get(key));
 		if not _ then return nil, err end
-		return iterator(stream, headers, it, it(headers, k));
 	end
-	return iterator(stream, headers, it, it(headers, nil));
+
+	return parse.write_header(stream);
 end
 
 --- @param str std.io.stream
@@ -271,24 +274,33 @@ local function http_setup_body(str, body)
 	local _, err = str:write("transfer-encoding: chunked\r\n");
 	if not _ then return nil, err end
 
-	return stream.new({ str }, {
+	return stream.new({
+		str = str,
 		read = function ()
 			return nil, "writeonly";
 		end,
-		write = function (self, data)
-			if self[1] == nil then return nil, "closed" end
-			if #data ~= 0 then
-				return str:write(("%x\r\n%s\r\n"):format(#data, data));
-			end
+		write = function (self, ptr, n)
+			if self.str == nil then return nil, "closed" end
+			if n > 0 then
+				local _, err = self.str:write(("%x\r\n"):format(n));
+				if err then return nil, err end
 
-			return true;
+				local _, err = self.str:ptrwrite(true, ptr, n);
+				if err then return nil, err end
+
+				local _, err = self.str:write("\r\n");
+				if err then return nil, err end
+
+				return n;
+			else
+				return 0;
+			end
 		end,
 		close = function (self)
-			if self[1] then
-				self[1]:write "0\r\n\r\n";
-				self[1]:close();
+			if self.str then
+				self.str:async_write(self.str, self.str.close, "0\r\n\r\n");
 			end
-			self[1] = nil;
+			self.str = nil;
 		end
 	});
 end
@@ -304,7 +316,7 @@ function parse.write_req(stream, method, path, headers, body)
 	local _, err = stream:write(("%s %s HTTP/1.1\r\n"):format(method, path));
 	if not _ then return nil, err end
 
-	local body_str, err = http_setup_body(stream);
+	local body_str, err = http_setup_body(stream, body);
 	if not body_str then return nil, err end
 
 	local _, err = parse.write_headers(stream, headers);

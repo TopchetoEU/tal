@@ -1,4 +1,4 @@
-local loop = require "tal.loop";
+local loop = require "std.loop";
 local stream = require "std.io.stream";
 local field = require "std.field";
 local collected = require "std.collected";
