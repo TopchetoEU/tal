@@ -80,8 +80,12 @@ local function walk_all(self, nodes, sep)
 end
 
 --- @param node node.var
+function walkers.name(self, node)
+	emit(self, node, node.name.name);
+end
+--- @param node node.var
 function walkers.var(self, node)
-	emit(self, node, node.name);
+	emit(self, node, node.name.name);
 end
 --- @param node node.str
 function walkers.str(self, node)
@@ -149,7 +153,7 @@ function walkers.func(self, node)
 	emit(self, node, "function (");
 	for i = 1, #node.args do
 		if i > 1 then suffix(self, ",") end
-		suffix(self, node.args[i]);
+		suffix(self, node.args[i].name);
 	end
 
 	if node.var then
@@ -202,7 +206,7 @@ function walkers.decl(self, node)
 	emit(self, node, "local ");
 	for i = 1, #node.names do
 		if i > 1 then suffix(self, ",") end
-		suffix(self, node.names[i]);
+		suffix(self, node.names[i].name);
 	end
 
 	if node.values then
@@ -210,7 +214,7 @@ function walkers.decl(self, node)
 			suffix(self, " ");
 			for i = 1, #node.names do
 				if i > 1 then suffix(self, ",") end
-				suffix(self, node.names[i]);
+				suffix(self, node.names[i].name);
 			end
 		end
 
@@ -265,7 +269,7 @@ walkers["repeat"] = function (self, node)
 end
 --- @param node node.for
 walkers["for"] = function (self, node)
-	emit(self, node, "for " .. node.name .. " =");
+	emit(self, node, "for " .. node.name.name .. " =");
 	walk_all(self, { node.first, node.last, node.step }, ",");
 	suffix(self, " do");
 	walk_all(self, node.body, ";");
@@ -277,7 +281,7 @@ function walkers.for_in(self, node)
 
 	for i = 1, #node.names do
 		if i > 1 then suffix(self, ",") end
-		suffix(self, node.names[i]);
+		suffix(self, node.names[i].name);
 	end
 
 	suffix(self, " in");

@@ -5,7 +5,7 @@ local node = {};
 --- @field col integer
 
 --- @class node.base
---- @field loc node.loc
+--- @field loc? node.loc
 
 --- @class node.error: node.base
 --- @field type "error"
@@ -13,7 +13,7 @@ local node = {};
 --- @class node.decl: node.base
 --- @field type "decl"
 --- @field pre boolean
---- @field names string[]
+--- @field names node.name[]
 --- @field values? node.exp[]
 
 --- @class node.assign: node.base
@@ -34,7 +34,7 @@ local node = {};
 
 --- @class node.for: node.base
 --- @field type "for"
---- @field name string
+--- @field name node.name
 --- @field first node.exp
 --- @field last node.exp
 --- @field step? node.exp
@@ -42,7 +42,7 @@ local node = {};
 
 --- @class node.for_in: node.base
 --- @field type "for_in"
---- @field names string[]
+--- @field names node.name[]
 --- @field values node.exp[]
 --- @field body node.body
 
@@ -62,6 +62,8 @@ local node = {};
 --- @class node.break: node.base
 --- @field type "break"
 
+--- @class node.continue: node.base
+--- @field type "continue"
 
 --- @class node.call: node.base
 --- @field type "call"
@@ -70,7 +72,7 @@ local node = {};
 
 --- @class node.method: node.base
 --- @field type "method"
---- @field obj node.method
+--- @field obj node.exp
 --- @field name string
 --- @field [integer] node.exp
 
@@ -81,7 +83,7 @@ local node = {};
 
 --- @class node.op: node.base
 --- @field type "op"
---- @field op node.op
+--- @field op integer
 --- @field a node.exp
 --- @field b? node.exp
 --- @field [integer] node.exp
@@ -93,7 +95,7 @@ local node = {};
 
 --- @class node.func: node.base
 --- @field type "func"
---- @field args string[]
+--- @field args node.name[]
 --- @field var boolean
 --- @field body node.body
 
@@ -103,9 +105,14 @@ local node = {};
 --- @field vals node.exp[]
 --- @field arr node.exp[]
 
+--- @class node.name: node.base
+--- @field type "name"
+--- @field name string
+--- @field global boolean
+
 --- @class node.var: node.base
 --- @field type "var"
---- @field name string
+--- @field name node.name
 
 --- @class node.nil: node.base
 --- @field type "nil"
@@ -130,13 +137,16 @@ local node = {};
 --- @field val number
 
 --- @alias node.exp node.func | node.call | node.method | node.index | node.op | node.table | node.var | node.args | node.nil | node.str | node.bool | node.fl | node.int | node.paren | node.error
---- @alias node.assign_target node.index | node.var
---- @alias node.stm node.decl | node.assign | node.if | node.while | node.repeat | node.for | node.for_in | node.scope | node.return | node.break | node.call
---- @alias node node.stm | node.exp
+--- @alias node.assign_target node.index | node.name
+--- @alias node.stm node.decl | node.assign | node.if | node.while | node.repeat | node.for | node.for_in | node.scope | node.return | node.break | node.continue | node.call
+--- @alias node node.stm | node.exp | node.name
 
 --- @alias node.body node.stm[]
 
 node.ops = {
+	PREC_PAREN = -100,
+	PREC_CONST = -50,
+
 	POW = 1,
 
 	NOT = 2,
@@ -169,16 +179,23 @@ node.ops = {
 
 	AND = 36,
 	OR = 37,
+
+	PREC_NONE = 100,
 };
+
+local loc_meta = {};
+function loc_meta:__tostring()
+	return self.row.. ":" .. self.col;
+end
 
 --- @param row integer
 --- @param col integer
 --- @return node.loc
 function node.loc(row, col)
-	return { row = row, col = col };
+	return setmetatable({ row = row, col = col }, loc_meta);
 end
 
-if jit then
+if _G["jit"] then
 	local ffi = require "ffi";
 	ffi.cdef [[
 		typedef struct {
@@ -195,177 +212,166 @@ if jit then
 end
 
 
+--- @param arr node.stm[]
+function node.body(arr)
+	return arr --[[@as node.body]];
+end
+
 --- @param line? node.loc
---- @return node.error
 function node.error(line)
-	return { type = "error", loc = line };
+	return { type = "error", loc = line } --[[@as node.error]];
 end
 --- @param line? node.loc
 --- @param pre? boolean If the variables are declared before or after the values
 --- @param values? node.exp[]
---- @return node.decl
 function node.decl(line, pre, names, values)
-	return { type = "decl", loc = line, pre = pre or false, names = names, values = values };
+	return { type = "decl", loc = line, pre = pre or false, names = names, values = values } --[[@as node.decl]];
 end
 --- @param line? node.loc
---- @param targets? node.assign_target[]
---- @param values? node.exp[]
---- @return node.assign
+--- @param targets node.assign_target[]
+--- @param values node.exp[]
 function node.assign(line, targets, values)
-	return { type = "assign", loc = line, targets = targets, values = values };
+	return { type = "assign", loc = line, targets = targets, values = values } --[[@as node.assign]];
 end
 
 --- @param line? node.loc
 --- @param conds node.exp[]
 --- @param bodies node.body[]
 --- @param default? node.body
---- @return node.if
 function node._if(line, conds, bodies, default)
-	return { type = "if", loc = line, conds = conds, bodies = bodies, default = default };
+	return { type = "if", loc = line, conds = conds, bodies = bodies, default = default } --[[@as node.if]];
 end
 --- @param line? node.loc
 --- @param cond node.exp
 --- @param body node.body
---- @return node.while
 function node._while(line, cond, body)
-	return { type = "while", loc = line, cond = cond, body = body };
+	return { type = "while", loc = line, cond = cond, body = body } --[[@as node.while]];
 end
 --- @param line? node.loc
 --- @param cond node.exp
 --- @param body node.body
---- @return node.repeat
 function node._repeat(line, cond, body)
-	return { type = "repeat", loc = line, cond = cond, body = body };
+	return { type = "repeat", loc = line, cond = cond, body = body } --[[@as node.repeat]];
 end
 --- @param line? node.loc
---- @param name string
+--- @param name node.name
 --- @param first node.exp
 --- @param last node.exp
 --- @param step? node.exp
 --- @param body node.body
---- @return node.for
 function node._for(line, name, first, last, step, body)
-	return { type = "for", loc = line, name = name, first = first, last = last, step = step, body = body };
+	return { type = "for", loc = line, name = name, first = first, last = last, step = step, body = body } --[[@as node.for]];
 end
 --- @param line? node.loc
---- @param names string[]
+--- @param names node.name[]
 --- @param values node.exp[]
 --- @param body node.body
---- @return node.for
 function node.for_in(line, names, values, body)
-	return { type = "for_in", loc = line, names = names, values = values, body = body };
+	return { type = "for_in", loc = line, names = names, values = values, body = body } --[[@as node.for_in]];
 end
 --- @param line? node.loc
 --- @param body node.body
---- @return node.scope
 function node.scope(line, body)
-	return { type = "scope", loc = line, body = body };
+	return { type = "scope", loc = line, body = body } --[[@as node.scope]];
 end
 --- @param line? node.loc
 --- @param ... node.exp
---- @return node.return
 function node._return(line, ...)
-	return { type = "return", loc = line, ... };
+	return { type = "return", loc = line, ... } --[[@as node.return]];
 end
 --- @param line? node.loc
---- @return node.break
 function node._break(line, ...)
-	return { type = "break", loc = line };
+	return { type = "break", loc = line } --[[@as node.break]];
+end
+--- @param line? node.loc
+function node._continue(line, ...)
+	return { type = "continue", loc = line } --[[@as node.continue]];
 end
 
 --- @param name string
---- @return node.var
+--- @param global boolean
+function node.name(line, name, global)
+	return { type = "name", loc = line, name = name, global = global } --[[@as node.name]];
+end
+--- @param name node.name
 function node.var(line, name)
-	return { type = "var", loc = line, name = name };
+	return { type = "var", loc = line, name = name } --[[@as node.var]];
 end
 --- @param line? node.loc
---- @return node.args
 function node.args(line)
-	return { type = "args", loc = line };
+	return { type = "args", loc = line } --[[@as node.args]];
 end
 --- @param line? node.loc
---- @return node.nil
 function node._nil(line)
-	return { type = "nil", loc = line };
+	return { type = "nil", loc = line } --[[@as node.nil]];
 end
 --- @param line? node.loc
 --- @param val boolean
---- @return node.bool
 function node.bool(line, val)
-	return { type = "bool", loc = line, val = val };
+	return { type = "bool", loc = line, val = val } --[[@as node.bool]];
 end
 --- @param line? node.loc
 --- @param val string
---- @return node.str
 function node.str(line, val)
-	return { type = "str", loc = line, val = val };
+	return { type = "str", loc = line, val = val } --[[@as node.str]];
 end
 --- @param line? node.loc
 --- @param val integer
---- @return node.int
 function node.int(line, val)
-	return { type = "int", loc = line, val = val };
+	return { type = "int", loc = line, val = val } --[[@as node.int]];
 end
 --- @param line? node.loc
 --- @param val number
---- @return node.fl
 function node.fl(line, val)
-	return { type = "fl", loc = line, val = val };
+	return { type = "fl", loc = line, val = val } --[[@as node.fl]];
 end
 --- @param line? node.loc
 --- @param op integer
 --- @param a node.exp
 --- @param b? node.exp
---- @return node.op
 function node.op(line, op, a, b)
-	return { type = "op", loc = line, op = op, a = a, b = b };
+	return { type = "op", loc = line, op = op, a = a, b = b } --[[@as node.op]];
 end
 
 --- @param line? node.loc
 --- @param val node.exp
---- @return node.paren
 function node.paren(line, val)
-	return { type = "paren", loc = line, val = val };
+	return { type = "paren", loc = line, val = val } --[[@as node.paren]];
 end
 --- @param line? node.loc
---- @param args string[]
+--- @param args node.name[]
 --- @param var boolean
 --- @param body node.body
---- @return node.func
 function node.func(line, args, var, body)
-	return { type = "func", loc = line, args = args, var = var, body = body };
+	return { type = "func", loc = line, args = args, var = var, body = body } --[[@as node.func]];
 end
 
 --- @param line? node.loc
 --- @param func node.exp
 --- @param ... node.exp
---- @return node.call
 function node.call(line, func, ...)
-	return { type = "call", loc = line, func = func, ... };
+	return { type = "call", loc = line, func = func, ... } --[[@as node.call]];
 end
 --- @param line? node.loc
 --- @param obj node.exp
 --- @param name string
 --- @param ... node.exp
---- @return node.method
 function node.method(line, obj, name, ...)
-	return { type = "method", loc = line, obj = obj, name = name, ... };
+	return { type = "method", loc = line, obj = obj, name = name, ... } --[[@as node.method]];
 end
 --- @param line? node.loc
 --- @param keys node.exp[]
 --- @param vals node.exp[]
 --- @param arr node.exp[]
---- @return node.table
 function node.table(line, keys, vals, arr)
-	return { type = "table", loc = line, keys = keys, vals = vals, arr = arr };
+	return { type = "table", loc = line, keys = keys, vals = vals, arr = arr } --[[@as node.table]];
 end
 
 --- @param line? node.loc
 --- @param obj node.exp
 --- @param key node.exp
---- @return node.index
 function node.index(line, obj, key)
-	return { type = "index", loc = line, obj = obj, key = key };
+	return { type = "index", loc = line, obj = obj, key = key } --[[@as node.index]];
 end
 
 return node;

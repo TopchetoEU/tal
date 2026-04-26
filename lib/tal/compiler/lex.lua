@@ -45,6 +45,11 @@ lexer.operators = {
 	SPREAD = 66,
 
 	ASSIGN = 70,
+	ASSIGN_ADD = 71,
+	ASSIGN_SUB = 72,
+	ASSIGN_MUL = 73,
+	ASSIGN_DIV = 74,
+	ASSIGN_MOD = 75,
 
 	END = 99,
 
@@ -104,15 +109,16 @@ lexer.kw_map = {
 };
 
 local op_map = {
-	["+"] = { lexer.operators.ADD },
-	["-"] = { lexer.operators.SUB },
+	["+"] = { lexer.operators.ADD, ["="] = { lexer.operators.ASSIGN_ADD } },
+	["-"] = { lexer.operators.SUB, ["="] = { lexer.operators.ASSIGN_SUB } },
 
-	["*"] = { lexer.operators.MUL },
+	["*"] = { lexer.operators.MUL, ["="] = { lexer.operators.ASSIGN_MUL } },
 	["/"] = {
 		lexer.operators.DIV,
+		["="] = { lexer.operators.ASSIGN_DIV },
 		["/"] = { lexer.operators.IDIV },
 	},
-	["%"] = { lexer.operators.MOD },
+	["%"] = { lexer.operators.MOD, ["="] = { lexer.operators.ASSIGN_MOD } },
 
 	["&"] = { lexer.operators.B_AND },
 	["|"] = { lexer.operators.B_OR },
@@ -201,6 +207,11 @@ function token_meta:is_op(val)
 	if val and self.val ~= val then return false end
 
 	return true;
+end
+--- @param self lex.tok
+function token_meta:is_assign_op()
+	if self.type ~= "op" then return false end
+	return self.val >= lexer.operators.ASSIGN and self.val <= lexer.operators.ASSIGN_MOD;
 end
 --- @param self lex.tok
 --- @param val? string
@@ -311,23 +322,39 @@ local function read_escape_char(ctx, i)
 		return i + 1, "\t";
 	elseif ctx.src:match("^v", i) then
 		return i + 1, "\v";
+	elseif ctx.src:match("^\'", i) then
+		return i + 1, "\'";
+	elseif ctx.src:match("^\"", i) then
+		return i + 1, "\"";
 	elseif ctx.src:match("^n", i) then
 		return ctx.src:match("^%s*()", i), "";
 	elseif ctx.src:match("^x", i) then
 		local val, j = ctx.src:match("^x([0-9a-fA-F][0-9a-fA-F])()", i);
 		if not val then return nil, "invalid \\x escape sequence" end
 		return j, string.char(tonumber(val, 16));
+	elseif ctx.src:match("^z", i) then
+		local j = ctx.src:match("^z%s*()", i);
+		return j, "";
+	elseif ctx.src:match("^u", i) then
+		local val, j = ctx.src:match("^u{([0-9a-fA-F]+)}()", i);
+		if not val then return nil, "invalid \\u escape sequence" end
+		return nil, "unicode escape sequences not supported yet", find_loc(ctx, i - 1);
+		-- return j, utf8.char(tonumber(val, 16));
+	elseif ctx.src:match("^[0-9]", i) then
+		local val, j = ctx.src:match("^([0-9][0-9]?[0-9]?)()", i);
+		local c = tonumber(val);
+		if not c or c >= 256 then return nil, "decimal escape too large" end
+		return j, string.char(c);
+	elseif ctx.src:match("^.", i) then
+		return i + 1, ctx.src:sub(i, i);
 	else
-		local c = ctx.src:match("^.", i);
-		if not c then return nil, "unterminated string literal" end
-
-		return i + 1, c;
+		return nil, "illegal escape sequence in string";
 	end
 end
 
 --- @param ctx lex.ctx
 --- @param i integer
---- @return integer?, string?
+--- @return integer?, string?, node.loc?
 local function read_string(ctx, i)
 	local j, longlit = read_longlit(ctx, i);
 	if longlit then return j, longlit end
@@ -351,11 +378,11 @@ local function read_string(ctx, i)
 			return j, table.concat(parts);
 		elseif ctx.src:match("^\\", j) then
 			local _j, c = read_escape_char(ctx, j + 1);
-			if not _j then return nil, c end
+			if not _j then return nil, c, find_loc(ctx, j) end
 			table.insert(parts, c);
 			j = _j;
 		else
-			return nil, "unterminated string literal";
+			return nil, "unterminated string literal", find_loc(ctx, j);
 		end
 	end
 end
@@ -366,36 +393,44 @@ end
 local function read_number(ctx, i)
 	local j = i;
 
-	local hex = ctx.src:match("^0x([a-fA-F0-9]+)", j);
+	local hex = ctx.src:match("^0[xX]([a-fA-F0-9_]+)", j);
 	if hex then
-		return j + #hex + 2, "int", tonumber(hex, 16);
+		return j + #hex + 2, "int", tonumber(hex:gsub("_", ""), 16);
+	end
+
+	local bin = ctx.src:match("^0[bB]([01_]+)", j);
+	if bin then
+		return j + #bin + 2, "int", tonumber(bin:gsub("_", ""), 2);
 	end
 
 	local val, dot, e_sign, e;
-	val = ctx.src:match("^%d+", j);
+	val = ctx.src:match("^%d[%d_]*", j);
 	if val then
 		j = j + #val;
+		val = val:gsub("_", "");
 
-		dot = ctx.src:match("^%.(%d*)", j);
+		dot = ctx.src:match("^%.([%d_]*)", j);
 		if dot then
 			j = j + #dot + 1;
 			if #dot == 0 then dot = nil end
+			dot = dot:gsub("_", "");
 		end
 	else
-		dot = ctx.src:match("^%.(%d+)", j);
+		dot = ctx.src:match("^%.(%d[%d_]*)", j);
 		if not dot then return i end
 
 		j = j + #dot + 1;
+		dot = dot:gsub("_", "");
 	end
 
-	e_sign, e = ctx.src:match("^[eE]([+-]?)(%d+)", j);
+	e_sign, e = ctx.src:match("^[eE]([+-]?)([%d_]+)", j);
 	if e then j = j + #e + 1 end
 
 	if dot or e_sign == "-" then
 		return j, "fl", tonumber((val or "") .. "." .. (dot or "") .. (e and "e" .. e or ""));
 	end
 
-	e = e and tonumber(e, 10) or 0;
+	e = e and tonumber(e:gsub("_", ""), 10) or 0;
 	val = tonumber(val, 10);
 
 	local a = 10;
@@ -455,8 +490,8 @@ function lexer.next_token(ctx, i)
 
 	local loc = find_loc(ctx, i);
 
-	local j, res = read_string(ctx, i);
-	if not j then return nil, res, loc end
+	local j, res, err_loc = read_string(ctx, i);
+	if not j then return nil, res, err_loc end
 	if res then return j, loc, "str", res end
 
 	local j, kind, res = read_number(ctx, i);
@@ -479,7 +514,13 @@ end
 
 --- @param src string
 function lexer.stream_tokens(src)
-	return lexer.next_token, { src = src, line = 1 }, 1;
+	local ctx = { lines = { 0 }, src = src };
+
+	for i in src:gmatch "()\n" do
+		table.insert(ctx.lines, i);
+	end
+
+	return lexer.next_token, ctx, 1;
 end
 
 --- @param src string

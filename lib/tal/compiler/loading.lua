@@ -1,5 +1,5 @@
 local syntax = require "tal.compiler.syntax";
-local fix = require "tal.compiler.fix";
+local downgrade = require "tal.compiler.downgrade";
 local stringify = require "tal.compiler.stringify";
 local node = require "tal.compiler.node";
 local loading = {};
@@ -130,7 +130,7 @@ function loading.load(chunk, name, mode, env, no_map)
 		return nil, table.concat(parts, "\n");
 	end
 
-	ast = fix(ast);
+	ast = downgrade.walk_body(ast);
 
 	local str, map = stringify.all(ast);
 
