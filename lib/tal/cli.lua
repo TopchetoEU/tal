@@ -181,9 +181,7 @@ cli.main = args.cli {
 			end
 
 			table.insert(runners, function ()
-				cli.stacktrace_call(function ()
-					fun(table.unpack(args));
-				end);
+				return cli.stacktrace_call(fun, table.unpack(args));
 			end);
 		end
 
@@ -191,7 +189,7 @@ cli.main = args.cli {
 			use_req = true;
 
 			table.insert(runners, function ()
-				cli.stacktrace_call(function ()
+				return cli.stacktrace_call(function ()
 					package.root = fs.path "cwd";
 
 					local mod = require(ctx.module);
@@ -210,7 +208,7 @@ cli.main = args.cli {
 			use_req = true;
 
 			table.insert(runners, function ()
-				cli.stacktrace_call(function ()
+				return cli.stacktrace_call(function ()
 					local f = assert(io.open(ctx.file));
 					local src = f:read "a";
 					f:close();
