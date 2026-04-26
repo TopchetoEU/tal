@@ -1,7 +1,22 @@
-local field = require "std.field";
+local loop = require "std.loop";
+local cond = require "std.sync.cond";
 
--- A field of every collectable table, referring to its token
-local token_field = field();
+local queue = {};
+local queue_cond = cond();
+local kys = false;
+local th = loop.fork(function ()
+	while not kys do
+		while #queue > 0 do
+			local func, obj = table.unpack(table.remove(queue));
+			local ok, err = xpcall(func, debug.traceback, obj);
+			if not ok then
+				io.stderr:write("error in finalizer: ", err);
+			end
+		end
+		queue_cond:wait();
+	end
+end);
+loop.name(th, "Collector");
 
 -- TODO: this seems to work by pure magic
 
@@ -14,9 +29,11 @@ function meta.__gc(self)
 
 	local obj_meta = getmetatable(obj);
 	if obj_meta == meta then
-		return obj.func(obj.tab);
+		table.insert(queue, { obj.func, obj.tab });
+		queue_cond:signal(true);
 	elseif type(obj_meta) == "table" and type(obj_meta.__gc) == "function" then
-		return obj_meta.__gc(obj);
+		table.insert(queue, { obj_meta.__gc, obj });
+		queue_cond:signal(true);
 	end
 end
 function meta:__tostring()
@@ -38,6 +55,7 @@ return function (tab, func)
 	else
 		debug.setuservalue(token, tab);
 	end
-	token_field:set(tab, token);
+	-- This will break pairs(), oh well...
+	tab[meta_proxy] = token;
 	return tab;
 end
