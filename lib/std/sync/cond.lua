@@ -1,24 +1,18 @@
-local loop = require "tal.loop";
+local loop = require "std.loop";
 
 --- @class std.sync.cond
 --- @field _waiters thread[]
 --- @field _pending boolean
 local cond_index = {};
 
---- @param cb function | thread
-function cond_index:async_wait(cb)
-	if self._pending then
+function cond_index:wait()
+	if not self._pending then
+		table.insert(self._waiters, (coroutine.running()));
+		loop.await();
 		self._pending = false;
-		loop.push(cb);
-	else
-		table.insert(self._waiters, cb);
 	end
 end
-function cond_index:wait()
-	cond_index:async_wait(coroutine.running());
-	return coroutine.yield();
-end
---- @param all boolean
+--- @param all? boolean
 function cond_index:signal(all)
 	if #self._waiters == 0 then
 		self._pending = true;
@@ -39,5 +33,5 @@ end
 local mutex_meta = { __index = cond_index };
 
 return function ()
-	return setmetatable({ _waiters = {}, _pending = true, _owner = nil, _n = 0 }, mutex_meta);
+	return setmetatable({ _waiters = {}, _pending = false, _owner = nil, _n = 0 }, mutex_meta);
 end
