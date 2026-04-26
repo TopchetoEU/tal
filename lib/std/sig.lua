@@ -13,21 +13,21 @@ function sig.error(i, msg)
 
 	local name = debug.getinfo(2, "n");
 	if name then
-		res = res .. " to " .. name;
+		res = res .. " to " .. name.name;
 	end
 
 	if msg then
-		res = res .. "(" .. msg .. ")";
+		res = res .. " (" .. msg .. ")";
 	end
 
-	return error(msg, 2);
+	return error(res, 2);
 end
 
 --- @param i integer | string
 --- @param typename string
 --- @return ...
 function sig.error_type(val, i, typename)
-	return sig.error(i, typename .. "expected, got " .. type(val));
+	return sig.error(i, typename .. " expected, got " .. type(val));
 end
 
 --- @param i integer | string
