@@ -39,7 +39,7 @@ return function (arg)
 
 	local conn, err;
 	for i = 1, #dns_res do
-		conn, err = io.connect(dns_res[i], parsed.port or default_port);
+		conn, err = net.connect(dns_res[i], parsed.port or default_port);
 		if conn then break end
 	end
 

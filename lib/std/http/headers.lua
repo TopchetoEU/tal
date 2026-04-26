@@ -2,13 +2,11 @@
 --- @field _map table<string, string[]>
 local headers_index = {};
 --- @return (fun(self: http_headers, prev?: string): string?, ...: string?), http_headers
-function headers_index:iter()
+function headers_index:keys()
 	--- @param prev string?
 	--- @param self http_headers
 	return function (self, prev)
-		local key, val = next(self._map, prev);
-		if not val then return nil end
-		return key, table.unpack(val);
+		return (next(self._map, prev));
 	end, self;
 end
 --- @param name string
