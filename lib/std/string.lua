@@ -1,5 +1,5 @@
 --- @diagnostic disable: duplicate-set-field
-
+local lex = require "std.compiler.lex";
 
 --- @param self string
 --- @param sep? string
@@ -28,6 +28,17 @@ end
 --- @param self string
 function string:quote()
 	return (("%q"):format(self):gsub("\\\n", "\\n"));
+end
+--- @param self string
+function string:unquote()
+	-- Although we use the parser, this *should* be safe, as we don't execute any code
+	-- However, the solution and hand is really stupid
+	-- TODO: figure out something less stupid
+	local res, ctx = lex.stream_tokens(self);
+	local _, err, kind, val = res(ctx, 1);
+
+	if kind ~= "str" then return nil end
+	return val --[[@as string]];
 end
 
 --- Might not be safe...
