@@ -277,9 +277,9 @@ ev_code_t evs_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_fla
 // Gets a malloc'd string, representing the requested path
 ev_code_t evs_getpath(char **pres, ev_path_type_t type);
 
-// Gets an env variable from the current process
+// Gets an env variable from the current get_args
 ev_code_t evs_getenv(const char *name, char **pres);
-// Sets an env variable in the current process (if val is NULL, unsets it)
+// Sets an env variable in the current get_args (if val is NULL, unsets it)
 ev_code_t evs_setenv(const char *name, const char *val);
 // Iterates all key-value env pairs and sets them to pit, as "KEY=VAL\0"
 // pit contains impl-specific iteration data. Passing the pointer, stored after an iteration more than once is UB
@@ -370,12 +370,13 @@ end
 ev._ctype = ffi.metatype("struct ev", ev);
 
 --- @param func function
---- @param ev ev
---- @param obji integer
---- @return string? err
-local function ev_sync_call(func, ev, obji, ...)
-	local code = func(ev, ffi.cast("void*", obji), ...);
-	if code ~= 0 then return ffi.string(libev.ev_strerr(code)) end
+--- @param self ev
+--- @return boolean sync
+--- @return ...
+local function ev_sync_call(func, self, obj, ...)
+	local code = func(self, ffi.cast("void*", objects.add(obj)), ...);
+	if code ~= 0 then return true, nil, ffi.string(libev.ev_strerr(code)) end
+	return false;
 end
 
 local function ev_parse_ip(ip)
@@ -402,9 +403,9 @@ function ev:busy()
 	return libev.ev_busy(self);
 end
 --- @param timeout? number
---- @return boolean | "timeout"? ok
---- @return any ...
-function ev:poll(timeout)
+--- @return any? udata
+--- @return ...
+function ev:next(timeout)
 	local ptimeout = nil;
 	if timeout then
 		ptimeout = ffi.new "ev_time_t[1]";
@@ -419,12 +420,12 @@ function ev:poll(timeout)
 		local iudata = assert(tonumber(ffi.cast("size_t", pudata[0])));
 
 		local ctx = objects.get(iudata);
-		if type(ctx) ~= "table" then return nil, "invalid udata" end
+		assert(type(ctx) == "table", "invalid udata");
 		objects.del(iudata);
 
 		if perr[0] == 0 then
-			if ctx.process then
-				return ctx.udata, ctx:process();
+			if ctx.get_args then
+				return ctx.udata, ctx:get_args();
 			else
 				return ctx.udata, true;
 			end
@@ -432,7 +433,7 @@ function ev:poll(timeout)
 			return ctx.udata, nil, ffi.string(libev.ev_strerr(tonumber(perr[0]))), tonumber(perr[0]);
 		end
 	else
-		return "timeout";
+		return nil;
 	end
 end
 
@@ -449,76 +450,58 @@ end
 --- @param fd ev.handle
 --- @param n integer
 --- @param buff? ffi.cdata*
+--- @return boolean sync
+--- @return integer? n
 --- @return string? err
-function ev:rawread(udata, fd, n, buff)
+function ev:read(udata, fd, n, buff)
 	local ctx = {
 		udata = udata,
 		pn = ffi.new("size_t[1]", n),
 		buff = buff or ffi.new("char[?]", n),
-		process = function (self) return tonumber(self.pn[0]), self.buff end
+		get_args = function (self) return tonumber(self.pn[0]) end
 	};
 
-	return ev_sync_call(libev.ev_read, self, objects.add(ctx), fd, ctx.buff, ctx.pn);
+	return ev_sync_call(libev.ev_read, self, ctx, fd, ctx.buff, ctx.pn);
 end
 --- @param fd ev.handle
 --- @param n integer
 --- @param buff ffi.cdata* | string
+--- @return boolean sync
+--- @return integer? n
 --- @return string? err
-function ev:rawwrite(udata, fd, n, buff)
+function ev:write(udata, fd, n, buff)
 	if type(buff) == "string" then buff = ffi.cast("char*", buff) end
 
 	local ctx = {
 		udata = udata,
 		pn = ffi.new("size_t[1]", n),
 		buff = buff,
-		process = function (self) return tonumber(self.pn[0]), self.buff end
+		get_args = function (self) return tonumber(self.pn[0]) end
 	};
 
-	return ev_sync_call(libev.ev_write, self, objects.add(ctx), fd, ctx.buff, ctx.pn);
+	return ev_sync_call(libev.ev_write, self, ctx, fd, ctx.buff, ctx.pn);
 end
 --- @param fd ev.handle
---- @param n integer
---- @return string? err
-function ev:read(udata, fd, n)
-	local ctx = {
-		udata = udata,
-		pn = ffi.new("size_t[1]", n),
-		buff = ffi.new("char[?]", n),
-		process = function (self) return ffi.string(self.buff, self.pn[0]) end
-	};
-
-	return ev_sync_call(libev.ev_read, self, objects.add(ctx), fd, ctx.buff, ctx.pn);
-end
---- @param fd ev.handle
---- @param data string
---- @return string? err
-function ev:write(udata, fd, data)
-	local ctx = {
-		udata = udata,
-		pn = ffi.new("size_t[1]", #data),
-		buff = ffi.cast("char*", data),
-		process = function (self) return tonumber(self.pn[0]) end
-	};
-
-	return ev_sync_call(libev.ev_write, self, objects.add(ctx), fd, ctx.buff, ctx.pn);
-end
---- @param fd ev.handle
+--- @return boolean sync
+--- @return true? ok
 --- @return string? err
 function ev:sync(udata, fd)
 	local ctx = {
 		udata = udata,
-		process = function () return true end
+		get_args = function () return true end
 	};
 
-	return ev_sync_call(libev.ev_sync, self, objects.add(ctx), fd);
+	return ev_sync_call(libev.ev_sync, self, ctx, fd);
 end
 --- @param fd ev.handle
+--- @return boolean sync
+--- @return std.io.stat? stat
 --- @return string? err
 function ev:stat(udata, fd)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new("ev_stat_t[1]"),
-		process = function (self)
+		get_args = function (self)
 			local file_type = "file";
 			if self.pres[0].type == 1 then
 				file_type = "dir";
@@ -550,7 +533,7 @@ function ev:stat(udata, fd)
 		end
 	};
 
-	return ev_sync_call(libev.ev_stat, self, objects.add(ctx), fd, ctx.pres);
+	return ev_sync_call(libev.ev_stat, self, ctx, fd, ctx.pres);
 end
 --- @param fd ev.handle
 function ev:close(fd)
@@ -558,8 +541,10 @@ function ev:close(fd)
 end
 
 --- @param path string
---- @param flags std.fs.open_flags
+--- @param flags std.io.open_flags
 --- @param mode? integer | string
+--- @return boolean sync
+--- @return ev.file? file
 --- @return string? err
 function ev:file_open(udata, path, flags, mode)
 	local real_flags = 0;
@@ -588,109 +573,85 @@ function ev:file_open(udata, path, flags, mode)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "ev_handle_t[1]",
-		process = function (self) return self.pres[0] end
+		get_args = function (self) return self.pres[0] end
 	};
 
-	return ev_sync_call(libev.ev_file_open, self, objects.add(ctx), ctx.pres, path, real_flags, mode);
+	return ev_sync_call(libev.ev_file_open, self, ctx, ctx.pres, path, real_flags, mode);
 end
 --- @param fd ev.handle
 --- @param offset integer
 --- @param n integer
---- @param buff? ffi.cdata*
+--- @param buff ffi.cdata*
+--- @return boolean sync
+--- @return integer? n
 --- @return string? err
-function ev:file_rawread(udata, fd, offset, n, buff)
+function ev:file_read(udata, fd, offset, n, buff)
 	local ctx = {
 		udata = udata,
 		pn = ffi.new("size_t[1]", n),
 		buff = buff or ffi.new("char[?]", n),
-		process = function (self) return tonumber(self.pn[0]), self.buff end
+		get_args = function (self) return tonumber(self.pn[0]) end
 	};
 
-	return ev_sync_call(libev.ev_file_read, self, objects.add(ctx), fd, ctx.buff, ctx.pn, offset);
+	return ev_sync_call(libev.ev_file_read, self, ctx, fd, ctx.buff, ctx.pn, offset);
 end
 --- @param fd ev.handle
 --- @param offset integer
 --- @param n integer
 --- @param buff ffi.cdata* | string
+--- @return boolean sync
+--- @return integer? n
 --- @return string? err
-function ev:file_rawwrite(udata, fd, offset, n, buff)
+function ev:file_write(udata, fd, offset, n, buff)
 	if type(buff) == "string" then buff = ffi.cast("char*", buff) end
 
 	local ctx = {
 		udata = udata,
 		pn = ffi.new("size_t[1]", n),
 		buff = buff,
-		process = function (self) return tonumber(self.pn[0]), self.buff end
+		get_args = function (self) return tonumber(self.pn[0]), self.buff end
 	};
 
-	return ev_sync_call(libev.ev_file_write, self, objects.add(ctx), fd, ctx.buff, ctx.pn, offset);
-end
---- @param fd ev.handle
---- @param offset integer
---- @param n integer
---- @return string? err
-function ev:file_read(udata, fd, offset, n)
-	local ctx = {
-		udata = udata,
-		pn = ffi.new("size_t[1]", n),
-		buff = ffi.new("char[?]", n),
-		process = function (self) return ffi.string(self.buff, self.pn[0]) end
-	};
-
-	return ev_sync_call(libev.ev_file_read, self, objects.add(ctx), fd, ctx.buff, ctx.pn, offset);
-end
---- @param fd ev.handle
---- @param offset integer
---- @param data string
---- @return string? err
-function ev:file_write(udata, fd, offset, data)
-	local ctx = {
-		udata = udata,
-		pn = ffi.new("size_t[1]", #data),
-		buff = ffi.cast("char*", data),
-		process = function (self) return tonumber(self.pn[0]) end
-	};
-
-	return ev_sync_call(libev.ev_file_write, self, objects.add(ctx), fd, ctx.buff, ctx.pn, offset);
+	return ev_sync_call(libev.ev_file_write, self, ctx, fd, ctx.buff, ctx.pn, offset);
 end
 
 --- @param path string
 --- @param mode? integer | string
+--- @return boolean sync
+--- @return true? ok
 --- @return string? err
 function ev:dir_new(udata, path, mode)
-	if type(mode) == "string" then
-		mode = tonumber(mode, 8);
-	elseif mode == nil then
-		mode = 777;
-	end
-
 	local ctx = {
 		udata = udata,
-		process = function () return true end,
+		get_args = function () return true end
 	};
 
-	return ev_sync_call(libev.ev_dir_new, self, objects.add(ctx), path, mode);
+	return ev_sync_call(libev.ev_dir_new, self, ctx, path, mode);
 end
 --- @param path string
+--- @return boolean sync
+--- @return ev.dir? dir
 --- @return string? err
 function ev:dir_open(udata, path)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "ev_dir_t[1]",
-		process = function (self)
+		get_args = function (self)
 			return self.pres[0];
 		end
 	};
 
-	return ev_sync_call(libev.ev_dir_open, self, objects.add(ctx), ctx.pres, path);
+	return ev_sync_call(libev.ev_dir_open, self, ctx, ctx.pres, path);
 end
 --- @param dir ev.dir
+--- @return boolean sync
+--- @return string? name
 --- @return string? err
 function ev:dir_next(udata, dir)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "char*[1]",
-		process = function (self)
+		get_args = function (self)
 			if self.pres[0] == ffi.cast("void*", 0) then
 				return nil;
 			else
@@ -699,7 +660,7 @@ function ev:dir_next(udata, dir)
 		end
 	};
 
-	return ev_sync_call(libev.ev_dir_next, self, objects.add(ctx), dir, ctx.pres);
+	return ev_sync_call(libev.ev_dir_next, self, ctx, dir, ctx.pres);
 end
 --- @param dir ev.dir
 function ev:dir_close(dir)
@@ -708,7 +669,10 @@ end
 
 --- @param addr string
 --- @param port integer
---- @param prot? "tcp" | "udp" = tcp
+--- @param prot "tcp" | "udp"
+--- @param max_n integer
+--- @return boolean sync
+--- @return ev.server? server
 --- @return string? err
 function ev:server_bind(udata, addr, port, prot, max_n)
 	prot = prot or "tcp";
@@ -728,12 +692,14 @@ function ev:server_bind(udata, addr, port, prot, max_n)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "ev_server_t[1]",
-		process = function (self) return self.pres[0] end
+		get_args = function (self) return self.pres[0] end
 	}
 
-	return ev_sync_call(libev.ev_server_bind, self, objects.add(ctx), ctx.pres, real_prot, real_addr, port, max_n or 32);
+	return ev_sync_call(libev.ev_server_bind, self, ctx, ctx.pres, real_prot, real_addr, port, max_n);
 end
 --- @param server ev.server
+--- @return boolean sync
+--- @return { client: ev.handle, ip: string, port: integer }? res
 --- @return string? err
 function ev:server_accept(udata, server)
 	local ctx = {
@@ -741,10 +707,16 @@ function ev:server_accept(udata, server)
 		pclient = ffi.new "ev_handle_t[1]",
 		paddr = ffi.new "ev_addr_t[1]",
 		pport = ffi.new "uint16_t[1]",
-		process = function (self) return self.pclient[0], ev_stringify_ip(self.paddr[0]), assert(tonumber(self.pport[0])) end
+		get_args = function (self)
+			return {
+				client = self.pclient[0],
+				ip = ev_stringify_ip(self.paddr[0]),
+				port = assert(tonumber(self.pport[0]))
+			};
+		end
 	};
 
-	return ev_sync_call(libev.ev_server_accept, self, objects.add(ctx), ctx.pclient, ctx.paddr, ctx.pport, server);
+	return ev_sync_call(libev.ev_server_accept, self, ctx, ctx.pclient, ctx.paddr, ctx.pport, server);
 end
 --- @param fd ev.server
 function ev:server_close(fd)
@@ -753,6 +725,8 @@ end
 --- @param addr string
 --- @param port integer
 --- @param prot? "tcp" | "udp" = tcp
+--- @return boolean sync
+--- @return ev.handle? client
 --- @return string? err
 function ev:socket_connect(udata, addr, port, prot)
 	prot = prot or "tcp";
@@ -772,10 +746,10 @@ function ev:socket_connect(udata, addr, port, prot)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "ev_handle_t[1]",
-		process = function (self) return self.pres[0] end
+		get_args = function (self) return self.pres[0] end
 	}
 
-	return ev_sync_call(libev.ev_socket_connect, self, objects.add(ctx), ctx.pres, real_prot, real_addr, port);
+	return ev_sync_call(libev.ev_socket_connect, self, ctx, ctx.pres, real_prot, real_addr, port);
 end
 
 local function proc_fix_stdarg(stdarg)
@@ -793,13 +767,16 @@ end
 --- @param stdin? ev.handle | "pipe" | "inherit"
 --- @param stdout? ev.handle | "pipe" | "inherit"
 --- @param stderr? ev.handle | "pipe" | "inherit"
+--- @return boolean sync
+--- @return ev.proc? proc
+--- @return string? err
 function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 	local in_flag, out_flag, err_flag;
 
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "ev_proc_t[1]",
-		process = function (self)
+		get_args = function (self)
 			return self.pres[0],
 				in_flag == 2 and self.pin[0] or nil,
 				out_flag == 2 and self.pout[0] or nil,
@@ -843,14 +820,18 @@ function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 	out_flag, ctx.pout = proc_fix_stdarg(stdout);
 	err_flag, ctx.perr = proc_fix_stdarg(stderr);
 
-	return ev_sync_call(libev.ev_proc_spawn, self, objects.add(ctx), ctx.pres, ctx.argv, ctx.envp, cwd, in_flag, ctx.pin, out_flag, ctx.pout, err_flag, ctx.perr);
+	return ev_sync_call(libev.ev_proc_spawn, self, ctx, ctx.pres, ctx.argv, ctx.envp, cwd, in_flag, ctx.pin, out_flag, ctx.pout, err_flag, ctx.perr);
 end
+--- @param proc ev.proc
+--- @return boolean sync
+--- @return "sig" | "exit"? kind
+--- @return string | integer? err_or_code
 function ev:proc_wait(udata, proc)
 	local ctx = {
 		udata = udata,
 		pcode = ffi.new "int[1]",
 		psig = ffi.new "int[1]",
-		process = function (self)
+		get_args = function (self)
 			local code, sig = self.pcode[0], self.psig[0];
 
 			if sig >= 0 then return "sig", sig end
@@ -859,11 +840,13 @@ function ev:proc_wait(udata, proc)
 		end
 	}
 
-	return ev_sync_call(libev.ev_proc_wait, self, objects.add(ctx), proc, ctx.pcode, ctx.psig);
+	return ev_sync_call(libev.ev_proc_wait, self, ctx, proc, ctx.pcode, ctx.psig);
 end
 
 --- @param name string
---- @param flags? std.net.addrinfo_flags
+--- @param flags? std.io.net.addrinfo_flags
+--- @return boolean sync
+--- @return string[]? names
 --- @return string? err
 function ev:getaddrinfo(udata, name, flags)
 	local real_flags = 0;
@@ -886,7 +869,7 @@ function ev:getaddrinfo(udata, name, flags)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "ev_addrinfo_t[1]",
-		process = function (self)
+		get_args = function (self)
 			local res = {};
 
 			for i = 1, assert(tonumber(self.pres[0].n)) do
@@ -897,14 +880,12 @@ function ev:getaddrinfo(udata, name, flags)
 		end
 	};
 
-	return ev_sync_call(libev.ev_getaddrinfo, self, objects.add(ctx), ctx.pres, name, real_flags);
+	return ev_sync_call(libev.ev_getaddrinfo, self, ctx, ctx.pres, name, real_flags);
 end
 
 local exec_cache = setmetatable({}, { __mode = "k" });
 
 function ev:exec(udata, func, sig_str, ret_t, ...)
-	local time = require "std.time";
-
 	local sig;
 	if exec_cache[func] then
 		sig = exec_cache[func];
@@ -932,10 +913,10 @@ function ev:exec(udata, func, sig_str, ret_t, ...)
 	local ctx = {
 		udata = udata,
 		pret = ffi.new(ffi.typeof("$[1]", ffi.typeof(ret_t))),
-		process = function (self) return self.pret[0] end
+		get_args = function (self) return self.pret[0] end
 	};
 
-	return ev_sync_call(libev.ev_exec, self, objects.add(ctx), libev_dyn.ev_dyn_cb, libev_dyn.ev_dyn_args_new(sig, ctx.pret, args), true);
+	return ev_sync_call(libev.ev_exec, self, ctx, libev_dyn.ev_dyn_cb, libev_dyn.ev_dyn_args_new(sig, ctx.pret, args), true);
 end
 
 --- @return ev

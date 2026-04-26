@@ -1,7 +1,6 @@
 ---@class ffilib
 local ffi = require "ffi";
-require "tal.globs.package";
-require "std.printing";
+local package = require "std.package";
 
 local ffi_over = ffi;
 
