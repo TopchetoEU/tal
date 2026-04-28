@@ -1,4 +1,4 @@
-local exports = {};
+local json = {};
 
 local function kind_of(obj)
 	if type(obj) ~= "table" then return type(obj) end
@@ -92,8 +92,6 @@ local function parse_num_val(str, pos)
 	return val, pos + #num_str;
 end
 
-local json_end = { "eof" };
-
 local function parse_impl(str, pos, end_delim)
 	pos = pos or 1;
 	if pos > #str then error("Reached unexpected end of input") end
@@ -103,16 +101,17 @@ local function parse_impl(str, pos, end_delim)
 	local delim_found;
 
 	if c == "{" then
-		pos = pos + 1;
+		pos = str:find("%S", pos + 1) or pos + 1;
 
 		local key;
 		local obj = {};
 
-		c = string.sub(str, pos, pos);
+		c = str:sub(pos, pos);
 		if c == "}" then
-			return obj, pos
+			return obj, pos + 1;
 		else
 			while true do
+				pos = str:find("%S", pos) or pos;
 				key, pos = parse_str_val(str, pos, true);
 				if key == nil then error("Expected a string key") end
 
@@ -129,32 +128,33 @@ local function parse_impl(str, pos, end_delim)
 	elseif c == "[" then
 		pos = pos + 1
 
-		local arr = {};
+		local arr = { [json.array] = true };
+
 		local val;
-		local delim_found = true;
+		delim_found = true;
 
 		while true do
 			val, pos = parse_impl(str, pos, "]");
-			if val == json_end then return arr, pos end
+			if val == nil then return arr, pos end
 			if not delim_found then error("Comma missing between array items: " .. str:sub(pos, pos + 25)) end
 
 			table.insert(arr, val);
 			pos, delim_found = skip_delim(str, pos, ",");
 		end
-	elseif c == "\"" then	-- Parse a string.
+	elseif c == "\"" or c == "\'" then	-- Parse a string.
 		return parse_str_val(str, pos, false);
 	elseif c == "-" or c:find("%d") then	-- Parse a number.
 		return parse_num_val(str, pos);
 	elseif c == end_delim then	-- End of an object or array.
-		return json_end, pos + 1, true;
+		return nil, pos + 1;
 	elseif str:sub(pos, pos + 3) == "null" then
-		return nil, pos + 4;
+		return json.null, pos + 4;
 	elseif str:sub(pos, pos + 3) == "true" then
 		return true, pos + 4;
 	elseif str:sub(pos, pos + 4) == "false" then
-		return true, pos + 5;
+		return false, pos + 5;
 	else
-		error(table.concat { "Invalid json syntax starting at position ", pos, ": ", str:sub(pos, pos + 10) });
+		error(table.concat { "Invalid json syntax starting at position ", pos, ": ", str:sub(pos, pos + 25) });
 	end
 end
 
@@ -217,25 +217,33 @@ local function stringify_impl(obj, all, indent_str, n)
 		return "null";
 	elseif all then
 		return tostring(obj);
+	else
+		return nil;
 	end
 end
 
-function exports.stringify(obj, indent_str)
+function json.stringify(obj, indent_str)
 	if indent_str == true then
 		indent_str = "    ";
 	end
 	return stringify_impl(obj, false, indent_str, 0);
 end
-function exports.pretty(obj)
+function json.pretty(obj)
 	return stringify_impl(obj, true, "    ", 0);
 end
-exports.null = {};	-- This is a one-off table to represent the null value.
+--- This is a one-off table to represent the null value.
+json.null = newproxy(true);
+getmetatable(json.null).__tostring = function () return "<json null>" end
+
+--- Used to differentiate JSON arrays and object
+json.array = newproxy(true);
+getmetatable(json.array).__tostring = function () return "<json array tag>" end
 
 ---@param str string
 ---@return unknown
-function exports.parse(str)
+function json.parse(str)
 	local obj = parse_impl(str, 1);
 	return obj;
 end
 
-return exports;
+return json;

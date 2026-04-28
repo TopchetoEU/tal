@@ -41,14 +41,12 @@ function ffi.addpath(ffipath, dir)
 	return ffipath, (ffipath:gsub("%.so", "%.a"));
 end
 
-ffi.path = os.getenv "FFI_PATH";
+ffi.path = package.overridepath("?", os.getenv "FFI_PATH");
 
 if jit.os == "Windows" then
-	ffi.path = "?";
 	ffi.path, ffi.apath = ffi.addpath(ffi.path, "@");
 	ffi.path, ffi.apath = ffi.addpath(ffi.path, "C:\\Windows\\System32");
 else
-	ffi.path = "?";
 	ffi.path, ffi.apath = ffi.addpath(ffi.path, "@");
 	ffi.path, ffi.apath = ffi.addpath(ffi.path, "/usr/lib");
 	ffi.path, ffi.apath = ffi.addpath(ffi.path, "/usr/local/lib");

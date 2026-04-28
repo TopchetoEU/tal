@@ -225,7 +225,7 @@ function parse.read_req(stream)
 
 	return type, path, headers;
 end
---- @return integer | "EOF" | nil code
+--- @return integer | nil code
 --- @return http_headers | string? headers
 function parse.read_res(stream)
 	local line, err = stream:read "L";
@@ -241,7 +241,7 @@ function parse.read_res(stream)
 	local headers, err = parse.read_headers(stream);
 	if not headers then return nil, err end
 
-	return code, headers;
+	return tonumber(code), headers;
 end
 
 --- @param stream std.io.stream

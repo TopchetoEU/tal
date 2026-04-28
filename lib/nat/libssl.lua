@@ -63,12 +63,13 @@ local ssl = {};
 --- @class nat.libssl.ssl_ctx: ffi.cdata*
 local ssl_ctx_index = {};
 local ssl_ctx_meta = { __index = ssl_ctx_index };
-local ssl_ctx_type = ffi.metatype("SSL_CTX", ssl_ctx_meta);
 
 function ssl_ctx_meta:__gc()
-	print("FREE SSL CTX");
 	libssl.SSL_CTX_free(self);
 end
+
+local ssl_ctx_type = ffi.metatype("SSL_CTX", ssl_ctx_meta);
+
 
 --- @return nat.libssl.ssl_ctx
 function ssl.new_ctx()
@@ -78,6 +79,12 @@ end
 --- @class nat.libssl.bio: ffi.cdata*
 local bio_index = {};
 local bio_meta = { __index = bio_index };
+
+function bio_meta:__gc()
+	print("FREE BIO META");
+	return libssl.BIO_free(self);
+end
+
 local bio_type = ffi.metatype("BIO", bio_meta);
 
 --- @param n integer
@@ -101,11 +108,6 @@ function bio_index:write(n, ptr)
 	end
 end
 
-function bio_meta:__gc()
-	print("FREE BIO META");
-	return libssl.BIO_free(self);
-end
-
 --- @return nat.libssl.bio
 function ssl.new_bio()
 	return libssl.BIO_new(libssl.BIO_s_mem());
@@ -117,33 +119,37 @@ end
 
 --- @class nat.libssl.x509: ffi.cdata*
 local x509_index = {};
+
 local x509_meta = { __index = x509_index };
-local x509_type = ffi.metatype("X509", x509_meta);
 
 function x509_meta:__gc()
 	print("FREE X509");
 	return libssl.X509_free(self);
 end
 
+local x509_type = ffi.metatype("X509", x509_meta);
+
 --- @class nat.libssl.pkey: ffi.cdata*
 local pkey_index = {};
 local pkey_meta = { __index = pkey_index };
-local pkey_type = ffi.metatype("EVP_PKEY", pkey_meta);
 
 function pkey_meta:__gc()
 	print("FREE PKEY");
 	return libssl.EVP_PKEY_free(self);
 end
 
+local pkey_type = ffi.metatype("EVP_PKEY", pkey_meta);
+
 --- @class nat.libssl.ssl: ffi.cdata*
 local ssl_index = {};
 local ssl_meta = { __index = ssl_index };
-local ssl_type = ffi.metatype("SSL", ssl_meta);
 
 function ssl_meta:__gc()
 	print("FREE SSL");
 	return libssl.SSL_free(self);
 end
+
+local ssl_type = ffi.metatype("SSL", ssl_meta);
 
 function ssl_index:get_error(code)
 	return tonumber(libssl.SSL_get_error(self, code));
