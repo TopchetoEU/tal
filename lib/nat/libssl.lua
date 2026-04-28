@@ -25,6 +25,10 @@ ffi.cdef [[
 	void SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio);
 	void SSL_set_connect_state(SSL *s);
 	void SSL_set_accept_state(SSL *s);
+
+	long SSL_ctrl(SSL *ssl, int cmd, long larg, void *parg);
+	int SSL_set1_host(SSL *s, const char *host);
+
 	int SSL_use_PrivateKey(SSL *ssl, EVP_PKEY *pkey);
 	int SSL_use_certificate(SSL *ssl, X509 *x);
 	int SSL_do_handshake(SSL *s);
@@ -154,6 +158,18 @@ end
 function ssl_index:set_accept_state()
 	return libssl.SSL_set_accept_state(self);
 end
+function ssl_index:set_host(host)
+	if libssl.SSL_set1_host(self, host) == 0 then
+		return nil, self:get_error(0);
+	end
+
+	local code = libssl.SSL_ctrl(self, 55, 0, ffi.cast("void*", host));
+	if code == 2 then
+		return nil, self:get_error(code);
+	end
+
+	return true;
+end
 
 --- @param cert nat.libssl.x509
 function ssl_index:use_cert(cert)
@@ -163,15 +179,6 @@ end
 function ssl_index:use_key(key)
 	return libssl.SSL_use_PrivateKey(self, key);
 end
-
--- function ssl_index:do_handshake()
--- 	return tonumber(libssl.SSL_do_handshake(self));
--- end
--- --- @param ev ev
--- --- @param cb function | thread
--- function ssl_index:async_do_handshake(ev, cb)
--- 	return ev:exec(cb, libssl.SSL_do_handshake, "i*", "int", self);
--- end
 
 --- @param ev ev
 --- @param pn ffi.cdata*

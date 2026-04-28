@@ -46,7 +46,7 @@ return function (arg)
 	if not conn then return nil, err or "couldn't connect" end
 
 	if parsed.scheme == "https" then
-		conn = ssl { backend = conn, owned = true };
+		conn = ssl { backend = conn, owned = true, host = parsed.host };
 	end
 
 	local body_out, err = http.write_req(conn, arg.method or "GET", path, arg.headers, arg.body ~= nil);
