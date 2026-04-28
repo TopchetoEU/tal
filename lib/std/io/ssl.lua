@@ -76,6 +76,7 @@ end
 
 --- @class std.io.ssl_opts
 --- @field backend std.io.stream The stream over which to do TLS
+--- @field host? string For clients, name of the server we are connecting to
 --- @field owned? boolean If set to true, closing the created stream will close the backend too
 --- @field role? "client" | "server" What role the TLS stream will have. By default client
 --- @field cert? string Certificate to use. Only for servers
@@ -96,6 +97,9 @@ return function (opts)
 
 	if role == "client" then
 		hnd:set_connect_state();
+		if opts.host then
+			assert(hnd:set_host(opts.host));
+		end
 	else
 		hnd:use_cert(assert(libssl.read_x509(libssl.bio_from_str(opts.cert))));
 		hnd:use_key(assert(libssl.read_pkey(libssl.bio_from_str(opts.key))));
