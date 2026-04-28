@@ -15,26 +15,21 @@ return function (...)
 	local cert_p, key_p;
 	local rest;
 
-	while argv:has() do
-		local opts = not rest and argv:popopt() or nil;
-		if opts then
-			for opt in opts do
-				if opt == "--" then
-					rest = true;
-				elseif opt == "--addr" then
-					ip = argv:apop "expected address";
-				elseif opt == "--port" then
-					port = assert(tonumber(argv:apop "expected port", 10), "invalid port");
-				elseif opt == "--cert" then
-					cert_p = argv:apop "expected cert file";
-				elseif opt == "--key" then
-					key_p = argv:apop "expected key file";
-				else
-					error("unknown option '" .. opt .. "'");
-				end
+	for arg, isopt in argv:iter() do
+		if isopt then
+			if arg == "--addr" then
+				ip = argv:pop "expected address";
+			elseif arg == "--port" then
+				port = assert(tonumber(argv:pop "expected port", 10), "invalid port");
+			elseif arg == "--cert" then
+				cert_p = argv:pop "expected cert file";
+			elseif arg == "--key" then
+				key_p = argv:pop "expected key file";
+			else
+				error("unknown option '" .. arg .. "'");
 			end
 		else
-			error("unexpected argument '" .. argv:pop() .. "'");
+			error("unexpected argument '" .. arg .. "'");
 		end
 	end
 

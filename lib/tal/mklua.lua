@@ -431,52 +431,43 @@ return {
 			mode = "gen",
 		};
 
-		local rest = false;
-
-		while argv:has() do
-			local opts = not rest and argv:popopt() or nil;
-			if opts then
-				for opt in opts do
-					if opt == "--" then
-						rest = true;
-					elseif opt == "--help" or opt == "-h" then
-						print(help_msg);
-						return;
-					elseif opt == "--debug" or opt == "-g" then
-						ctx.debug = true;
-					elseif opt == "--noinc" then
-						ctx.noinc = true;
-					elseif opt == "--main" then
-						ctx.main = true;
-						ctx.entry = true;
-					elseif opt == "--entry" then
-						ctx.entry = true;
-					elseif opt == "--header" then
-						ctx.header = true;
-					elseif opt == "--gen" or opt == "-G" then
-						ctx.mode = "gen";
-					elseif opt == "--deps" or opt == "-D" then
-						ctx.mode = "deps";
-					elseif opt == "--libs" or opt == "-L" then
-						ctx.mode = "libs";
-					elseif opt == "--path" then
-						ctx.path = argv:apop("no value for " .. opt);
-					elseif opt == "--cpath" then
-						ctx.cpath = argv:apop("no value for " .. opt);
-					elseif opt == "--ffi-path" then
-						ctx.ffi_path = argv:apop("no value for " .. opt);
-					elseif opt == "--output" or opt == "-o" then
-						ctx.output = argv:apop("no value for " .. opt);
-					elseif opt == "--arg" then
-						table.insert(ctx.args, argv:apop("no value for " .. opt));
-					elseif opt == "--" then
-						rest = true;
-					else
-						error("unknown option " .. opt);
-					end
+		for arg, isopt in argv:iter() do
+			if isopt then
+				if arg == "--help" or arg == "-h" then
+					print(help_msg);
+					return;
+				elseif arg == "--debug" or arg == "-g" then
+					ctx.debug = true;
+				elseif arg == "--noinc" then
+					ctx.noinc = true;
+				elseif arg == "--main" then
+					ctx.main = true;
+					ctx.entry = true;
+				elseif arg == "--entry" then
+					ctx.entry = true;
+				elseif arg == "--header" then
+					ctx.header = true;
+				elseif arg == "--gen" or arg == "-G" then
+					ctx.mode = "gen";
+				elseif arg == "--deps" or arg == "-D" then
+					ctx.mode = "deps";
+				elseif arg == "--libs" or arg == "-L" then
+					ctx.mode = "libs";
+				elseif arg == "--path" then
+					ctx.path = argv:pop();
+				elseif arg == "--cpath" then
+					ctx.cpath = argv:pop();
+				elseif arg == "--ffi-path" then
+					ctx.ffi_path = argv:pop();
+				elseif arg == "--output" or arg == "-o" then
+					ctx.output = argv:pop();
+				elseif arg == "--arg" then
+					table.insert(ctx.args, argv:pop());
+				else
+					error("unknown option " .. arg);
 				end
 			else
-				table.insert(ctx.entries, argv:pop());
+				table.insert(ctx.entries, arg);
 			end
 		end
 

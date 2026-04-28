@@ -33,59 +33,49 @@ return function (...)
 	local debug = false;
 	local entry;
 
-	local rest = false;
+	for arg, isopt in argv:iter() do
+		if isopt then
+			if arg == "--help" or arg == "-h" then
+				print(help_msg);
+				return;
 
-	while argv:has() do
-		local opts = not rest and argv:popopt() or nil;
-		if opts then
-			for opt in opts do
-				if opt == "--" then
-					rest = true;
+			elseif arg == "--gen" or arg == "-G" then
+				mode = "gen";
+			elseif arg == "--deps" or arg == "-D" then
+				mode = "deps";
+			elseif arg == "--libs" or arg == "-L" then
+				mode = "libs";
 
-				elseif opt == "--help" or opt == "-h" then
-					print(help_msg);
-					return;
+			elseif arg == "--debug" or arg == "-g" then
+				debug = true;
+			elseif arg == "--output" or arg == "-o" then
+				output = argv:pop();
 
-				elseif opt == "--gen" or opt == "-G" then
-					mode = "gen";
-				elseif opt == "--deps" or opt == "-D" then
-					mode = "deps";
-				elseif opt == "--libs" or opt == "-L" then
-					mode = "libs";
-
-				elseif opt == "--debug" or opt == "-g" then
-					debug = true;
-				elseif opt == "--output" or opt == "-o" then
-					output = argv:apop("no value for " .. opt);
-
-				elseif opt == "--compiler" or opt == "-c" then
-					local compiler = argv:apop("no value for " .. opt);
-					if compiler == "gcc" then
-						compiler_cmd = { "cc", "-x", "c", "-", "-x", "none", "-lm" };
-						if output then
-							table.insert(compiler_cmd, "-o");
-							table.insert(compiler_cmd, output);
-						end
-					elseif compiler == "mscv" then
-						compiler_cmd = { "cl", "/Tc", "-" };
-						if output then
-							table.insert(compiler_cmd, "/Fe:" .. output);
-						end
-					else
-						error "invalid or unsupported compiler type";
+			elseif arg == "--compiler" or arg == "-c" then
+				local compiler = argv:pop();
+				if compiler == "gcc" then
+					compiler_cmd = { "cc", "-x", "c", "-", "-x", "none", "-lm" };
+					if output then
+						table.insert(compiler_cmd, "-o");
+						table.insert(compiler_cmd, output);
 					end
-
-				elseif opt == "--compiler-cmd" or opt == "-C" then
-					compiler_cmd = argv:poprest();
-
-				elseif opt == "--" then
-					rest = true;
+				elseif compiler == "mscv" then
+					compiler_cmd = { "cl", "/Tc", "-" };
+					if output then
+						table.insert(compiler_cmd, "/Fe:" .. output);
+					end
 				else
-					error("unknown option " .. opt);
+					error "invalid or unsupported compiler type";
 				end
+
+			elseif arg == "--compiler-cmd" or arg == "-C" then
+				compiler_cmd = { argv:poprest() };
+
+			else
+				error("unknown option " .. arg);
 			end
 		else
-			entry = argv:pop();
+			entry = arg;
 		end
 	end
 
