@@ -27,6 +27,8 @@ function meta.__gc(self)
 	local obj = debug.getuservalue(self);
 	if obj == nil then return end
 
+	obj[meta_proxy] = nil;
+
 	local obj_meta = getmetatable(obj);
 	if obj_meta == meta then
 		table.insert(queue, { obj.func, obj.tab });

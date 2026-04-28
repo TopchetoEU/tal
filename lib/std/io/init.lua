@@ -73,9 +73,9 @@ function io.open(path, mode)
 		end
 	elseif mode:find "a" then
 		if mode:find "+" then
-			flags = "rwa";
+			flags = "crwa";
 		else
-			flags = "wa";
+			flags = "cwa";
 		end
 	else
 		sig.error("mode", "invalid mode specified");

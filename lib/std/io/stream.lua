@@ -107,7 +107,7 @@ function stream_index:read(fmt)
 		local read_n, err = self._backend:read(ptr, ptr_n);
 		if err then return nil, err end
 		if read_n == 0 or not read_n then
-			if #self.buffr == 0 then
+			if #self.buffr == 0 and fmt ~= "a" then
 				return nil;
 			else
 				return seek_remainder(copy_res());
@@ -241,14 +241,10 @@ local stream_meta = {
 	__close = stream_index.close,
 };
 
+--- @param self std.io.stream
 function stream_meta:__gc()
 	if self._mngd then
-		-- TODO: store a trace stack in debug mode
-		if type(self._mngd) == "string" then
-			print("warning: Stream not freed: " .. self._mngd);
-		else
-			print("warning: Stream not freed");
-		end
+		self:close();
 	end
 end
 

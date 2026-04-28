@@ -30,7 +30,7 @@ local function assert(val, ...)
 	local message = ...;
 
 	if not val then
-		return error(message or "assertion failed!", 2);
+		return error(message or "assertion failed!", 1);
 	else
 		return val, ...;
 	end
