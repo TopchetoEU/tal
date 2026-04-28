@@ -1,5 +1,5 @@
 _TAL = "0.1.0-alpha";
-_ENV = _G;
+_G._ENV = _G;
 
 -- First, we import package to load all further packages using our require functions
 package = require "std.package";
@@ -25,4 +25,4 @@ error = err.error;
 assert = err.assert;
 throw = err.throw;
 
-return _ENV;
+return _G;
