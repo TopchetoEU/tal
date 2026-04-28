@@ -138,12 +138,10 @@ return function (...)
 			if #libs > 0 then
 				io.stderr:write [[
 The lua code depends on some native libraries. For luajit's ffi to find them,
-you must either 1. include them in the cwd (usually next to the executable),
-2. install the libraries on the targeted system or 3. install the libraries to
-a known path and then set the env variable FFI_PATH, so that ffi can find the
-libraries.
+they need to be in ffi.path locations. Make sure to include them either next
+to the executable or in the standard library locations.
 
-For easier distribution, bundle the executable + the libraries in an appimage.
+To get a list of all used libraries, use the -L option.
 ]];
 			end
 		elseif output then
