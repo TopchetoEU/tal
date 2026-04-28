@@ -40,7 +40,7 @@ clean: $(LUAJIT_MK) $(LIBEV_MK)
 $(PREFIX)/bin/tal:
 	mkdir -p $(dir $@)
 	echo '#!/usr/bin/env sh' > $@
-	echo '"$(PREFIX)/bin/luajit" "$(PREFIX)/$@.lua" "$$@"' >> $@
+	echo '"$(PREFIX)/bin/luajit" "$(PREFIX).lua" "$$@"' >> $@
 	chmod +x $@
 
 $(LUAJIT_MK):
