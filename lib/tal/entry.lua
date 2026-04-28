@@ -19,14 +19,19 @@ return function (entry_mod, ...)
 		local old_path = package.path;
 		package.path =
 			root .. "/?.lua;" .. root .. "/?/init.lua;" ..
-			root .. "/../lib/?.lua;" .. root .. "/../lib/?/init.lua;" ..
+			root .. "/../lib/lua/?.lua;" .. root .. "/../lib/lua/?/init.lua;" ..
 			old_path;
+
+		if not pcall(require, "std.path") then
+			print "error: TAL std libraries not found in the expected locations or the lua path. Please, fix your LUA_PATH";
+			os.exit(1);
+		end
 
 		local path = require "std.path";
 
 		package.path =
 			path.join(root, "?.lua") .. ";" .. path.join(root, "?/init.lua") .. ";" ..
-			path.join(root, "../lib/?.lua") .. ";" .. path.join(root, "../lib/?/init.lua") .. ";" ..
+			path.join(root, "../lib/lua/?.lua") .. ";" .. path.join(root, "../lib/lua/?/init.lua") .. ";" ..
 			old_path;
 
 		local ffi = require "nat.ffi";
@@ -47,7 +52,7 @@ return function (entry_mod, ...)
 
 		local override = path.join(root, "?.lua") .. ";" .. path.join(root, "?/init.lua") .. ";;";
 		if root ~= path.join(root, "../lib") then
-			override = path.join(root, "../lib/?.lua") .. ";" .. path.join(root, "../lib/?/init.lua") .. ";" .. override;
+			override = path.join(root, "../lib/lua/?.lua") .. ";" .. path.join(root, "../lib/lua/?/init.lua") .. ";" .. override;
 		end
 
 		override = override .. path.join("@", "?.lua") .. ";" .. path.join("@", "?/init.lua");
