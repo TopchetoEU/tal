@@ -1,6 +1,8 @@
 -- Since our compiler supports columns, we need to patch lua's debug library to use our mappings
 
 local loading = require "std.compiler.loading";
+local buffer = require "string.buffer";
+local sig = require "std.sig";
 
 local old_getinfo = debug.getinfo;
 local old_sethook = debug.sethook;
@@ -28,7 +30,6 @@ local debug = {
 	setmetatable = debug.setmetatable,
 	setupvalue = debug.setupvalue,
 	setuservalue = debug.setuservalue,
-	traceback = debug.traceback,
 
 	upvalueid = debug.upvalueid,
 	upvaluejoin = debug.upvaluejoin,
@@ -129,6 +130,54 @@ function debug.getinfo(...)
 	end
 
 	return info;
+end
+function debug.traceback(...)
+	local th, msg, lvl = fix_args(...);
+
+	lvl = sig.optnum(lvl, "lvl", 1) + 1;
+
+	local res = buffer.new();
+
+	if msg ~= nil then
+		res:put(tostring(msg), "\nstack traceback:");
+	else
+		res:put "stack traceback:";
+	end
+
+	while true do
+		local info = debug.getinfo(th or coroutine.running(), lvl, "Snl");
+		if not info then break end
+
+		local curr = "";
+
+		if info.short_src and (info.what == "Lua" or info.what == "main") then
+			curr = curr .. "in " .. info.short_src;
+		end
+
+		if info.currentline >= 0 then
+			curr = curr .. ":" .. info.currentline;
+			if info.currentcol then
+				curr = curr .. ":" .. info.currentcol;
+			end
+		end
+
+		if info.name and info.name ~= "main" then
+			if curr == "" then
+				curr = "at " .. info.name;
+			else
+				curr = curr .. " at " .. info.name;
+			end
+		end
+
+		if curr == "" then
+			res:put("\n\t<internal>");
+		else
+			res:put("\n\t", curr);
+		end
+		lvl = lvl + 1;
+	end
+
+	return tostring(res);
 end
 
 return debug;

@@ -1,6 +1,5 @@
 local readline = require "nat.libreadline";
 local printing = require "std.printing";
-local traceback = require "tal.traceback";
 local fs = require "std.io.fs";
 local path = require "std.path";
 local argp = require "std.fmt.argp"
@@ -23,7 +22,7 @@ end
 
 function cli.stacktrace_call(func, ...)
 	return stacktrace_fin(xpcall(func, function (err)
-		local trace = traceback(3);
+		local trace = debug.traceback(nil, 3);
 		return { err = err, trace = trace };
 	end, ...));
 end
@@ -181,7 +180,7 @@ function cli.main(...)
 				return;
 			end
 
-			fun(table.unpack(args));
+			fun();
 		end
 
 		if module then
