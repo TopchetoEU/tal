@@ -2,29 +2,34 @@ local loop = require "std.loop";
 local stream = require "std.io.stream";
 local field = require "std.field";
 local collected = require "std.collected";
-local handle = require "std.io.handle";
 local path = require "std.path";
+local impl = require "impl"
 
 local proc_fd = field();
 
 --- @class std.proc
+--- @field _fd _impl.process
+--- @field _closed boolean
 --- @field stdin std.io.stream?
 --- @field stdout std.io.stream?
 --- @field stderr std.io.stream?
 local proc_index = {};
 function proc_index:wait()
-	if not proc_fd:get(self) then return nil, "closed" end
+	if self._closed then return nil, "closed" end
 
-	local kind, code = loop.curr.ev:sproc_wait(proc_fd:get(self));
+	local kind, code = loop.sync_ret(self._fd:wait(coroutine.running()));
 	if not kind then return nil, code end
 
 	proc_fd:set(self, nil);
-	return kind, code;
+
+	self._closed = true;
+
+	return code;
 end
 
 local proc_meta = { __index = proc_index };
 function proc_meta:__gc()
-	if proc_fd:get(self) then
+	if not self._closed then
 		print "warn: proc not freed";
 	end
 end
@@ -34,9 +39,9 @@ end
 --- @field path? string | boolean Supports package.overridepath, set to ";;" or true to use PATH env variable. Set to false for no path resolution
 --- @field env? { [string]: string, [integer]: { [1]: string, [2]: string } }
 --- @field cwd? string
---- @field stdin? "inherit" | "pipe" | std.io.stream
---- @field stdout? "inherit" | "pipe" | std.io.stream
---- @field stderr? "inherit" | "pipe" | std.io.stream
+--- @field stdin? "inherit" | "pipe"
+--- @field stdout? "inherit" | "pipe"
+--- @field stderr? "inherit" | "pipe"
 
 --- @param opts std.proc.opts
 --- @return std.proc?
@@ -72,23 +77,17 @@ return function (opts)
 		end
 	end
 
-	if
-		opts.stdin ~= "inherit" and opts.stdin ~= "pipe" or
-		opts.stdout ~= "inherit" and opts.stdout ~= "pipe" or
-		opts.stdout ~= "inherit" and opts.stdout ~= "pipe"
-	then
-		error "passing stream to spawn not supported";
-	else
-		local proc, stdin, stdout, stderr = loop.curr.ev:sproc_spawn(opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr);
-		if not proc then return nil, stdin end
+	local res, err = loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr));
+	if err then return nil, err end
 
-		local res = setmetatable(collected({
-			stdin = stdin and stream.new(handle(stdin), nil, true),
-			stdout = stdout and stream.new(handle(stdout), nil, true),
-			stderr = stderr and stream.new(handle(stderr), nil, true)
-		}), proc_meta);
-		proc_fd:set(res, proc);
+	local self = setmetatable(collected({
+		_fd = res.proc,
+		_closed = false,
+		stdin = res.stdin and stream.from_stream(res.stdin, false),
+		stdout = res.stdout and stream.from_stream(res.stdout, false),
+		stderr = res.stderr and stream.from_stream(res.stderr, false)
+	}), proc_meta);
+	proc_fd:set(self, res.proc);
 
-		return res;
-	end
+	return self;
 end

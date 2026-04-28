@@ -71,11 +71,19 @@ local server = {};
 function server:next(udata) end
 function server:close() end
 
---- @class _impl.iterenv_backend
-local iterenv_backend = {};
+--- @class _impl.iterenv
+local iterenv = {};
 --- @return string?, string?
-function iterenv_backend:next() end
-function iterenv_backend:close() end
+function iterenv:next() end
+function iterenv:close() end
+
+--- @class _impl.process
+local process = {};
+--- @return boolean sync
+--- @return integer?, string?
+function process:wait(udata) end
+-- TODO: add close()
+-- function process:close() end
 
 --- @class _impl
 --- @field stdin _impl.stream
@@ -161,9 +169,20 @@ function _impl:getenv(name) end
 --- @return true?
 --- @return string? err
 function _impl:setenv(name, val) end
---- @return _impl.iterenv_backend?
+--- @return _impl.iterenv?
 --- @return string? err
 function _impl:iterenv() end
+
+--- @param argv string[]
+--- @param env { [string]: string, [integer]: { [1]: string, [2]: string } }
+--- @param cwd? string
+--- @param stdin? "pipe" | "inherit"
+--- @param stdout? "pipe" | "inherit"
+--- @param stderr? "pipe" | "inherit"
+--- @return boolean sync
+--- @return { proc: _impl.process, stdin?: std.io.stream, stdout?: std.io.stream, stder?: std.io.stream }?
+--- @return string? err
+function _impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr) end
 
 --- Returns a callback + arguments to be called if successful
 --- Returns nil

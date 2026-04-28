@@ -609,7 +609,7 @@ function ev:file_write(udata, fd, offset, n, buff)
 		udata = udata,
 		pn = ffi.new("size_t[1]", n),
 		buff = buff,
-		get_args = function (self) return tonumber(self.pn[0]), self.buff end
+		get_args = function (self) return tonumber(self.pn[0]) end
 	};
 
 	return ev_sync_call(libev.ev_file_write, self, ctx, fd, ctx.buff, ctx.pn, offset);
@@ -768,7 +768,7 @@ end
 --- @param stdout? ev.handle | "pipe" | "inherit"
 --- @param stderr? ev.handle | "pipe" | "inherit"
 --- @return boolean sync
---- @return ev.proc? proc
+--- @return { proc: ev.proc, stdin?: ev.handle, stdout?: ev.handle, stderr?: ev.handle }?
 --- @return string? err
 function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 	local in_flag, out_flag, err_flag;
@@ -777,10 +777,12 @@ function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 		udata = udata,
 		pres = ffi.new "ev_proc_t[1]",
 		get_args = function (self)
-			return self.pres[0],
-				in_flag == 2 and self.pin[0] or nil,
-				out_flag == 2 and self.pout[0] or nil,
-				err_flag == 2 and self.perr[0] or nil;
+			return {
+				proc = self.pres[0],
+				stdin = in_flag == 2 and self.pin[0] or nil,
+				stdout = out_flag == 2 and self.pout[0] or nil,
+				stderr = err_flag == 2 and self.perr[0] or nil,
+			};
 		end
 	}
 

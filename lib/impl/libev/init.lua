@@ -6,6 +6,7 @@ local ev_server = require "impl.libev.ev_server";
 local ev_handle = require "impl.libev.ev_handle";
 local ev_iterenv = require "impl.libev.ev_iterenv";
 local process_args = require "impl.libev.process_args"
+local ev_proc = require "impl.libev.ev_proc"
 
 --- @type _impl | { ev: ev }
 local ev_impl_index = {};
@@ -81,6 +82,19 @@ function ev_impl_index:iterenv()
 	return ev_iterenv(self.ev);
 end
 
+function ev_impl_index:spawn(udata, argv, env, cwd, stdin, stdout, stderr)
+	return self.ev:proc_spawn(process_args.wrap_udata(udata, function (res, err)
+		if res then
+			res.proc = ev_proc(self.ev, res.proc);
+			res.stdin = res.stdin and ev_handle(self.ev, res.stdin);
+			res.stdout = res.stdout and ev_handle(self.ev, res.stdout);
+			res.stderr = res.stderr and ev_handle(self.ev, res.stderr);
+		end
+
+		return res, err;
+	end), argv, env, cwd, stdin, stdout, stderr);
+end
+
 local function next_processargs(udata, ...)
 	if type(udata) == "table" and udata.tag == process_args.wrap_tag then
 		return udata.udata, udata.process_args(...);
@@ -91,9 +105,9 @@ end
 
 function ev_impl_index:next(timeout)
 	if not self.ev:busy() and not timeout then
-		print "EMPTY EV";
 		return nil;
 	end
+
 	return next_processargs(self.ev:next(timeout));
 end
 
