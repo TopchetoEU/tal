@@ -1,7 +1,7 @@
-local args = require "std.fmt.args";
-local mklua= require "tal.mklua"
+local argp = require "std.fmt.argp";
+local mklua = require "tal.mklua";
 local spawn = require "std.proc";
-local ffi   = require "ffi"
+local ffi = require "ffi";
 
 local help_msg = [[tal bundle by TopchetoEU
 
@@ -23,66 +23,93 @@ Flags:
 --bootstrap <module> - specifies an alternative to "tal.entry" that will bootstrap the compiled module
 ]]
 
-return args.cli {
-	ctx = {},
-	flags = {
-		help = args.bool "help",
-		["compile-cmd"] = args.rest "compile_cmd",
-		compiler = args.str "compiler",
-		output = args.str "output",
-		debug = args.bool "debug",
-		deps = args.bool "deps",
-		libs = args.bool "libs",
+return function (...)
+	local argv = argp.new(...);
 
-		bootstrap = args.str "bootstrap",
+	local mode = "gen";
+	local bootstrap = "tal.entry";
+	local compiler_cmd;
+	local output;
+	local debug = false;
+	local entry;
 
-		C = "compile-cmd",
-		c = "compiler",
-		o = "output",
-		g = "debug",
-	},
-	rest = args.str "entry",
-	next = function (ctx)
-		if ctx.help or not ctx.compile_cmd and not ctx.compiler and not ctx.output then
-			return io.stderr:write(help_msg);
-		end
+	local rest = false;
 
-		if not ctx.entry then
-			return io.stderr:write "error: an entry must be specified\n";
-		end
+	while argv:has() do
+		local opts = not rest and argv:popopt() or nil;
+		if opts then
+			for opt in opts do
+				if opt == "--" then
+					rest = true;
 
-		if ctx.compiler then
-			if ctx.compiler == "gcc" then
-				ctx.compile_cmd = { "cc", "-x", "c", "-", "-x", "none", "-lm" };
+				elseif opt == "--help" or opt == "-h" then
+					print(help_msg);
+					return;
 
-				if ctx.output then
-					table.insert(ctx.compile_cmd, "-o");
-					table.insert(ctx.compile_cmd, ctx.output);
+				elseif opt == "--gen" or opt == "-G" then
+					mode = "gen";
+				elseif opt == "--deps" or opt == "-D" then
+					mode = "deps";
+				elseif opt == "--libs" or opt == "-L" then
+					mode = "libs";
+
+				elseif opt == "--debug" or opt == "-g" then
+					debug = true;
+				elseif opt == "--output" or opt == "-o" then
+					output = argv:apop("no value for " .. opt);
+
+				elseif opt == "--compiler" or opt == "-c" then
+					local compiler = argv:apop("no value for " .. opt);
+					if compiler == "gcc" then
+						compiler_cmd = { "cc", "-x", "c", "-", "-x", "none", "-lm" };
+						if output then
+							table.insert(compiler_cmd, "-o");
+							table.insert(compiler_cmd, output);
+						end
+					elseif compiler == "mscv" then
+						compiler_cmd = { "cl", "/Tc", "-" };
+						if output then
+							table.insert(compiler_cmd, "/Fe:" .. output);
+						end
+					else
+						error "invalid or unsupported compiler type";
+					end
+
+				elseif opt == "--compiler-cmd" or opt == "-C" then
+					compiler_cmd = argv:poprest();
+
+				elseif opt == "--" then
+					rest = true;
+				else
+					error("unknown option " .. opt);
 				end
-			elseif ctx.compiler == "msvc" then
-				ctx.compile_cmd = { "cl", "/Tc", "-" };
-
-				if ctx.output then
-					table.insert(ctx.compile_cmd, "/Fe:" .. ctx.output);
-				end
-			else
-				io.stderr:write "invalid compiler preset\n";
-				return;
 			end
+		else
+			entry = argv:pop();
 		end
+	end
 
-		local mklua_ctx = {
-			entries = { ctx.bootstrap or "tal.entry", ctx.entry },
-			args = { "-m", ctx.entry },
-			path = package.path,
-			cpath = package.cpath,
-			entry = true,
-			main = true,
-			noinc = true,
-			debug = ctx.debug,
-		};
+	if not compiler_cmd and not output then
+		return io.stderr:write(help_msg);
+	end
 
-		if ctx.compile_cmd then
+	if not entry then
+		return io.stderr:write "error: an entry must be specified\n";
+	end
+
+	local mklua_ctx = {
+		entries = { bootstrap or "tal.entry", entry },
+		args = { entry },
+		path = package.path,
+		cpath = package.cpath,
+		entry = true,
+		main = true,
+		noinc = true,
+		debug = debug,
+	};
+
+	if mode == "gen" then
+		if compiler_cmd then
 			local lj_lib, err_a, err_so;
 			lj_lib, err_a = package.searchpath("luajit", ffi.apath);
 			if not lj_lib then
@@ -93,10 +120,10 @@ return args.cli {
 				end
 			end
 
-			table.insert(ctx.compile_cmd, lj_lib)
+			table.insert(compiler_cmd, lj_lib)
 
 			local comp_proc = assert(spawn {
-				argv = ctx.compile_cmd,
+				argv = compiler_cmd,
 				stdin = "pipe",
 				env = { PATH = os.getenv "PATH" or "" }
 			});
@@ -119,29 +146,31 @@ libraries.
 For easier distribution, bundle the executable + the libraries in an appimage.
 ]];
 			end
-		elseif ctx.output then
-			local f, close = mklua.open_w(ctx.output);
+		elseif output then
+			local f, close = mklua.open_w(output);
 			mklua.gen(mklua_ctx, { f = f });
 			close(f);
-		elseif ctx.libs then
-			local libs = {};
+		else
+			print(help_msg);
+		end
+	elseif mode == "libs" then
+		local libs = {};
 
-			mklua.gen(mklua_ctx, { libs = libs });
+		mklua.gen(mklua_ctx, { libs = libs });
 
-			for i = 1, #libs do
+		for i = 1, #libs do
+			if not libs[libs[i]] then
+				libs[libs[i]] = true;
 				io.stdout:write(libs[i] .. "\n");
 			end
-		elseif ctx.deps then
-			local deps = {};
+		end
+	elseif mode == "deps" then
+		local deps = {};
 
-			mklua.gen(mklua_ctx, { deps = deps });
+		mklua.gen(mklua_ctx, { deps = deps });
 
-			for k, v in pairs(deps) do
-				io.stdout:write(v .. "\n");
-			end
-		else
-			io.stderr:write "--compile-cmd or --output must be specified\n";
-			return io.stderr:write(help_msg);
+		for k, v in pairs(deps) do
+			io.stdout:write(v .. "\n");
 		end
 	end
-}
+end

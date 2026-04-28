@@ -1,9 +1,9 @@
 local readline = require "nat.libreadline";
-local args = require "std.fmt.args";
 local printing = require "std.printing";
 local traceback = require "tal.traceback";
 local fs = require "std.io.fs";
 local path = require "std.path";
+local argp = require "std.fmt.argp"
 local cli = {};
 
 local function stacktrace_fin(ok, ...)
@@ -103,150 +103,119 @@ Options:
 --: Passes the rest of the arguments as arguments]];
 end
 
-cli.main = args.cli {
-	ctx = {
-		requires = {},
-		evals = {},
-		args = {},
-		help = false,
-		version = false,
-		repl = false,
-		module = nil,
-		file = nil,
-	},
-	flags = {
-		eval = args.str_arr "evals",
-		require = args.str_arr "requires",
-		help = args.bool "help",
-		version = args.bool "version",
-		repl = args.bool "repl",
-		module = function (ctx, val, ...)
-			assert(val, "expected string value for '--module'");
+function cli.main(...)
+	local argv = argp.new(...);
 
-			ctx.module = val;
-			ctx.args = { ... };
-		end,
+	local evals = {};
+	local requires = {};
 
-		v = "version",
-		i = "repl",
-		m = "module",
-		l = "require",
-		e = "eval",
-	},
-	rest = function (ctx, ...)
-		if ctx.module then
-			ctx.args = { ... };
-			return;
+	local version = false;
+	local repl = false;
+	local rest = false;
+	local any = false;
+
+	local file = nil;
+	local module = nil;
+	local args;
+
+	while argv:has() do
+		local opts = not rest and argv:popopt() or nil;
+		if opts then
+			for opt in opts do
+				if opt == "--eval" or opt == "-e" then
+					table.insert(evals, argv:apop("no value for " .. opt));
+					any = true;
+				elseif opt == "--require" or opt == "-l" then
+					local val = argv:apop("no value for " .. opt);
+
+					local glob, name = val:match "^(.-)=(.*)$";
+					if not glob then name = val end
+
+					requires[name] = glob;
+				elseif opt == "--help" or opt == "-h" then
+					cli.print_version();
+					cli.print_help();
+					return;
+				elseif opt == "--version" or opt == "-v" then
+					version = true;
+					any = true;
+				elseif opt == "--repl" or opt == "-i" then
+					repl = true;
+					any = true;
+				elseif opt == "--module" or opt == "-m" then
+					module = argv:apop("no value for " .. opt);
+					args = argv:poprest();
+					any = true;
+				elseif opt == "--" then
+					rest = true;
+					any = true;
+				else
+					error("unknown option " .. opt);
+				end
+			end
+		else
+			file = argv:pop();
+			args = argv:poprest();
+			any = true;
 		end
+	end
 
-		local file = ...;
-		assert(file);
+	if not any then
+		repl = true;
+		version = true;
+	end
 
-		ctx.file = file;
-		ctx.args = { select(2, ...) };
-	end,
-	next = function (ctx)
-		if ctx.help then
+	cli.stacktrace_call(function ()
+		if version then
 			cli.print_version();
-			cli.print_help();
-			return;
 		end
 
-		local runners = {};
-		local req_runners = {};
-		local use_req = false;
-		local args = ctx.args;
-
-		if ctx.version then
-			table.insert(runners, cli.print_version);
+		for i = 1, #requires do
+			require(requires[i]);
 		end
 
-		for i = 1, #ctx.requires do
-			local glob, name = ctx.requires[i]:match "^(.-)=(.*)$";
-			if not glob then name = ctx.requires[i] end
-
-			table.insert(req_runners, function ()
-				local res = require(name);
-				if glob then _ENV[glob] = res end
-			end);
-		end
-
-		for i = 1, #ctx.evals do
-			use_req = true;
-
-			local fun, err = load(ctx.evals[i], "=<eval " .. i .. ">", "t");
+		for i = 1, #evals do
+			local fun, err = load(evals[i], "=<eval " .. i .. ">", "t");
 			if not fun then
 				io.stderr:write(err);
 				return;
 			end
 
-			table.insert(runners, function ()
-				return cli.stacktrace_call(fun, table.unpack(args));
-			end);
+			fun(table.unpack(args));
 		end
 
-		if ctx.module then
-			use_req = true;
+		if module then
+			package.root = fs.path "cwd";
 
-			table.insert(runners, function ()
-				return cli.stacktrace_call(function ()
-					package.root = fs.path "cwd";
-
-					local mod = require(ctx.module);
-					if type(mod) == "table" then
-						if mod.__main then
-							return mod.__main(table.unpack(ctx.args));
-						else
-							return mod.main(table.unpack(ctx.args));
-						end
-					else
-						return mod(table.unpack(ctx.args));
-					end
-				end);
-			end);
-		elseif ctx.file then
-			use_req = true;
-
-			table.insert(runners, function ()
-				return cli.stacktrace_call(function ()
-					local f = assert(io.open(ctx.file));
-					local src = f:read "a";
-					f:close();
-
-					package.root = path.dirname(ctx.file);
-
-					local func, err = load(src, "@" .. ctx.file, "t");
-					if not func then error(err, 0) end
-
-					return func(table.unpack(ctx.args));
-				end);
-			end);
-		end
-
-		if ctx.repl then
-			use_req = true;
-			table.insert(runners, cli.repl);
-		end
-
-		if #runners == 0 then
-			use_req = true;
-			table.insert(runners, cli.print_version);
-			table.insert(runners, cli.repl);
-		end
-
-		if use_req then
-			table.move(runners, 1, #runners, #req_runners + 1);
-			table.move(req_runners, 1, #req_runners, 1, runners);
-		end
-
-		for i = 1, #runners do
-			if i == #runners then
-				return runners[i]();
+			local mod = require(module);
+			if type(mod) == "table" then
+				if mod.__main then
+					mod.__main(table.unpack(args));
+				else
+					mod.main(table.unpack(args));
+				end
 			else
-				runners[i]();
+				mod(table.unpack(args));
 			end
 		end
-	end
-};
+
+		if file then
+			local f = assert(io.open(file));
+			local src = f:read "a";
+			f:close();
+
+			package.root = path.dirname(file);
+
+			local func, err = load(src, "@" .. file, "t");
+			if not func then error(err, 0) end
+
+			func(table.unpack(args));
+		end
+
+		if repl then
+			cli.repl();
+		end
+	end);
+end
 
 return cli;
