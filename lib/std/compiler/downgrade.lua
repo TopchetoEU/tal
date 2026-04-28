@@ -42,7 +42,7 @@ local function polyfill(self, name, node)
 
 	local id = self.id_base .. "_" .. self.next_id;
 	self.next_id = self.next_id + 1;
-	local res_name = node.name(nil, id, false);
+	local res_name = nodes.name(nil, id, false);
 
 	table.insert(self.parts, nodes.decl(nil, false, { res_name }, { node }));
 	self.polyfills[name] = res_name;
@@ -101,17 +101,21 @@ local walker = walk(
 	--- @param scope compiler.downgrade.scope
 	function (self, node, target, ctx, scope)
 		if node.type == "var" then
-			if node.name == "_ENV" then
+			if node.name.name == "_ENV" then
 				return nodes.call(node.loc,
 					nodes.var(node.loc, polyfill(ctx, "getfenv", polyfills.getfenv)),
 					nodes.int(node.loc, 1)
 				);
 			end
 
-			local env_var = scope_find(scope, "_ENV");
-			if env_var then
-				return nodes.index(node.loc, nodes.var(node.loc, env_var), nodes.str(node.loc, node.name.name));
+
+			if node.name.global then
+				local env_var = scope_find(scope, "_ENV");
+				if env_var then
+					return nodes.index(node.loc, nodes.var(node.loc, env_var), nodes.str(node.loc, node.name.name));
+				end
 			end
+
 		elseif node.type == "op" then
 			local func = interop_funcs[node.op];
 			if func then
@@ -174,7 +178,7 @@ local walker = walk(
 			if node.values then
 				node.values = self:walk_multiexp(node.values, #node.names, ctx, scope);
 			end
-			if node.pre then
+			if not node.pre then
 				walk_var_decls(scope, node.names, false);
 			end
 
@@ -228,15 +232,18 @@ local walker = walk(
 return {
 	--- @param body node.stm[]
 	walk_body = function (body)
-		return walker:walk_body(body,
+		local parts = {};
+		local res = walker:walk_body(body,
 			{
 				id_base = "_" .. math.random(1, 0x1000000),
 				next_id = 1,
-				parts = {},
+				parts = parts,
 				polyfills = {},
 			} --[[@as compiler.downgrade.ctx]],
 			{ prev = nil, consts = {}, names = {} } --[[@as compiler.downgrade.scope]]
 		);
+
+		return table.move(res, 1, #res, #parts + 1, parts);
 	end,
 	--- @param exp node.exp
 	--- @param target compiler.walk.target
