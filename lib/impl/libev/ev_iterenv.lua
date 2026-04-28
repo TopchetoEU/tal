@@ -5,7 +5,7 @@ local ffi = require "ffi";
 --- @field fd ffi.cdata*
 --- @field closed boolean
 
---- @type _impl.iterenv_backend
+--- @type _impl.iterenv
 local iterenv_index = {};
 function iterenv_index:next()
 	local self_data = debug.getuservalue(self) --[[@as _impl.iterenv_data]];
