@@ -1,24 +1,11 @@
----@class ffilib
+--- @class ffilib
 local ffi = require "ffi";
 local package = require "std.package";
+local path = require "std.path";
 
 local ffi_over = ffi;
 
 local old_load = ffi.load;
-
-if jit.os == "Windows" then
-	ffi.path = package.overridepath(ffi.path,
-		"C:\\Windows\\System32\\?.dll;C:\\Windows\\System32\\?;;@\\?;@\\?.dll;@\\lib?.dll;?",
-		os.getenv "FFI_PATH"
-	);
-	ffi.apath = ffi.path:gsub("%.dll", ".lib");
-else
-	ffi.path = package.overridepath(ffi.path,
-		"/lib/lib?.so;/usr/local/lib/?.so;;@/?;@/lib?.so;?",
-		os.getenv "FFI_PATH"
-	);
-	ffi.apath = ffi.path:gsub("%.so", ".a");
-end
 
 function ffi_over.load(name, glob)
 	local errors = {};
@@ -33,6 +20,38 @@ function ffi_over.load(name, glob)
 	end
 
 	error("failed to load " .. name .. ":\n\t" .. table.concat(errors, "\n\t"), 2);
+end
+
+function ffi.addpath(ffipath, dir)
+	if jit.os == "Windows" then
+		ffipath = package.overridepath(
+			ffipath,
+			path.join(dir, "lib?.dll") .. ";" ..
+			path.join(dir, "?.dll") .. ";" ..
+			path.join(dir, "?") .. ";;"
+		);
+	else
+		ffipath = package.overridepath(
+			ffipath,
+			path.join(dir, "lib?.so") .. ";" ..
+			path.join(dir, "?") .. ";;"
+		);
+	end
+
+	return ffipath, (ffipath:gsub("%.so", "%.a"));
+end
+
+ffi.path = os.getenv "FFI_PATH";
+
+if jit.os == "Windows" then
+	ffi.path = "?";
+	ffi.path, ffi.apath = ffi.addpath(ffi.path, "@");
+	ffi.path, ffi.apath = ffi.addpath(ffi.path, "C:\\Windows\\System32");
+else
+	ffi.path = "?";
+	ffi.path, ffi.apath = ffi.addpath(ffi.path, "@");
+	ffi.path, ffi.apath = ffi.addpath(ffi.path, "/usr/lib");
+	ffi.path, ffi.apath = ffi.addpath(ffi.path, "/usr/local/lib");
 end
 
 return ffi;
