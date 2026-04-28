@@ -101,7 +101,7 @@ end
 --- @param env? table
 --- @param no_map? boolean
 function loading.load(chunk, name, mode, env, no_map)
-	do return load_raw(chunk, name, mode, env, no_map) end
+	-- do return load_raw(chunk, name, mode, env, no_map) end
 
 	if type(chunk) == "function" then
 		local res = {};
