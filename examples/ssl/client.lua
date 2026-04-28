@@ -11,26 +11,20 @@ return function (...)
 	local ip = "127.0.0.1";
 	local port = 4312;
 	local username;
-	local rest;
 
-	while argv:has() do
-		local opts = not rest and argv:popopt() or nil;
-		if opts then
-			for opt in opts do
-				if opt == "--" then
-					rest = true;
-				elseif opt == "--addr" then
-					ip = argv:apop "expected address";
-				elseif opt == "--port" then
-					port = assert(tonumber(argv:apop "expected port", 10), "invalid port");
-				elseif opt == "--username" or opt == "-u" then
-					username = argv:apop "expected username";
-				else
-					error("unknown option '" .. opt .. "'");
-				end
+	for arg, isopt in argv:iter() do
+		if isopt then
+			if arg == "--addr" then
+				ip = argv:pop();
+			elseif arg == "--port" then
+				port = assert(tonumber(argv:pop(), 10), "invalid port");
+			elseif arg == "--username" or arg == "-u" then
+				username = argv:pop();
+			else
+				error("unknown option '" .. arg .. "'");
 			end
 		else
-			error("unexpected argument '" .. argv:pop() .. "'");
+			error("unexpected argument '" .. arg .. "'");
 		end
 	end
 

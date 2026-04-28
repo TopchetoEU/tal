@@ -87,19 +87,16 @@ end
 
 function cli.print_version()
 	print(("TAL v%s by TopchetoEU"):format(_TAL));
+	print "A lua runtime with concurrent I/O and a lot of useful utils.";
 end
 function cli.print_help()
 	print [[
-A pseudo-runtime on top of my beloved Lua. Includes async IO (with libuv) and some really useful stdlibs.
-PLEASE DON'T USE IN PRODUCTION, MIGHT BREAK AT ANY SECOND!!
-
 Options:
 --require (-l) [name]: Requires the given package before execution, similar to "lua -l"
 --help (-h): Shows this message
 --version (-v): Shows the version
 --eval (-e): Evaluates the rest of the arguments
---repl (-i): Enables interactive mode after all other tasks are done. Enters by default if no -e or file is specified
---: Passes the rest of the arguments as arguments]];
+--repl (-i): Enables interactive mode after all other tasks are done. Enters by default if no -e or file is specified]];
 end
 
 function cli.main(...)
@@ -110,51 +107,47 @@ function cli.main(...)
 
 	local version = false;
 	local repl = false;
-	local rest = false;
 	local any = false;
 
 	local file = nil;
 	local module = nil;
 	local args;
 
-	while argv:has() do
-		local opts = not rest and argv:popopt() or nil;
-		if opts then
-			for opt in opts do
-				if opt == "--eval" or opt == "-e" then
-					table.insert(evals, argv:apop("no value for " .. opt));
-					any = true;
-				elseif opt == "--require" or opt == "-l" then
-					local val = argv:apop("no value for " .. opt);
+	for arg, isopt in argv:iter() do
+		if isopt then
+			if arg == "--eval" or arg == "-e" then
+				table.insert(evals, argv:pop());
+				any = true;
+			elseif arg == "--require" or arg == "-l" then
+				local val = argv:pop();
 
-					local glob, name = val:match "^(.-)=(.*)$";
-					if not glob then name = val end
+				local glob, name = val:match "^(.-)=(.*)$";
+				if not glob then name = val end
 
-					requires[name] = glob;
-				elseif opt == "--help" or opt == "-h" then
-					cli.print_version();
-					cli.print_help();
-					return;
-				elseif opt == "--version" or opt == "-v" then
-					version = true;
-					any = true;
-				elseif opt == "--repl" or opt == "-i" then
-					repl = true;
-					any = true;
-				elseif opt == "--module" or opt == "-m" then
-					module = argv:apop("no value for " .. opt);
-					args = argv:poprest();
-					any = true;
-				elseif opt == "--" then
-					rest = true;
-					any = true;
-				else
-					error("unknown option " .. opt);
-				end
+				requires[name] = glob;
+			elseif arg == "--help" or arg == "-h" then
+				cli.print_version();
+				cli.print_help();
+				return;
+			elseif arg == "--version" or arg == "-v" then
+				version = true;
+				any = true;
+			elseif arg == "--repl" or arg == "-i" then
+				repl = true;
+				any = true;
+			elseif arg == "--module" or arg == "-m" then
+				module = argv:pop();
+				args = { argv:poprest() };
+				any = true;
+			elseif arg == "--" then
+				rest = true;
+				any = true;
+			else
+				error("unknown option " .. arg);
 			end
 		else
-			file = argv:pop();
-			args = argv:poprest();
+			file = arg;
+			args = { argv:poprest() };
 			any = true;
 		end
 	end

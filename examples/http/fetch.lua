@@ -1,6 +1,7 @@
 local headers = require "std.http.headers";
 local fetch = require "std.http.fetch";
 local io = require "std.io";
+local argp = require "std.fmt.argp"
 
 return function (...)
 	local url;
@@ -8,21 +9,21 @@ return function (...)
 	local data;
 	local hdrs = headers.new();
 
-	local args = { ... };
+	local argv = argp.new(...);
 
-	local function pop()
-		return table.remove(args, 1);
-	end
-
-	for arg in pop do
-		if arg == "--header" or arg == "-h" then
-			hdrs:add(assert(pop(), "expected header name"), (assert(pop(), "expected header value")));
-		elseif arg == "--method" or arg == "-m" then
-			method = assert(pop(), "expected method");
-		elseif arg == "--data" then
-			data = assert(pop(), "expected data file");
-		elseif arg:match "^%-%-" or url then
-			error("unknown argument");
+	for arg, isopt in argv:iter() do
+		if isopt then
+			if arg == "--header" or arg == "-h" then
+				hdrs:add(argv:pop(), argv:pop());
+			elseif arg == "--method" or arg == "-m" then
+				method = argv:pop();
+			elseif arg == "--data" then
+				data = argv:pop();
+			else
+				error("unknown option " .. arg);
+			end
+		elseif url then
+			error("superfluous argument " .. arg);
 		else
 			url = arg;
 		end
