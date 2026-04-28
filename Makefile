@@ -17,9 +17,11 @@ ifneq ($(SYSLIBS),yes)
 	LIBS += $(LIBEV_LIBS)
 endif
 
-.PHONY: luajit build clean install uninstall
+.PHONY: luajit clean install uninstall
 
-install: build
+all: $(LIBS) $(LUAJIT_EXE)
+
+install: $(PREFIX)/bin/tal all
 	mkdir -p "$(PREFIX)/bin"
 	mkdir -p "$(PREFIX)/lib"
 	mkdir -p "$(PREFIX)/lib/lua"
@@ -28,20 +30,18 @@ install: build
 	cp $(LIBS) "$(PREFIX)/lib"
 	cp -r lib/* "$(PREFIX)/lib/lua"
 
-	cp bin/tal "$(PREFIX)/bin/tal"
 	ln -fs "$(PREFIX)/lib/lua/tal.lua" "$(PREFIX)/bin/tal.lua"
+
 clean: $(LUAJIT_MK) $(LIBEV_MK)
 	$(MAKE) -C deps/luajit clean
 	$(MAKE) -C deps/libev clean
 	rm -rf bin
 
-build: bin/tal $(LIBS) $(LUAJIT_EXE)
-
-bin/tal:
-	mkdir -p bin
-	echo '#!/bin/env sh' > bin/tal
-	echo '"$(PREFIX)/bin/luajit" "$(PREFIX)/bin/tal.lua" "$$@"' >> bin/tal
-	chmod +x bin/tal
+$(PREFIX)/bin/tal:
+	mkdir -p $(dir $@)
+	echo '#!/bin/env sh' > $@
+	echo '"$(PREFIX)/bin/luajit" "$(PREFIX)/$@.lua" "$$@"' >> $@
+	chmod +x $@
 
 $(LUAJIT_MK):
 	git submodule update --init deps/luajit
