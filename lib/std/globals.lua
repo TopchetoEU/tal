@@ -8,7 +8,7 @@ require "nat.ffi";
 
 require "std.printing";
 require "std.string";
-require "std.error";
+local err = require "std.error";
 
 debug = require "std.debug";
 io = require "std.io";
@@ -21,7 +21,8 @@ load = require "std.compiler.loading".load;
 exit = os.exit;
 require = package.require;
 unpack = table.unpack;
-
-package.root = ".";
+error = err.error;
+assert = err.assert;
+throw = err.throw;
 
 return _ENV;

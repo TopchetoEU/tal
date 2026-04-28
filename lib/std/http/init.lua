@@ -184,7 +184,10 @@ function parse.read_body(str, headers)
 				n = self.n;
 			end
 
-			return self.str:ptrread(false, ptr, n);
+			local n, err = self.str:ptrread(false, ptr, n);
+			if err then return nil, err end
+			if n then self.n = self.n - n end
+			return n;
 		end
 		function self:write(n, ptr)
 			return nil, "readonly";
@@ -298,7 +301,7 @@ local function http_setup_body(str, body)
 		end,
 		close = function (self)
 			if self.str then
-				self.str:async_write(self.str, self.str.close, "0\r\n\r\n");
+				self.str:write("0\r\n\r\n");
 			end
 			self.str = nil;
 		end

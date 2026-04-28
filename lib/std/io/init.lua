@@ -36,9 +36,9 @@ local stream = require "std.io.stream";
 
 local io = {};
 
-io.stdin = stream.from_stream(impl.stdin);
-io.stdout = stream.from_stream(impl.stdout);
-io.stderr = stream.from_stream(impl.stderr);
+io.stdin = stream.from_stream(impl.stdin, false);
+io.stdout = stream.from_stream(impl.stdout, false);
+io.stderr = stream.from_stream(impl.stderr, false);
 
 --- @param path string
 --- @param flags std.io.open_flags

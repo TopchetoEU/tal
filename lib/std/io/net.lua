@@ -24,7 +24,7 @@ function server_index:next()
 	local res, err = loop.sync_ret(self._fd:next((coroutine.running())));
 	if not res then return nil, err end
 
-	res.client = stream.from_stream(res.client);
+	res.client = stream.from_stream(res.client, true);
 	return res;
 end
 function server_index:close()

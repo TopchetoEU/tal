@@ -6,10 +6,11 @@ local loop = require "std.loop";
 local cond_index = {};
 
 function cond_index:wait()
-	if not self._pending then
+	if self._pending then
+		self._pending = false;
+	else
 		table.insert(self._waiters, (coroutine.running()));
 		loop.await();
-		self._pending = false;
 	end
 end
 --- @param all? boolean
