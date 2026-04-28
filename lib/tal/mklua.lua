@@ -21,6 +21,7 @@ local int_libs = {
 	ffi = true,
 	["table.clear"] = true,
 	["table.new"] = true,
+	["string.buffer"] = true,
 }
 
 --- @class tal.mklua.out
