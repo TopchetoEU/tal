@@ -306,10 +306,10 @@ local function emit_lua(ctx, name, filename, func, out, passed)
 		out.f:write("TALB_INTERNAL int " .. funcname .. "(lua_State *ctx) {\n");
 
 		for i = 1, #lua_deps do
-			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(lua_deps[i], "talb_open_" .. lua_deps[i]:gsub("%.", "_")));
+			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(lua_deps[i], "talb_open_" .. lua_deps[i]:gsub("[%.$-]", "_")));
 		end
 		for i = 1, #c_deps do
-			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(c_deps[i], "luaopen_" .. c_deps[i]:gsub("%.", "_")));
+			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(c_deps[i], "luaopen_" .. c_deps[i]:gsub("[%.%-]", "_")));
 		end
 
 		out.f:write (("\n\tif (luaL_loadbufferx(ctx, %s, %d, %q, \"b\")) {\n"):format(c_escape(bc), #bc, "@" .. filename));
