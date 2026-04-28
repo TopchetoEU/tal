@@ -19,7 +19,7 @@ function pipe_index:write(...)
 		local reader = table.remove(self._readers, 1);
 		if reader then
 			loop.push(reader, ...);
-			loop.rest();
+			return loop.rest();
 		else
 			table.insert(self._writers, (coroutine.running()));
 			loop.await();
