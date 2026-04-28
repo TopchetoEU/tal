@@ -1,15 +1,14 @@
-local args = require "std.fmt.args";
+local argp = require "std.fmt.argp";
 local ffi = require "ffi";
 
 --- @class tal.mklua.ctx
+--- @field mode "deps" | "libs" | "gen"
+--- @field entries string[]
+---
 --- @field path? string
 --- @field cpath? string
 --- @field ffi_path? string
---- @field help? boolean
---- @field deps? boolean
---- @field libs? boolean
 --- @field output? string | file*
---- @field entries string[]
 --- @field args? string[]
 --- @field debug? boolean
 --- @field main? boolean
@@ -39,19 +38,20 @@ Flags:
 <module[:output-name]> - exports the given module with a luaopen function.
 	If :output-name is specified, changes the luaopen to the specified module name
 
---deps - outputs a list of files the entries depend on
---libs - outputs a list of native libraries the entries depend on
---makefile - generates a makefile
+Mode selector:
+--gen (-G) - generates a C file that contains the bytecode for the app (default mode)
+--deps (-D) - outputs a list of files the entries depend on
+--libs (-L) - outputs a list of native libraries the entries depend on
 
+--noinc - instead of emitting #include directives, embeds all needed lua functions as extern declares
 --entry - generates a talb_entry function, which takes an initialized lua state
 	and executes the first entry
---main - generates a main function, which creates a lua state and runs the entry
-	implies `--entry`
---output=<file> (-o <file>) - the file to write to. May be stdout, piped into a compiler
---debug (-g) - emits debugging data in the lua bytecode
+--main - generates a main function, which creates a lua state and runs the entry. Implies `--entry`
 
---path - specifies a lua path to search (separated by ;, ;; is a substitute for the interpreter's default)
---cpath - specifies a c path to search
+--output (-o) <file> - the file to write to. May be stdout, piped into a compiler
+--debug (-g) - emits debugging data in the lua bytecode
+--path <path> - specifies a lua path to search (separated by ;, ;; is a substitute for the interpreter's default)
+--cpath <path> - specifies a c path to search
 --arg ... - passes the rest of the args to the last entry, if "--entry" is specified
 ]];
 
@@ -78,6 +78,10 @@ TALB_EXPORT int TALB_ENTRY_NAME(lua_State *ctx, int argc, const char **argv) {
 
 	%s(ctx);
 	%s(ctx);
+
+	lua_pushinteger(ctx, 0);
+	lua_pushstring(ctx, argv[0]);
+	lua_settable(ctx, larg);
 
 	/* custom arguments */
 %s
@@ -414,60 +418,90 @@ local function open_w(path)
 	end
 end
 
+
 return {
-	main = args.cli {
-		ctx = {
+	main = function (...)
+		local argv = argp.new(...);
+
+		--- @type tal.mklua.ctx
+		local ctx = {
 			entries = {},
-		},
-		flags = {
-			help = args.bool "help",
-			debug = args.bool "debug",
-			noinc = args.bool "noinc",
-			main = args.bool "main",
-			entry = args.bool "entry",
-			header = args.bool "header",
+			args = {},
+			mode = "gen",
+		};
 
-			deps = args.bool "deps",
-			libs = args.bool "libs",
+		local rest = false;
 
-			path = args.str "path",
-			cpath = args.str "cpath",
-			["ffi-path"] = args.str "ffi_path",
-			args = args.rest "args",
-
-			output = args.str "output",
-			makefile = args.str "makefile",
-
-			o = "output",
-			g = "debug",
-			h = "help",
-		},
-		rest = args.str_arr "entries",
-		next = function (ctx)
-			if ctx.help or not ctx.cpath and not ctx.libs and not ctx.deps and not ctx.output then
-				print(help_msg);
-				return;
-			end
-
-			if ctx.deps then
-				local deps = {};
-				gen(ctx, { deps = deps });
-				for k, v in pairs(deps) do
-					io.stdout:write(v .. "\n");
+		while argv:has() do
+			local opts = not rest and argv:popopt() or nil;
+			if opts then
+				for opt in opts do
+					if opt == "--" then
+						rest = true;
+					elseif opt == "--help" or opt == "-h" then
+						print(help_msg);
+						return;
+					elseif opt == "--debug" or opt == "-g" then
+						ctx.debug = true;
+					elseif opt == "--noinc" then
+						ctx.noinc = true;
+					elseif opt == "--main" then
+						ctx.main = true;
+						ctx.entry = true;
+					elseif opt == "--entry" then
+						ctx.entry = true;
+					elseif opt == "--header" then
+						ctx.header = true;
+					elseif opt == "--gen" or opt == "-G" then
+						ctx.mode = "gen";
+					elseif opt == "--deps" or opt == "-D" then
+						ctx.mode = "deps";
+					elseif opt == "--libs" or opt == "-L" then
+						ctx.mode = "libs";
+					elseif opt == "--path" then
+						ctx.path = argv:apop("no value for " .. opt);
+					elseif opt == "--cpath" then
+						ctx.cpath = argv:apop("no value for " .. opt);
+					elseif opt == "--ffi-path" then
+						ctx.ffi_path = argv:apop("no value for " .. opt);
+					elseif opt == "--output" or opt == "-o" then
+						ctx.output = argv:apop("no value for " .. opt);
+					elseif opt == "--arg" then
+						table.insert(ctx.args, argv:apop("no value for " .. opt));
+					elseif opt == "--" then
+						rest = true;
+					else
+						error("unknown option " .. opt);
+					end
 				end
-			elseif ctx.libs then
-				local libs = {};
-				gen(ctx, { libs = libs });
-				for i = 1, #libs do
-					io.stdout:write(libs[i] .. "\n");
-				end
-			elseif ctx.output then
-				local f, close = open_w(ctx.output);
-				gen(ctx, { f = f });
-				close(f);
+			else
+				table.insert(ctx.entries, argv:pop());
 			end
 		end
-	},
+
+		if not ctx.cpath and ctx.mode == "gen" and not ctx.output then
+			print(help_msg);
+			return;
+		end
+
+		if ctx.mode == "deps" then
+			local deps = {};
+			gen(ctx, { deps = deps });
+			for k, v in pairs(deps) do
+				io.stdout:write(v .. "\n");
+			end
+		elseif ctx.mode == "libs" then
+			local libs = {};
+			gen(ctx, { libs = libs });
+			for i = 1, #libs do
+				io.stdout:write(libs[i] .. "\n");
+			end
+		elseif ctx.output then
+			local f, close = open_w(ctx.output);
+			gen(ctx, { f = f });
+			close(f);
+		end
+	end,
 	gen = gen,
 	open_w = open_w,
 };
