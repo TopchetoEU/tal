@@ -1,4 +1,4 @@
-_TAL = "0.0.1-alpha";
+_TAL = "0.1.0-alpha";
 _ENV = _G;
 
 -- First, we import package to load all further packages using our require functions
