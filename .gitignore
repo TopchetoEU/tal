@@ -1,6 +1,7 @@
 /*
 !/lib/
 !/deps/
+!/examples/
 
 !/.gitignore
 !/.gitmodules
