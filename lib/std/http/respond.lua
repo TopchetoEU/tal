@@ -13,8 +13,7 @@ return function (stream, code, hdrs, body)
 		--- @cast body_out std.io.stream
 		local _, err = http.write_body(body_out, body);
 		if not _ then return nil, err end
-	else
-		stream:close();
 	end
+	stream:close();
 	return true;
 end

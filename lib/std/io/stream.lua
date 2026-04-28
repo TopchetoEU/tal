@@ -326,7 +326,7 @@ local function from_file(file)
 	function self:write(ptr, n)
 		if not self.fd then return nil, "closed" end
 
-		local write_n, err = loop.sync_ret(self.fd.write, self.fd, self.ptr, ptr, n);
+		local write_n, err = loop.sync_ret(self.fd:write(coroutine.running(), self.ptr, ptr, n));
 		if write_n then self.ptr = self.ptr + write_n end
 		return write_n, err;
 	end
@@ -338,7 +338,7 @@ local function from_file(file)
 		elseif whence == "cur" then
 			self.ptr = self.ptr + offset;
 		elseif whence == "end" then
-			local stat, err = loop.sync_ret(self.fd.stat, self.fd);
+			local stat, err = loop.sync_ret(self.fd:stat(coroutine.running()));
 			if not stat then return nil, err end
 			self.ptr = self.ptr + stat.size;
 		end
@@ -366,7 +366,7 @@ local function from_file(file)
 end
 
 --- @param str _impl.stream
-local function from_stream(str)
+local function from_stream(str, mngd)
 	local self = {
 		fd = str,
 	};
@@ -394,7 +394,7 @@ local function from_stream(str)
 		end
 	end
 
-	return new(self, true);
+	return new(self, mngd);
 end
 
 return {
