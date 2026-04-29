@@ -8,6 +8,11 @@ local cli = {};
 local function stacktrace_fin(ok, ...)
 	if ok then return true, ... end
 
+	if ... == "stack overflow" then
+		io.stderr:write("Unhandled error: STACK OVERFLOW!\n");
+		return;
+	end
+
 	local err = (...).err;
 	local trace = (...).trace;
 
@@ -22,7 +27,7 @@ end
 
 function cli.stacktrace_call(func, ...)
 	return stacktrace_fin(xpcall(func, function (err)
-		local trace = debug.traceback(nil, 3);
+		local trace = debug.traceback(nil, 2);
 		return { err = err, trace = trace };
 	end, ...));
 end

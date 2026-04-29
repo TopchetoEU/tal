@@ -94,6 +94,16 @@ function loading.map(name, line)
 		return maps[name][line];
 	end
 end
+--- @param name string
+--- @param map table<integer, node.loc>
+function loading.emit_map(name, map)
+	if maps[name] then return end
+	maps[name] = map;
+end
+--- @param name string
+function loading.get_map(name)
+	return maps[name];
+end
 
 --- @param chunk string | fun(): string
 --- @param name? string
