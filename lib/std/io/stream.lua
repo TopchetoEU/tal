@@ -34,6 +34,9 @@ function stream_index:ptrwrite(full, buff, buff_n)
 	else
 		while buff_n > 0 do
 			local write_n, err = self._backend:write(buff, buff_n);
+			if type(write_n) == "userdata" then
+				pprint(self._backend.write, getmetatable(write_n), err);
+			end
 			if err then return nil, err end
 
 			buff_n = buff_n - write_n;
