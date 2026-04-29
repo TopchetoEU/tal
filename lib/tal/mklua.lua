@@ -1,5 +1,6 @@
 local argp = require "std.fmt.argp";
 local ffi = require "ffi";
+local loading = require "std.compiler.loading"
 
 --- @class tal.mklua.ctx
 --- @field mode "deps" | "libs" | "gen"
@@ -70,6 +71,7 @@ TALB_EXPORT int TALB_ENTRY_NAME(lua_State *ctx, int argc, const char **argv) {
 
 	/* Emit other requiref-s */
 	%s
+	%s;
 
 	lua_createtable(ctx, argc, 0);
 	larg = lua_gettop(ctx);
@@ -78,6 +80,7 @@ TALB_EXPORT int TALB_ENTRY_NAME(lua_State *ctx, int argc, const char **argv) {
 	lua_setglobal(ctx, "arg");
 
 	%s(ctx);
+	lerrcb = lua_gettop(ctx);
 	%s(ctx);
 
 	lua_pushinteger(ctx, 0);
@@ -211,7 +214,7 @@ end
 
 --- @param src string
 local function find_lua(src)
-	local func = src:gmatch "require%s*([\"'])([^\n\\\"']-)%1";
+	local func = src:gmatch "require%s*([\"'])([^\n\\\"\'']-)%1";
 	return function ()
 		return select(2, func());
 	end
@@ -246,40 +249,36 @@ local function resolve_ffi(ctx, dep)
 	return package.searchpath(dep, ctx.ffi_path or ffi.path);
 end
 
+local function emit_map_emitter(name, map)
+	local res = {};
+
+	for k, v in pairs(map) do
+		-- TODO: somehow, thru some unholy ritual, a node ends up here. fix when less asleep
+		if v.row and v.col then
+			table.insert(res, "[" .. k .. "] = node.loc(" .. v.row .. ", " .. v.col .. ")");
+		end
+	end
+
+	return "loading.emit_map(" .. name:quote() .. ", {" .. table.concat(res, ", ") .. "});";
+end
+
 --- @param ctx tal.mklua.ctx
 --- @param name string
 --- @param filename string
---- @param func? function
+--- @param src? string
 --- @param out tal.mklua.out
 --- @param passed table<string, string>
-local function emit_lua(ctx, name, filename, func, out, passed)
+local function emit_lua(ctx, name, filename, src, out, passed, map_parts)
 	if passed[name] then return end
 
 	local lua_deps = {};
 	local c_deps = {};
+	local map, map_name;
 
-	if not func then
+	if not src then
 		local f = assert(io.open(filename, "r"));
-		local src = assert(f:read "a");
+		src = assert(f:read "a");
 		f:close();
-
-		for dep in find_lua(src) do
-			local kind, path = resolve_lua(ctx, dep);
-
-			if out.deps then
-				out.deps[dep] = path;
-			end
-
-			if kind == "lua" then
-				table.insert(lua_deps, dep);
-				emit_lua(ctx, dep, path --[[@as string]], func, out, passed);
-			elseif kind == "c" then
-				table.insert(c_deps, dep);
-				passed[dep] = "luaopen_" .. dep:gsub("[%.%-]", "_");
-			elseif not kind and not int_libs[dep] then
-				io.stderr:write("Module '" .. dep .. "' could not be resolved!\n");
-			end
-		end
 
 		for dep in find_ffi(src) do
 			local path = resolve_ffi(ctx, dep);
@@ -294,8 +293,32 @@ local function emit_lua(ctx, name, filename, func, out, passed)
 				table.insert(out.libs, path);
 			end
 		end
+	end
 
-		func = assert(load(src, "@" .. filename, "t"));
+	for dep in find_lua(src) do
+		local kind, path = resolve_lua(ctx, dep);
+
+		if out.deps then
+			out.deps[dep] = path;
+		end
+
+		if kind == "lua" then
+			table.insert(lua_deps, dep);
+			emit_lua(ctx, dep, path --[[@as string]], nil, out, passed, map_parts);
+		elseif kind == "c" then
+			table.insert(c_deps, dep);
+			passed[dep] = "luaopen_" .. dep:gsub("[%.%-]", "_");
+		elseif not kind and not int_libs[dep] then
+			io.stderr:write("Module '" .. dep .. "' could not be resolved!\n");
+		end
+	end
+
+	local func = assert(load(src, "@" .. filename, "t"));
+	map = loading.get_map(filename);
+	map_name = filename;
+
+	if map_name and map then
+		table.insert(map_parts, emit_map_emitter(map_name, map));
 	end
 
 	local funcname = "talb_open_" .. name:gsub("[%.%-]", "_");
@@ -329,10 +352,10 @@ end
 --- @param name string
 --- @param out tal.mklua.out
 --- @param passed table<string, string>
-local function emit_luaopen(ctx, name, out, passed)
+local function emit_luaopen(ctx, name, out, passed, map_parts)
 	local kind, path = resolve_lua(ctx, name);
 	if kind == "lua" then
-		emit_lua(ctx, name, path --[[@as string]], nil, out, passed);
+		emit_lua(ctx, name, path --[[@as string]], nil, out, passed, map_parts);
 		passed[name] = "talb_open_" .. name:gsub("[%.%-]", "_");
 	elseif kind == "c" then
 		passed[name] = "luaopen_" .. name:gsub("[%.%-]", "_");
@@ -368,9 +391,10 @@ local function gen(ctx, out)
 
 	--- @type table<string, string>
 	local passed = {};
+	local map_parts = {};
 
 	for i = 1, #ctx.entries do
-		emit_luaopen(ctx, ctx.entries[i], out, passed);
+		emit_luaopen(ctx, ctx.entries[i], out, passed, map_parts);
 	end
 
 	if ctx.entry and out.f then
@@ -381,7 +405,20 @@ local function gen(ctx, out)
 			table.insert(register_calls, ("talb_register(ctx, %q, %s);"):format(name, passed[name]))
 		end
 
-		emit_lua(ctx, "__err_handle", "<internal>", function () return debug.traceback end, { f = out.f }, passed);
+		local map_loader_call = "";
+
+		if #map_parts > 0 then
+			local map_src = [[
+				local loading = require "std.compiler.loading";
+				local node = require "std.compiler.node";
+			]] .. table.concat(map_parts, "\n");
+			-- TODO: fix when less asleep
+			emit_lua(ctx, "__map_loader", "<internal>", map_src, { f = out.f }, passed, map_parts);
+			map_loader_call = passed["__map_loader"] .. "(ctx)";
+		end
+
+
+		emit_lua(ctx, "__err_handle", "<internal>", "return debug.traceback", { f = out.f }, passed, map_parts);
 
 		local args_str = {};
 		local args = ctx.args or {};
@@ -393,7 +430,7 @@ local function gen(ctx, out)
 		out.f:write(entry_format:format(
 			#args,
 			table.concat(register_calls, "\n\t\t"),
-			passed["__err_handle"], passed[ctx.entries[1]],
+			map_loader_call, passed["__err_handle"], passed[ctx.entries[1]],
 			table.concat(args_str, "\n"),
 			#args
 		));

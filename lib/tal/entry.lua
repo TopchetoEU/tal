@@ -75,19 +75,23 @@ return function (entry_mod, ...)
 
 	loop.name(coroutine.running(), "Main thread");
 
-	if type(entry) == "table" then
-		if type(entry.__main) == "function" then
-			entry.main(...);
-		elseif type(entry.main) == "function" then
-			entry.main(...);
+	local ok, err = xpcall(function (...)
+		if type(entry) == "table" then
+			if type(entry.__main) == "function" then
+				entry.main(...);
+			elseif type(entry.main) == "function" then
+				entry.main(...);
+			end
+		else
+			entry(...);
 		end
-	else
-		entry(...);
-	end
 
-	assert(loop.run());
+		assert(loop.run());
 
-	-- Run one more time to collect __gc tables
-	collectgarbage();
-	assert(loop.run());
+		-- Run one more time to collect __gc tables
+		collectgarbage();
+		assert(loop.run());
+	end, debug.traceback, ...);
+
+	if not ok then print("Uncaught error: " .. err) end
 end
