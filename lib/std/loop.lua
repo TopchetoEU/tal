@@ -24,16 +24,15 @@ local run_loop;
 local function process_handle(next, timeout, cb, ...)
 	if cb == nil then
 		if not timeout then
-			loop_th = nil;
 			return false;
 		end
-	elseif cb == loop_th then
-		loop_th = nil;
+	elseif cb == coroutine.running() then
 		return true, ...;
 	else
+		loop_th = coroutine.running();
 		local ok, err = coroutine.resume(cb, ...);
+		loop_th = nil;
 		if not ok then
-			loop_th = nil;
 			return nil, err;
 		end
 	end
@@ -56,8 +55,6 @@ local function task_next()
 	return process_handle(task_next, task.cb, table.unpack(task, 1, task.n));
 end
 function run_loop()
-	loop_th = coroutine.running();
-
 	local now = impl:monotime();
 
 	local f, l = 1, #sleeps;
@@ -109,6 +106,7 @@ function loop.await()
 	if not loop_th then
 		return await_fin(run_loop());
 	else
+		assert(loop_th ~= coroutine.running(), "how?!?!");
 		return coroutine.yield();
 	end
 end
