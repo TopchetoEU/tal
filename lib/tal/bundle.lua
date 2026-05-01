@@ -126,13 +126,13 @@ return function (...)
 			assert(comp_proc:wait());
 
 			if #libs > 0 then
-				io.stderr:write [[
-The lua code depends on some native libraries. For luajit's ffi to find them,
-they need to be in ffi.path locations. Make sure to include them either next
-to the executable or in the standard library locations.
+-- 				io.stderr:write [[
+-- The lua code depends on some native libraries. For luajit's ffi to find them,
+-- they need to be in ffi.path locations. Make sure to include them either next
+-- to the executable or in the standard library locations.
 
-To get a list of all used libraries, use the -L option.
-]];
+-- To get a list of all used libraries, use the -L option.
+-- ]];
 			end
 		elseif output then
 			local f, close = mklua.open_w(output);
