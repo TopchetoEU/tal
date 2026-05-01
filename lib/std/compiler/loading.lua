@@ -125,7 +125,7 @@ function loading.load(chunk, name, mode, env, no_map)
 
 	if name == nil then name = chunk end
 	if mode == "b" or mode == "bt" then
-		local fun, err = load_raw(chunk, name, "b", env or _G);
+		local fun, err = load_raw(chunk, name, "b", env or getfenv(2));
 		if fun then
 			return fun;
 		elseif mode == "b" then
@@ -146,7 +146,7 @@ function loading.load(chunk, name, mode, env, no_map)
 
 	local str, map = stringify.all(ast);
 
-	local fun, err = load_raw(str, name, "t", env or _G);
+	local fun, err = load_raw(str, name, "t", env or getfenv(2));
 	if not fun then return nil, loading.err_map(err --[[@as string]], map) end
 
 	if not no_map and name:match "^[=@]" then
