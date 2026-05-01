@@ -20,10 +20,6 @@ return function (arg)
 	local dns_res, err = net.getaddrinfo(parsed.host, "");
 	if not dns_res then return nil, err or "unable to resolve host" end
 
-	local path = url.encode_url(parsed.path);
-	local params = url.encode_body(parsed.params);
-	if #params > 0 then path = path .. "?" .. params end
-
 	if not arg.headers then
 		arg.headers = headers.new();
 	end
@@ -49,7 +45,7 @@ return function (arg)
 		conn = ssl { backend = conn, owned = true, host = parsed.host };
 	end
 
-	local body_out, err = http.write_req(conn, arg.method or "GET", path, arg.headers, arg.body ~= nil);
+	local body_out, err = http.write_req(conn, arg.method or "GET", url.stringify { path = parsed.path, params = parsed.params }, arg.headers, arg.body ~= nil);
 	if not body_out then return nil, err end
 
 	if arg.body then
@@ -58,13 +54,13 @@ return function (arg)
 		if not _ then return nil, err end
 	end
 
-	local code, headers = http.read_res(conn);
-	if not code then return nil, headers end
+	local res, err = http.read_res(conn);
+	if not res then return nil, err end
 
-	local body, err = http.read_body(conn, headers --[[@as http_headers]]);
+	local body, err = http.read_body(conn, res.headers);
 	if not body and err then return nil, err end
 
-	return { code = code, headers = headers --[[@as http_headers]], body = body };
+	return { code = res.code, headers = res.headers, body = body };
 end
 
 -- --- @param stream std.io.stream

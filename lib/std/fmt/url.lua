@@ -1,3 +1,5 @@
+local buffer = require "string.buffer";
+
 local url = {};
 
 function url.encode(data)
@@ -75,7 +77,7 @@ function url.parse_path(raw)
 end
 
 --- @param raw string
---- @return { scheme: string?, host?: string, port?: integer, path: string, params: table<string, string | true>, username?: string, password?: string }?
+--- @return { scheme?: string, host?: string, port?: integer, path: string, params: table<string, string | true>, username?: string, password?: string }?
 --- @return string?
 function url.parse(raw)
 	local scheme, username, password, host, port, path, params;
@@ -138,6 +140,41 @@ function url.parse(raw)
 		path = path,
 		params = params or {},
 	};
+end
+
+--- @param parsed { scheme?: string, host?: string, port?: integer, path: string, params: table<string, string | true>, username?: string, password?: string }
+function url.stringify(parsed)
+	local res = buffer.new();
+
+	if parsed.scheme then
+		res:put(parsed.scheme, ":");
+	end
+
+	if parsed.host then
+		res:put("//");
+		if parsed.username and parsed.password then
+			res:put(parsed.username, ":", parsed.password "@");
+		end
+
+		res:put(parsed.host);
+
+		if parsed.port then
+			res:put(":", parsed.port);
+		end
+	end
+
+	if not parsed.path:find "^/" then
+		res:put("/");
+	end
+
+	res:put(url.encode_url(parsed.path));
+
+	local encoded = url.encode_body(parsed.params);
+	if #encoded > 0 then
+		res:put("?", encoded);
+	end
+
+	return tostring(res);
 end
 
 return url;
