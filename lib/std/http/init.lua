@@ -206,14 +206,13 @@ function parse.read_body(str, headers)
 
 end
 
---- @return string | "EOF" | nil method
---- @return string? path
---- @return http_headers? headers
+--- @return { method: string, path: string, headers: http_headers }? head
+--- @return string? err
 function parse.read_req(stream)
 	local line, err = stream:read "L";
 	if not line then
 		if err then return nil, err end
-		return "EOF";
+		return nil;
 	end
 
 	local type, path, version = line:match "^(%S-) (%S-) HTTP/(%S-)\r\n$";
@@ -223,10 +222,10 @@ function parse.read_req(stream)
 	local headers, err = parse.read_headers(stream);
 	if not headers then return nil, err end
 
-	return type, path, headers;
+	return { method = type, path = path, headers = headers };
 end
---- @return integer | nil code
---- @return http_headers | string? headers
+--- @return { code: integer, headers: http_headers }? code
+--- @return string? err
 function parse.read_res(stream)
 	local line, err = stream:read "L";
 	if not line then
@@ -241,7 +240,7 @@ function parse.read_res(stream)
 	local headers, err = parse.read_headers(stream);
 	if not headers then return nil, err end
 
-	return tonumber(code), headers;
+	return { code = tonumber(code), headers = headers };
 end
 
 --- @param stream std.io.stream
