@@ -30,7 +30,7 @@ install: $(PREFIX)/bin/tal all
 	cp $(LIBS) "$(PREFIX)/lib"
 	cp -r lib/* "$(PREFIX)/lib/lua"
 
-	ln -fs "$(PREFIX)/lib/lua/tal.lua" "$(PREFIX)/bin/tal.lua"
+	ln -frs "$(PREFIX)/lib/lua/tal.lua" "$(PREFIX)/bin/tal.lua"
 
 clean: $(LUAJIT_MK) $(LIBEV_MK)
 	$(MAKE) -C deps/luajit clean
