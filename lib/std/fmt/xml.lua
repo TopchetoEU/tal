@@ -460,13 +460,13 @@ local function fix_list(list)
 	return res;
 end
 
---- @alias xml.list { [integer]: string | (fun(tag: string, attribs: table<string, string>): boolean), [string]: true }
+--- @alias xml.classifier { [integer]: string | (fun(tag: string, attribs: table<string, string>): boolean), [string]: true }
 
 --- @class xml.options
 --- @field relaxed boolean
---- @field self_closing xml.list
---- @field raw_contents xml.list
---- @field no_children xml.list
+--- @field self_closing xml.classifier
+--- @field raw_contents xml.classifier
+--- @field no_children xml.classifier
 
 --- @param raw string
 --- @param settings? xml.options | "html"
