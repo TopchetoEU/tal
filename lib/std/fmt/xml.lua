@@ -267,7 +267,6 @@ local function parse_tag(raw, i, state)
 					break;
 				end
 			end
-		else
 		end
 	end
 
@@ -275,7 +274,11 @@ local function parse_tag(raw, i, state)
 end
 
 local function parse_part(raw, i, state)
+	local prev_i = i;
 	i = skip_spaces(raw, i);
+	if i > prev_i and state.rawtext_n > 0 then
+		return { type = "text", text = raw:sub(prev_i, i - 1), space = true }, i;
+	end
 	local j = i;
 
 	repeat
@@ -382,9 +385,12 @@ local function parse_part(raw, i, state)
 	while i <= #raw do
 		local text_end = raw:find("<", i);
 
-		local text_part = raw:sub(i, text_end and text_end - 1 or #raw)
-			:match "^%s*(.-)%s*$"
-			:gsub("%s+", " ");
+		local text_part = raw:sub(i, text_end and text_end - 1 or #raw):match "^%s*(.-)%s*$";
+
+		if state.rawtext_n == 0 then
+			text_part = text_part:gsub("%s+", " ");
+		end
+
 
 		if text_part ~= "" then
 			text_parts[#text_parts + 1] = text_part;
@@ -454,8 +460,16 @@ local function fix_list(list)
 	return res;
 end
 
+--- @alias xml.list { [integer]: string | (fun(tag: string, attribs: table<string, string>): boolean), [string]: true }
+
+--- @class xml.options
+--- @field relaxed boolean
+--- @field self_closing xml.list
+--- @field raw_contents xml.list
+--- @field no_children xml.list
+
 --- @param raw string
---- @param settings? { relaxed?: boolean, self_closing?: { [integer]: string | (fun(tag: string, attribs: table<string, string>): boolean), [string]: true } } | "html"
+--- @param settings? xml.options | "html"
 --- @return xml_node
 local function parse(raw, settings)
 	if settings == "html" then
@@ -463,10 +477,11 @@ local function parse(raw, settings)
 			relaxed = true,
 			self_closing = {
 				"area", "base", "br", "col", "embed", "hr", "img", "input", "meta", "param", "source", "track", "wbr",
-				function (tag, attribs) return tag == "script" and attribs.src end,
-				function (tag, attribs) return tag == "link" and attribs.href end,
+				function (tag, attribs) return tag == "script" and attribs.src ~= nil end,
+				function (tag, attribs) return tag == "link" and attribs.href ~= nil end,
 				-- function (tag, attribs) end,
 			},
+			raw_contents = { "code", "pre", "textarea" },
 			no_children = { "script", "style" },
 		};
 	end
@@ -475,10 +490,12 @@ local function parse(raw, settings)
 
 	local state = {
 		start = true,
+		rawtext_n = 0,
 		relaxed = settings.relaxed or false,
 		self_closing = fix_list(settings.self_closing),
 		no_children = fix_list(settings.no_children),
-	}
+		raw_contents = fix_list(settings.raw_contents),
+	};
 
 	--- @type xml_node
 	local document = xml_node.new { tag = "document", attribs = {} };
@@ -494,6 +511,7 @@ local function parse(raw, settings)
 		elseif part.type == "text" then
 			if not state.relaxed and #stack == 0 then
 				error("text may not appear outside a tag (near '" .. raw:sub(i, i + 25) .. "')");
+			elseif part.space and #curr_node == 0 then
 			else
 				if type(curr_node[#curr_node]) == "string" then
 					curr_node[#curr_node] = curr_node[#curr_node] .. part.text;
@@ -507,6 +525,10 @@ local function parse(raw, settings)
 		elseif part.type == "begin" then
 			local new_node = xml_node.new { tag = part.tag, attribs = part.attribs };
 			table.insert(curr_node, new_node);
+
+			if is_in_list(part.tag, part.attribs, state.raw_contents) then
+				state.rawtext_n = state.rawtext_n + 1;
+			end
 
 			if is_in_list(part.tag, part.attribs, state.no_children) then
 				local start_i = i;
@@ -528,6 +550,10 @@ local function parse(raw, settings)
 				if part.tag ~= curr_node.tag then
 					error("closing tag '" .. part.tag .. "' doesn't match most recent opening tag '" .. curr_node.tag .. "'");
 				else
+					if is_in_list(curr_node.tag, curr_node.attribs, state.raw_contents) then
+						state.rawtext_n = state.rawtext_n - 1;
+					end
+
 					table.remove(stack);
 					curr_node = stack[#stack];
 				end
@@ -542,7 +568,11 @@ local function parse(raw, settings)
 				end
 
 				if found_i then
-					for _ = #stack, found_i, -1 do
+					for i = #stack, found_i, -1 do
+						if is_in_list(stack[i].tag, stack[i].attribs, state.raw_contents) then
+							state.rawtext_n = state.rawtext_n - 1;
+						end
+
 						table.remove(stack);
 					end
 
