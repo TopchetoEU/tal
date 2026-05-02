@@ -218,6 +218,18 @@ function xml_node.new(raw)
 	return res;
 end
 
+--- @param entity string
+local function parse_entity(entity)
+	if entity == "amp" then return "&" end
+	if entity == "lt" then return "<" end
+	if entity == "gt" then return ">" end
+	if entity == "quot" then return "\"" end
+	if entity == "nbsp" then return "\194\160" end
+	local hex = entity:match "#x(.*)";
+	if hex then return string.char(assert(tonumber(hex, 16))) end
+	return "&" .. entity .. ";";
+end
+
 local function skip_spaces(raw, i)
 	local next_i = raw:find("[^%s]", i);
 	if next_i then return next_i end
@@ -385,12 +397,13 @@ local function parse_part(raw, i, state)
 	while i <= #raw do
 		local text_end = raw:find("<", i);
 
-		local text_part = raw:sub(i, text_end and text_end - 1 or #raw):match "^%s*(.-)%s*$";
+		local text_part = raw:sub(i, text_end and text_end - 1 or #raw)
+			:match "^%s*(.-)%s*$"
+			:gsub("&(.-);", parse_entity);
 
 		if state.rawtext_n == 0 then
 			text_part = text_part:gsub("%s+", " ");
 		end
-
 
 		if text_part ~= "" then
 			text_parts[#text_parts + 1] = text_part;
@@ -595,5 +608,6 @@ end
 
 return {
 	parse = parse,
+	parse_entity = parse_entity,
 	node = xml_node.new,
 };
