@@ -123,10 +123,15 @@ function dos_path.is_dir(...)
 	return _base.is_dir(dos_path.split, ...);
 end
 function dos_path.chroot(...)
-	return _base.safejoin(dos_path.split, dos_path.stringify, ...);
+	return _base.chroot(dos_path.split, dos_path.stringify, ...);
 end
 function dos_path.cwd(...)
 	return _base.cwd(dos_path.split, dos_path.stringify, ...);
+end
+--- @param a string
+--- @param b string
+function dos_path.diff(a, b)
+	return _base.diff(dos_path.split, dos_path.stringify, a, b);
 end
 function dos_path.dirname(...)
 	return _base.dirname(dos_path.split, dos_path.stringify, ...);
