@@ -167,8 +167,8 @@ function cli.main(...)
 			cli.print_version();
 		end
 
-		for i = 1, #requires do
-			require(requires[i]);
+		for k, v in pairs(requires) do
+			_G[v] = require(k);
 		end
 
 		for i = 1, #evals do
