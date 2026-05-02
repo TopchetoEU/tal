@@ -87,7 +87,12 @@ function unix_path.is_dir(...)
 	return _base.is_dir(unix_path.split, ...);
 end
 function unix_path.chroot(...)
-	return _base.safejoin(unix_path.split, unix_path.stringify, ...);
+	return _base.chroot(unix_path.split, unix_path.stringify, ...);
+end
+--- @param a string
+--- @param b string
+function unix_path.diff(a, b)
+	return _base.diff(unix_path.split, unix_path.stringify, a, b);
 end
 function unix_path.cwd(...)
 	return _base.cwd(unix_path.split, unix_path.stringify, ...);
