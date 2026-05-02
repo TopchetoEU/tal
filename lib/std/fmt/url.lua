@@ -10,9 +10,9 @@ function url.encode(data)
 end
 function url.encode_url(data)
 	data = tostring(data);
-	return data:gsub("[^%?/a-zA-Z0-9%-_]", function (c)
+	return (data:gsub("[^%?/a-zA-Z0-9%-_]", function (c)
 		return "%" .. ("%.2X"):format(string.byte(c));
-	end);
+	end));
 end
 
 function url.decode(data)
