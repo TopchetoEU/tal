@@ -32,16 +32,19 @@ function stream_index:ptrwrite(full, buff, buff_n)
 	if not full then
 		return self._backend:write(buff, buff_n);
 	else
+		local n = 0;
+
 		while buff_n > 0 do
 			local write_n, err = self._backend:write(buff, buff_n);
-			if type(write_n) == "userdata" then
-				pprint(self._backend.write, getmetatable(write_n), err);
-			end
 			if err then return nil, err end
+			if not write_n or write_n == 0 then break end
 
 			buff_n = buff_n - write_n;
 			buff = buff + write_n;
+			n = n + write_n;
 		end
+
+		return n;
 	end
 end
 --- Reads raw data into the given buffers. Reads no more than buff_n
@@ -148,7 +151,7 @@ function stream_index:read(fmt)
 		end
 	elseif fmt:find "^[lL]" then
 		local bigl = fmt:find "^L";
-		local eol = (fmt:sub(2, 2) or "\n"):byte();
+		local eol = fmt:byte(2) or ("\n"):byte();
 
 		function process(ptr, n)
 			local nl_ptr = libc.memchr(ptr, eol, n);
