@@ -79,7 +79,7 @@ function stream_index:ptrread(full, buff, buff_n)
 	return acc_n;
 end
 
---- @param fmt "l" | "L" | "c" | "a" | integer?
+--- @param fmt std.io.readmode | string | integer?
 --- @return string? data
 --- @return string? err
 function stream_index:read(fmt)
@@ -146,18 +146,21 @@ function stream_index:read(fmt)
 		function process()
 			return read_next();
 		end
-	elseif fmt == "l" or fmt == "L" then
+	elseif fmt:find "^[lL]" then
+		local bigl = fmt:find "^L";
+		local eol = (fmt:sub(2, 2) or "\n"):byte();
+
 		function process(ptr, n)
-			local nl_ptr = libc.memchr(ptr, string.byte "\n", n);
+			local nl_ptr = libc.memchr(ptr, eol, n);
 			if nl_ptr ~= ffi.cast("void*", 0) then
 				local nl_i = ffi.cast("char*", nl_ptr) - ffi.cast("char*", ptr) + 1;
 
-				if fmt == "l" then
+				if bigl then
+					return seek_remainder(copy_res(#self.buffr - n + nl_i));
+				else
 					local res = copy_res(#self.buffr - n + nl_i - 1);
 					self.buffr:skip(1);
 					return seek_remainder(res);
-				else
-					return seek_remainder(copy_res(#self.buffr - n + nl_i));
 				end
 			end
 
