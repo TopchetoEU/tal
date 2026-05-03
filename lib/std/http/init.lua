@@ -347,32 +347,35 @@ end
 
 --- @param stream std.io.stream
 function parse.write_body(stream, body)
-	local err;
 	if type(body) == "function" then
 		while true do
-			local data, ok;
-			data, err = body();
+			local data, err = body();
+			if err then return nil, err end
 			if not data then break end
 
-			ok, err = stream:write(data);
-			if not ok then return nil, err end
+			local _, err = stream:write(data);
+			if err then return nil, err end
 		end
 	elseif type(body) == "string" then
 		stream:write(body);
 	elseif body then
+		local buff = buffer.new();
+
+		--- @cast body std.io.stream
 		while true do
-			local data, ok;
-			data, err = body:read(1024);
+			local n, err = body:ptrread(false, buff:reserve(4096));
+			if err then return nil, err end
+			if n == 0 or not n then break end
 
-			if not data or #data == 0 then break end
+			buff:commit(n);
 
-			ok, err = stream:write(data);
-			if not ok then return nil, err end
+			local n, err = stream:ptrwrite(true, buff:ref());
+			if not n then return nil, err end
+			buff:skip(n);
 		end
 	end
 
 	stream:close();
-	if err then return nil, err end
 	return true;
 end
 
