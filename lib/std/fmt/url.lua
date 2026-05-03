@@ -1,5 +1,14 @@
 local buffer = require "string.buffer";
 
+--- @class url
+--- @field scheme? string
+--- @field username? string
+--- @field password? string
+--- @field host? string
+--- @field port? integer
+--- @field path string
+--- @field params table<string, string | true>
+
 local url = {};
 
 function url.encode(data)
@@ -77,7 +86,7 @@ function url.parse_path(raw)
 end
 
 --- @param raw string
---- @return { scheme?: string, host?: string, port?: integer, path: string, params: table<string, string | true>, username?: string, password?: string }?
+--- @return url?
 --- @return string?
 function url.parse(raw)
 	local scheme, username, password, host, port, path, params;
@@ -142,7 +151,7 @@ function url.parse(raw)
 	};
 end
 
---- @param parsed { scheme?: string, host?: string, port?: integer, path: string, params: table<string, string | true>, username?: string, password?: string }
+--- @param parsed url
 function url.stringify(parsed)
 	local res = buffer.new();
 
