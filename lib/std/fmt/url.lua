@@ -11,35 +11,35 @@ local buffer = require "string.buffer";
 
 local url = {};
 
-function url.encode(data)
+function url.encode_path(data)
 	data = tostring(data);
-	return data:gsub("[^a-zA-Z0-9%-_]", function (c)
+	return (data:gsub("[^/a-zA-Z0-9%-%._]", function (c)
 		return "%" .. ("%.2X"):format(string.byte(c));
-	end);
+	end));
 end
-function url.encode_url(data)
+function url.encode_param(data)
 	data = tostring(data);
-	return (data:gsub("[^%?/a-zA-Z0-9%-_]", function (c)
+	return (data:gsub("[^%?/a-zA-Z0-9%-%._]", function (c)
 		return "%" .. ("%.2X"):format(string.byte(c));
 	end));
 end
 
 function url.decode(data)
-	return data:gsub("%%(%d%d)", function (val)
+	return (data:gsub("%%([a-zA-Z0-9][a-zA-Z0-9])", function (val)
 		return string.char(assert(tonumber(val, 16)));
-	end);
+	end));
 end
 
 function url.encode_body(body)
 	local parts = {};
 
 	for i = 1, #body do
-		table.insert(parts, url.encode(body[i][1]) .. "=" .. url.encode(body[i][2]));
+		table.insert(parts, url.encode_param(body[i][1]) .. "=" .. url.encode_param(body[i][2]));
 	end
 
 	for k, v in pairs(body) do
 		if type(k) == "string" then
-			table.insert(parts, url.encode(k) .. "=" .. url.encode(v));
+			table.insert(parts, url.encode_param(k) .. "=" .. url.encode_param(v));
 		end
 	end
 
@@ -176,7 +176,7 @@ function url.stringify(parsed)
 		res:put("/");
 	end
 
-	res:put(url.encode_url(parsed.path));
+	res:put(url.encode_path(parsed.path));
 
 	local encoded = url.encode_body(parsed.params);
 	if #encoded > 0 then
