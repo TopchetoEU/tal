@@ -723,17 +723,15 @@ local function proc_fix_stdarg(stdarg)
 	if stdarg == "inherit" then
 		return 0, nil;
 	elseif stdarg == "pipe" then
-		return 2, ffi.new "ev_handle_t[1]";
-	else
-		return 1, ffi.new("ev_handle_t[1]", stdarg);
+		return 1, ffi.new "ev_handle_t[1]";
 	end
 end
 
 --- @param argv string[]
 --- @param env { [string]: string, [integer]: { [1]: string, [2]: string } }
---- @param stdin? ev.handle | "pipe" | "inherit"
---- @param stdout? ev.handle | "pipe" | "inherit"
---- @param stderr? ev.handle | "pipe" | "inherit"
+--- @param stdin? "pipe" | "inherit"
+--- @param stdout? "pipe" | "inherit"
+--- @param stderr? "pipe" | "inherit"
 --- @return boolean sync
 --- @return { proc: ev.proc, stdin?: ev.handle, stdout?: ev.handle, stderr?: ev.handle }?
 --- @return string? err
@@ -743,19 +741,27 @@ function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "ev_proc_t[1]",
+		keep_str = {},
 		get_args = function (self)
 			return {
 				proc = self.pres[0],
-				stdin = in_flag == 2 and self.pin[0] or nil,
-				stdout = out_flag == 2 and self.pout[0] or nil,
-				stderr = err_flag == 2 and self.perr[0] or nil,
+				stdin = in_flag == 1 and self.pin[0] or nil,
+				stdout = out_flag == 1 and self.pout[0] or nil,
+				stderr = err_flag == 1 and self.perr[0] or nil,
 			};
 		end
 	}
 
+	local function strdup(str)
+		local res = libc.malloc(#str + 1);
+		ffi.copy(res, str);
+		table.insert(ctx.keep_str, res);
+		return res;
+	end
+
 	ctx.argv = ffi.new("const char*[?]", #argv + 1);
 	for i = 1, #argv do
-		ctx.argv[i - 1] = argv[i];
+		ctx.argv[i - 1] = strdup(argv[i]);
 	end
 	ctx.argv[#argv] = nil;
 	ctx.keep_argv = argv;
@@ -773,10 +779,10 @@ function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 		local env_i = #env;
 		for k, v in pairs(env) do
 			if type(k) ~= "number" then
-				ctx.envp[env_i] = k .. "=" .. v;
+				ctx.envp[env_i] = strdup(k .. "=" .. v);
 				env_i = env_i + 1;
 			else
-				ctx.envp[k - 1] = v[0] .. "=" .. v[1];
+				ctx.envp[k - 1] = strdup(v[0] .. "=" .. v[1]);
 			end
 		end
 		ctx.envp[#env + env_n] = nil;
