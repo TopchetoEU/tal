@@ -18,13 +18,20 @@ function proc_index:wait()
 	if self._mng then return nil, "closed" end
 
 	local kind, code = loop.sync_ret(self._fd:wait(coroutine.running()));
-	if not kind then return nil, code end
+	if not code then return nil, kind end
+
+	--- @cast kind "sig" | "exit"
+	--- @cast code integer
 
 	proc_fd:set(self, nil);
 
 	self._mng = nil;
 
-	return code;
+	if kind == "sig" then
+		return -code;
+	else
+		return code;
+	end
 end
 
 local proc_meta = { __index = proc_index };
