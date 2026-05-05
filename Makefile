@@ -6,9 +6,7 @@ LUAJIT_MK := deps/luajit/Makefile
 
 OS ?= $(shell uname)
 
-LIBEV_LIBS := \
-	deps/libev/bin/$(OS)/libev.a deps/libev/bin/$(OS)/libev.so \
-	deps/libev/bin/$(OS)/libev-dyn.a deps/libev/bin/$(OS)/libev-dyn.so
+LIBEV_LIBS := deps/libev/bin/$(OS)/libev.a deps/libev/bin/$(OS)/libev.so
 LIBEV_MK := deps/libev/Makefile
 
 LIBS := $(LUAJIT_LIBS)
