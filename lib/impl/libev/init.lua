@@ -12,6 +12,32 @@ local ev_proc = require "impl.libev.ev_proc"
 local ev_impl_index = {};
 local ev_impl_meta = { __index = ev_impl_index };
 
+local sig_table = {
+	[0] = "INT",
+	[1] = "QUIT",
+	[2] = "ABRT",
+	[3] = "TERM",
+	[4] = "BADMEM",
+	[5] = "BADOP",
+	[6] = "BADPIPE",
+	[7] = "TSIZE",
+	[8] = "TLOST",
+	[9] = "USR1",
+	[10] = "USR2",
+
+	["INT"] = 0,
+	["QUIT"] = 1,
+	["ABRT"] = 2,
+	["TERM"] = 3,
+	["BADMEM"] = 4,
+	["BADOP"] = 5,
+	["BADPIPE"] = 6,
+	["TSIZE"] = 7,
+	["TLOST"] = 8,
+	["USR1"] = 9,
+	["USR2"] = 10,
+};
+
 function ev_impl_index:open(udata, path, flags, mode)
 	path = sig.str(path, "path");
 	flags = sig.str(flags, "flags");
@@ -93,6 +119,19 @@ function ev_impl_index:spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 
 		return res, err;
 	end), argv, env, cwd, stdin, stdout, stderr);
+end
+
+function ev_impl_index:sig_on(sig)
+	return self.ev:sig_on(sig_table[sig] --[[@as number]]);
+end
+function ev_impl_index:sig_off(sig)
+	return self.ev:sig_off(sig_table[sig] --[[@as number]]);
+end
+function ev_impl_index:sig_wait(udata)
+	return self.ev:sig_wait(process_args.wrap_udata(udata, function (sig, err)
+		if not sig then return nil, err end
+		return sig_table[sig];
+	end));
 end
 
 local function next_processargs(udata, ...)

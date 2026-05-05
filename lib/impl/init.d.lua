@@ -184,6 +184,19 @@ function _impl:iterenv() end
 --- @return string? err
 function _impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr) end
 
+--- @param signal std.signal
+--- @return true?
+--- @return string? err
+function _impl:sig_on(signal) end
+--- @param signal std.signal
+--- @return true?
+--- @return string? err
+function _impl:sig_off(signal) end
+--- @return boolean sync
+--- @return std.signal?
+--- @return string? err
+function _impl:sig_wait(udata) end
+
 --- Returns a callback + arguments to be called if successful
 --- Returns nil
 --- Returns nil + an error message if an error occurred
