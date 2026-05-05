@@ -7,10 +7,11 @@ local libev = ffi.load "ev";
 ffi.cdef [[
 typedef int64_t off_t;
 typedef int ev_code_t;
+typedef int ev_signo_t;
 
 void free(void *ptr);
 
-#line 14
+#line 15
 
 typedef struct ev *ev_t;
 
@@ -274,6 +275,25 @@ ev_code_t evs_proc_spawn(
 ev_code_t evs_proc_wait(ev_proc_t proc, int *psig, int *pcode);
 
 ev_code_t evs_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags);
+
+// Signal handling utilities. NOTE: these won't correlate to signals 1:1, as signals have a stupid amount of historic baggage
+// Activating one logical ev signal might activate multiple OS signals, or none at all. Furthermore, the set of signals you can
+// receive has been reduced to ones you will want to receive.
+
+// On windows, signals don't exist, so they are "faked" with other facilities.
+// This means that some ev signals will never be produced on windows.
+
+// Activates the given signal for receiving. After this call, wait_sig will receive this signal, when generated, as well
+// Internally, both this and ev_sig_off use a refcount, so the two must be called in pairs (calling off is optional,
+// but it must be called no more times than on has been called per signal)
+ev_code_t ev_sig_on(ev_t ev, ev_signo_t sig);
+// Deactivates the given signal and restores its default semantics. After this call, wait_sig will no longer receiv eit
+ev_code_t ev_sig_off(ev_t ev, ev_signo_t sig);
+
+// Blocks until the given signal is received.
+// NOTE: activating a signal and then not calling sig_wait is equivalent to ignoring it
+ev_code_t ev_sig_wait(ev_t ev, void *udata, ev_signo_t *pres);
+
 // Gets a malloc'd string, representing the requested path
 ev_code_t evs_getpath(char **pres, ev_path_type_t type);
 
@@ -296,59 +316,6 @@ ev_code_t evs_monotime(ev_time_t *pres);
 
 // Sleeps until the monotone timestamp provided occurs
 void evs_sleep(ev_time_t time);
-]];
-
-local libev_dyn = ffi.load "ev-dyn";
-ffi.cdef [[
-#line 304
-typedef struct ev_dyn_sig *ev_dyn_sig_t;
-typedef struct ev_dyn_args *ev_dyn_args_t;
-
-// Creates a signature, that can then be used in ev_dyn_args_t
-// First type is the return type, the rest are the arguments, no variadic args allowed
-// Return EINVAL if sig's syntax is invalid
-//
-// Types:
-//     v -> void (may not be used as a standalone argument)
-//     c -> char
-//     is -> int
-//     i -> int
-//     il -> long int
-//     ill -> long long int
-//     f -> float
-//     d -> double
-//     dl -> long double
-//     i8 -> int8_t
-//     i16 -> int16_t
-//     i32 -> int32_t
-//     i64 -> int64_t
-//     * -> a pointer
-//     (...types) -> structure of the given types
-//
-// Example: struct { int a; int b; }* (int a, int b, my_ptr_t *c) -> (ii)ii*
-ev_code_t ev_dyn_sig_new(void *func, const char *sig, ev_dyn_sig_t *pres);
-// Releases all resources, used by this signature
-// It goes without saying that this must be called after all callbacks, depending on these have begun execution
-void ev_dyn_sig_free(ev_dyn_sig_t sig);
-
-// Creates arguments for ev_dyn_cb. Freeing the structure is handled by ev_dyn_cb
-// Returns NULL when out of memory (aka EV_ENOMEM is implied)
-ev_dyn_args_t ev_dyn_args_new(ev_dyn_sig_t sig, void *pret, void **args);
-
-// A callback, usable in ev_exec. Always will report EV_OK
-// Must be passed a ev_dyn_args_t
-//
-// Example usage:
-//     ev_dyn_sig_t sig;
-//     ev_dyn_mksig(printf, "i*ii", &sig);
-//
-//     int res;
-//
-//     const char *fmt = "A = %d, B = %d\n";
-//     int a = 10;
-//     int b = 5;
-//     ev_exec(ev_dyn_cb, ev_dyn_mkargs(sig, &res, (void[]) { &fmt, &a, &b }));
-int ev_dyn_cb(void *pargs);
 ]];
 
 local ev_cbs = prop();
@@ -919,6 +886,37 @@ function ev:exec(udata, func, sig_str, ret_t, ...)
 	};
 
 	return ev_sync_call(libev.ev_exec, self, ctx, libev_dyn.ev_dyn_cb, libev_dyn.ev_dyn_args_new(sig, ctx.pret, args), true);
+end
+
+--- @param sig integer
+--- @return true? ok
+--- @return string? err
+function ev:sig_on(sig)
+	local code = libev.ev_sig_on(self, sig);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
+
+	return true;
+end
+--- @param sig integer
+--- @return true? ok
+--- @return string? err
+function ev:sig_off(sig)
+	local code = libev.ev_sig_off(self, sig);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
+
+	return true;
+end
+--- @return boolean sync
+--- @return integer? sig
+--- @return string? err
+function ev:sig_wait(udata)
+	local ctx = {
+		udata = udata,
+		pres = ffi.new "ev_signo_t[1]",
+		get_args = function (self) return tonumber(self.pres[0]) end
+	};
+
+	return ev_sync_call(libev.ev_sig_wait, self, ctx, ctx.pres);
 end
 
 --- @return ev
