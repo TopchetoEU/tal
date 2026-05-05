@@ -2,6 +2,7 @@ local impl = require "impl";
 local loop = require "std.loop";
 local sig  = require "std.sig";
 local stream = require "std.io.stream";
+local proc = require "std.proc";
 
 -- A wrapper around my libraries to mirror lua's "io" global library
 
@@ -82,6 +83,57 @@ function io.open(path, mode)
 	end
 
 	return io.xopen(path, flags);
+end
+
+--- @param prog string
+---@param mode? string
+function io.popen(prog, mode)
+	mode = mode or "r";
+	local r = mode:find "r" and "pipe" or "inherit";
+	local w = mode:find "w" and "pipe" or "inherit";
+	local p, err;
+
+	if jit.os == "Windows" then
+		p, err = proc { argv = { "cmd", "/C", prog }, stdout = r, stdin = w, path = true };
+		if not p then return nil, err end
+	else
+		p, err = proc { argv = { "sh", "-c", prog }, stdout = r, stdin = w, path = true };
+		if not p then return nil, err end
+	end
+
+	print(p.stdin, p.stdout);
+
+	local self = { p = p };
+	function self:read(ptr, n)
+		if not self.p.stdout then return nil, "writeonly" end
+		return self.p.stdout:ptrread(false, ptr, n);
+	end
+	function self:write(ptr, n)
+		if not self.p.stdin then return nil, "readonly" end
+		return self.p.stdin:ptrwrite(false, ptr, n);
+	end
+	function self:flush(ptr, n)
+		if self.p.stdin then
+			local _, err = self.p.stdin:flush();
+			if err then return nil, err end
+		end
+		if self.p.stdout then
+			local _, err = self.p.stdout:flush();
+			if err then return nil, err end
+		end
+		return true;
+	end
+	function self:close()
+		if self.p.stdin then
+			self.p.stdin:close();
+		end
+		if self.p.stdout then
+			self.p.stdout:close();
+		end
+		self.p:wait();
+	end
+
+	return stream.new(self, true);
 end
 
 --- @param fmt std.io.readmode
