@@ -9,28 +9,28 @@ local proc_fd = field();
 
 --- @class std.proc
 --- @field _fd _impl.process
---- @field _closed boolean
+--- @field _mng string?
 --- @field stdin std.io.stream?
 --- @field stdout std.io.stream?
 --- @field stderr std.io.stream?
 local proc_index = {};
 function proc_index:wait()
-	if self._closed then return nil, "closed" end
+	if self._mng then return nil, "closed" end
 
 	local kind, code = loop.sync_ret(self._fd:wait(coroutine.running()));
 	if not kind then return nil, code end
 
 	proc_fd:set(self, nil);
 
-	self._closed = true;
+	self._mng = nil;
 
 	return code;
 end
 
 local proc_meta = { __index = proc_index };
 function proc_meta:__gc()
-	if not self._closed then
-		print "warn: proc not freed";
+	if not self._mng then
+		print("warn: proc not freed: " .. self._mng);
 	end
 end
 
@@ -82,7 +82,7 @@ return function (opts)
 
 	local self = setmetatable(collected({
 		_fd = res.proc,
-		_closed = false,
+		_mng = debug.traceback(),
 		stdin = res.stdin and stream.from_stream(res.stdin, false),
 		stdout = res.stdout and stream.from_stream(res.stdout, false),
 		stderr = res.stderr and stream.from_stream(res.stderr, false)
