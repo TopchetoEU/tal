@@ -18,6 +18,9 @@ table.new = require "table.new";
 table.unpack = unpack or table.unpack;
 
 load = require "std.compiler.loading".load;
+function loadfile(filename, mode, env)
+	return load(io.lines(filename, 4096), "@" .. filename, mode, env);
+end
 exit = os.exit;
 require = package.require;
 unpack = table.unpack;
