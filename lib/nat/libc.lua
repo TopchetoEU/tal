@@ -9,7 +9,9 @@ void free(void *ptr);
 local c = {};
 
 function c.malloc(n)
-	return libc.malloc(n);
+	local res = libc.malloc(n);
+	if res == ffi.cast("void*", 0) then error "out of memory" end
+	return res;
 end
 function c.malloc_gc(n)
 	return ffi.gc(c.malloc(n), c.free);
