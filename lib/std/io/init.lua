@@ -101,8 +101,6 @@ function io.popen(prog, mode)
 		if not p then return nil, err end
 	end
 
-	print(p.stdin, p.stdout);
-
 	local self = { p = p };
 	function self:read(ptr, n)
 		if not self.p.stdout then return nil, "writeonly" end
