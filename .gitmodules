@@ -3,4 +3,4 @@
 	url = https://github.com/LuaJIT/LuaJIT
 [submodule "deps/libev"]
 	path = deps/libev
-	url = https://git.topcheto.eu/topchetoeu/libev
+	url = https://git.topcheto.eu/libev.git
