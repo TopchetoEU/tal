@@ -15,7 +15,7 @@ local proc_fd = field();
 --- @field stderr std.io.stream?
 local proc_index = {};
 function proc_index:wait()
-	if self._mng then return nil, "closed" end
+	if not self._mng then return nil, "closed" end
 
 	local kind, code = loop.sync_ret(self._fd:wait(coroutine.running()));
 	if not code then return nil, kind end
@@ -36,7 +36,7 @@ end
 
 local proc_meta = { __index = proc_index };
 function proc_meta:__gc()
-	if not self._mng then
+	if self._mng then
 		print("warn: proc not freed: " .. self._mng);
 	end
 end
