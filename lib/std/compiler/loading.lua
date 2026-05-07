@@ -90,6 +90,11 @@ end
 --- @param name string
 --- @param line integer
 function loading.map(name, line)
+	if type(name) == "string" then
+		name = name:match "^[@=](.*)";
+	end
+	if not name then return nil end
+
 	if name and line and maps[name] and maps[name][line] then
 		return maps[name][line];
 	end
