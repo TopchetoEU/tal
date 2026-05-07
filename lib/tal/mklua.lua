@@ -259,7 +259,7 @@ local function emit_map_emitter(name, map)
 		end
 	end
 
-	return "loading.emit_map(" .. name:quote() .. ", {" .. table.concat(res, ", ") .. "});";
+	return "loading.emit_map(" .. ("@" .. name):quote() .. ", {" .. table.concat(res, ", ") .. "});";
 end
 
 --- @param ctx tal.mklua.ctx
@@ -314,7 +314,7 @@ local function emit_lua(ctx, name, filename, src, out, passed, map_parts)
 	end
 
 	local func = assert(load(src, "@" .. filename, "t"));
-	map = loading.get_map(filename);
+	map = loading.get_map("@" .. filename);
 	map_name = filename;
 
 	if map_name and map then

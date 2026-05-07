@@ -51,7 +51,7 @@ function debug.sethook(...)
 		function f(...)
 			if ... == "line" then
 				local info = old_getinfo(2, "Sl");
-				local loc = loading.map(info.short_src, info.currentline);
+				local loc = loading.map(info.source, info.currentline);
 				return old_f(..., loc and loc.row or info.currentline, loc and loc.col);
 			else
 				return old_f(...);
@@ -88,7 +88,7 @@ function debug.getinfo(...)
 
 	if not info then return nil end
 
-	local def_loc = loading.map(info.short_src, info.linedefined);
+	local def_loc = loading.map(info.source, info.linedefined);
 	if def_loc then
 		info.linedefined = def_loc.row;
 		info.coldefined = def_loc.col;
@@ -98,7 +98,7 @@ function debug.getinfo(...)
 		local cols = {};
 
 		for i = 1, info.activelines do
-			local loc = loading.map(info.short_src, info.activelines[i]);
+			local loc = loading.map(info.source, info.activelines[i]);
 			if loc then
 				info.activelines[i] = loc.col;
 			else
@@ -110,13 +110,13 @@ function debug.getinfo(...)
 	end
 
 	if not bogus_s then
-		local lastdef_loc = loading.map(info.short_src, info.lastlinedefined);
+		local lastdef_loc = loading.map(info.source, info.lastlinedefined);
 		if lastdef_loc then
 			info.lastlinedefined = lastdef_loc.row;
 			info.lastcoldefined = lastdef_loc.col;
 		end
 
-		local curr_loc = loading.map(info.short_src, info.currentline);
+		local curr_loc = loading.map(info.source, info.currentline);
 		if curr_loc then
 			info.currentline = curr_loc.row;
 			info.currentcol = curr_loc.col;
@@ -151,7 +151,11 @@ function debug.traceback(...)
 		local curr = "";
 
 		if info.short_src and (info.what == "Lua" or info.what == "main") then
-			curr = curr .. "in " .. info.short_src;
+			if info.source:find "^[@=]" then
+				curr = curr .. "in " .. info.source:sub(2);
+			else
+				curr = curr .. "in " .. info.short_src;
+			end
 		end
 
 		if info.currentline >= 0 then
