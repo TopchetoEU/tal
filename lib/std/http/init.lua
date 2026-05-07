@@ -270,8 +270,11 @@ function parse.write_headers(stream, headers)
 end
 
 --- @param str std.io.stream
-local function http_setup_body(str, body)
+local function http_setup_body(str, body, headers)
 	if not body then return true end
+
+	local len = headers:get "content-length";
+	if len and tonumber(len) then return str end
 
 	local _, err = str:write("transfer-encoding: chunked\r\n");
 	if not _ then return nil, err end
@@ -318,7 +321,7 @@ function parse.write_req(stream, method, path, headers, body)
 	local _, err = stream:write(("%s %s HTTP/1.1\r\n"):format(method, path));
 	if not _ then return nil, err end
 
-	local body_str, err = http_setup_body(stream, body);
+	local body_str, err = http_setup_body(stream, body, headers);
 	if not body_str then return nil, err end
 
 	local _, err = parse.write_headers(stream, headers);
@@ -336,7 +339,7 @@ function parse.write_res(stream, code, headers, body)
 	local _, err = stream:write(("HTTP/1.1 %d %s\r\n"):format(code, codes_msgs[code] or "Unknown"));
 	if not _ then return nil, err end
 
-	local body_str, err = http_setup_body(stream, body);
+	local body_str, err = http_setup_body(stream, body, headers);
 	if not body_str then return nil, err end
 
 	local _, err = parse.write_headers(stream, headers);
