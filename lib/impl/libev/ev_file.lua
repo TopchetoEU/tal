@@ -1,5 +1,4 @@
 local sig = require "std.sig";
-local process_args = require "impl.libev.process_args"
 
 --- @class _impl.ev.file_data
 --- @field fd ev.file
