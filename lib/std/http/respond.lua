@@ -6,6 +6,15 @@ local headers = require "std.http.headers";
 --- @param hdrs? http_headers
 --- @param body? http_body
 return function (stream, code, hdrs, body)
+	hdrs = hdrs or headers.new();
+
+	if type(body) == "table" then
+		local stat = body:stat();
+		if stat and stat.type == "file" and stat.size >= 0 then
+			hdrs:set("content-length", stat.size);
+		end
+	end
+
 	local body_out, err = http.write_res(stream, code or 200, hdrs or headers.new(), body ~= nil);
 	if not body_out then return nil, err end
 
