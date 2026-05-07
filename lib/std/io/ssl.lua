@@ -30,10 +30,14 @@ local function ssl_flush(self)
 end
 local function ssl_close(self_data)
 	if self_data.owned then
-		self_data.stream:close();
+		local _, err = self_data.stream:close();
+		if err then return nil, err end
+
 		self_data.owned = false;
 		self_data.stream = nil;
 	end
+
+	return true;
 end
 
 local function ssl_handle_err(self, code)

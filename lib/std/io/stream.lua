@@ -10,7 +10,7 @@ local sig = require "std.sig";
 --- @field seek? fun(self, offset: integer, whence: "set" | "cur" | "end"): integer?, string?
 --- @field stat? fun(self): std.io.stat?, string?
 --- @field flush? fun(self): true?, string?
---- @field close? fun(self)
+--- @field close? fun(self): true?, string?
 
 --- @class std.io.stream
 --- @field _backend std.io.stream.backend
@@ -238,11 +238,10 @@ function stream_index:lines(fmt, close)
 	end
 end
 
---- @return true
+--- @return true?, string?
 function stream_index:close()
 	self._mngd = nil;
-	self._backend:close();
-	return true;
+	return self._backend:close();
 end
 
 local stream_meta = {
@@ -303,13 +302,17 @@ local function combine(read, write)
 		end,
 		close = function (self)
 			if self.read_str then
-				self.read_str:close();
+				local ok, err = self.read_str:close();
+				if not ok then return nil, err end
 				self.read_str = nil;
 			end
 			if self.write_str then
-				self.write_str:close();
+				local ok, err = self.write_str:close();
+				if not ok then return nil, err end
 				self.write_str = nil;
 			end
+
+			return true;
 		end,
 	}, mngd);
 end
@@ -365,6 +368,8 @@ local function from_file(file)
 			self.fd:close();
 			self.fd = nil;
 		end
+
+		return true;
 	end
 
 	return new(self, true);
@@ -397,6 +402,8 @@ local function from_stream(str, mngd)
 			self.fd:close();
 			self.fd = nil;
 		end
+
+		return true;
 	end
 
 	return new(self, mngd);
