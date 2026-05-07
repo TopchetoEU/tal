@@ -33,6 +33,52 @@ function proc_index:wait()
 		return code;
 	end
 end
+function proc_index:close()
+	if not self._mng then return true end
+
+	local code, err = self:wait();
+	if err then return nil, err end
+	if code ~= 0 then return nil, "process exited with code " .. code, code end
+	return true;
+end
+function proc_index:to_stream()
+	local self = { p = self };
+	function self:read(ptr, n)
+		if not self.p.stdout then return nil, "writeonly" end
+		return self.p.stdout:ptrread(false, ptr, n);
+	end
+	function self:write(ptr, n)
+		if not self.p.stdin then return nil, "readonly" end
+		return self.p.stdin:ptrwrite(false, ptr, n);
+	end
+	function self:flush(ptr, n)
+		if self.p.stdin then
+			local _, err = self.p.stdin:flush();
+			if err then return nil, err end
+		end
+		if self.p.stdout then
+			local _, err = self.p.stdout:flush();
+			if err then return nil, err end
+		end
+		return true;
+	end
+	function self:close()
+		if not self.p._mng then return true end
+
+		if self.p.stdin then
+			local _, err = self.p.stdin:close();
+			if err then return nil, err end
+		end
+		if self.p.stdout then
+			local _, err = self.p.stdout:close();
+			if err then return nil, err end
+		end
+
+		return self.p:close();
+	end
+
+	return stream.new(self, true);
+end
 
 local proc_meta = { __index = proc_index };
 function proc_meta:__gc()
