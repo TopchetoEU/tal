@@ -38,6 +38,9 @@ local sig_table = {
 	["USR2"] = 10,
 };
 
+function ev_impl_index:openfd(fd)
+	return ev_handle(self.ev, self.ev:handle_new(fd));
+end
 function ev_impl_index:open(udata, path, flags, mode)
 	path = sig.str(path, "path");
 	flags = sig.str(flags, "flags");
