@@ -2,7 +2,7 @@ local readline = require "nat.libreadline";
 local printing = require "std.printing";
 local fs = require "std.io.fs";
 local path = require "std.path";
-local argp = require "std.fmt.argp"
+local argp = require "std.fmt.argp";
 local cli = {};
 
 local function stacktrace_fin(ok, ...)
@@ -42,6 +42,17 @@ function cli.load_eval(src, name, env)
 end
 
 function cli.repl()
+	-- TODO: uncomment when libreadline is made concurrent
+	-- assert(signal.on "INT");
+	-- loop.fork(function ()
+	-- 	for sig in signal.wait do
+	-- 		print(sig);
+	-- 		if sig == "INT" then
+	-- 			exit(0);
+	-- 		end
+	-- 	end
+	-- end);
+
 	while true do
 		local cont = true;
 
@@ -162,41 +173,42 @@ function cli.main(...)
 		version = true;
 	end
 
-	cli.stacktrace_call(function ()
-		if version then
-			cli.print_version();
-		end
+	if version then
+		cli.print_version();
+	end
 
-		for k, v in pairs(requires) do
+	for k, v in pairs(requires) do
+		if not cli.stacktrace_call(function ()
 			_G[v] = require(k);
+		end) then
+			return false
 		end
+	end
 
-		for i = 1, #evals do
-			local fun, err = load(evals[i], "=<eval " .. i .. ">", "t");
-			if not fun then
-				io.stderr:write(err);
-				return;
-			end
+	for i = 1, #evals do
+		if not cli.stacktrace_call(function ()
+			return assert(load(evals[i], "=<eval " .. i .. ">", "t"))();
+		end) then return false end
+	end
 
-			fun();
-		end
+	if module then
+		package.root = fs.path "cwd";
 
-		if module then
-			package.root = fs.path "cwd";
+		cli.stacktrace_call(function ()
 
 			local mod = require(module);
 			if type(mod) == "table" then
 				if mod.__main then
-					mod.__main(table.unpack(args));
+					return mod.__main(table.unpack(args));
 				else
-					mod.main(table.unpack(args));
+					return mod.main(table.unpack(args));
 				end
 			else
-				mod(table.unpack(args));
+				return mod(table.unpack(args));
 			end
-		end
-
-		if file then
+		end);
+	elseif file then
+		cli.stacktrace_call(function ()
 			local f = assert(io.open(file));
 			local src = f:read "a";
 			f:close();
@@ -206,13 +218,13 @@ function cli.main(...)
 			local func, err = load(src, "@" .. file, "t");
 			if not func then error(err, 0) end
 
-			func(table.unpack(args));
-		end
+			return func(table.unpack(args));
+		end);
+	end
 
-		if repl then
-			cli.repl();
-		end
-	end);
+	if repl then
+		return cli.repl();
+	end
 end
 
 return cli;
