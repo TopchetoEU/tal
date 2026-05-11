@@ -49,7 +49,14 @@ lexer.operators = {
 	ASSIGN_SUB = 72,
 	ASSIGN_MUL = 73,
 	ASSIGN_DIV = 74,
-	ASSIGN_MOD = 75,
+	ASSIGN_IDIV = 75,
+	ASSIGN_MOD = 76,
+
+	ASSIGN_BAND = 80,
+	ASSIGN_BOR = 81,
+	ASSIGN_BXOR = 82,
+	ASSIGN_SHL = 83,
+	ASSIGN_SHR = 83,
 
 	END = 99,
 
@@ -120,10 +127,10 @@ local op_map = {
 	},
 	["%"] = { lexer.operators.MOD, ["="] = { lexer.operators.ASSIGN_MOD } },
 
-	["&"] = { lexer.operators.B_AND },
-	["|"] = { lexer.operators.B_OR },
+	["&"] = { lexer.operators.B_AND, ["&"] = { lexer.operators.AND }, ["="] = { lexer.operators.ASSIGN_BAND } },
+	["|"] = { lexer.operators.B_OR, ["|"] = { lexer.operators.OR }, ["="] = { lexer.operators.ASSIGN_BOR } },
 
-	["^"] = { lexer.operators.POW },
+	["^"] = { lexer.operators.POW, ["="] = { lexer.operators.ASSIGN_XOR } },
 	["~"] = {
 		lexer.operators.B_XOR,
 		["="] = { lexer.operators.NEQ },
@@ -132,12 +139,12 @@ local op_map = {
 
 	[">"] = {
 		lexer.operators.GR,
-		[">"] = { lexer.operators.B_SHR },
+		[">"] = { lexer.operators.B_SHR, ["="] = { lexer.operators.ASSIGN_SHR } },
 		["="] = { lexer.operators.GREQ },
 	},
 	["<"] = {
 		lexer.operators.LE,
-		["<"] = { lexer.operators.B_SHL },
+		["<"] = { lexer.operators.B_SHL, ["="] = { lexer.operators.ASSIGN_SHL } },
 		["="] = { lexer.operators.LEQ },
 	},
 
@@ -146,6 +153,7 @@ local op_map = {
 		["="] = { lexer.operators.EQ },
 	},
 	["!"] = {
+		lexer.operators.NOT,
 		["="] = { lexer.operators.NEQ },
 	},
 
@@ -211,7 +219,7 @@ end
 --- @param self lex.tok
 function token_meta:is_assign_op()
 	if self.type ~= "op" then return false end
-	return self.val >= lexer.operators.ASSIGN and self.val <= lexer.operators.ASSIGN_MOD;
+	return self.val >= lexer.operators.ASSIGN and self.val <= lexer.operators.ASSIGN_SHR;
 end
 --- @param self lex.tok
 --- @param val? string
