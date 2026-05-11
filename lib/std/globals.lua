@@ -12,6 +12,7 @@ local err = require "std.error";
 
 debug = require "std.debug";
 io = require "std.io";
+jit = require "jit";
 
 table.clear = require "table.clear";
 table.new = require "table.new";
