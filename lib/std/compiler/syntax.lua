@@ -42,7 +42,13 @@ local OP_ASSIGN_ADD = lex.operators.ASSIGN_ADD;
 local OP_ASSIGN_SUB = lex.operators.ASSIGN_SUB;
 local OP_ASSIGN_MUL = lex.operators.ASSIGN_MUL;
 local OP_ASSIGN_DIV = lex.operators.ASSIGN_DIV;
+local OP_ASSIGN_IDIV = lex.operators.ASSIGN_IDIV;
 local OP_ASSIGN_MOD = lex.operators.ASSIGN_MOD;
+local OP_ASSIGN_BAND = lex.operators.ASSIGN_BAND;
+local OP_ASSIGN_BOR = lex.operators.ASSIGN_BOR;
+local OP_ASSIGN_BXOR = lex.operators.ASSIGN_BXOR;
+local OP_ASSIGN_SHL = lex.operators.ASSIGN_SHL;
+local OP_ASSIGN_SHR = lex.operators.ASSIGN_SHR;
 local OP_END = lex.operators.END;
 local OP_WHILE = lex.operators.WHILE;
 local OP_DO = lex.operators.DO;
@@ -926,8 +932,32 @@ local function parse_exp_stm(ctx, i)
 			assign_op = node.ops.DIV;
 			j = j + 1;
 			break;
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN_IDIV) then
+			assign_op = node.ops.IDIV;
+			j = j + 1;
+			break;
 		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN_MOD) then
 			assign_op = node.ops.MOD;
+			j = j + 1;
+			break;
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN_BAND) then
+			assign_op = node.ops.B_AND;
+			j = j + 1;
+			break;
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN_BOR) then
+			assign_op = node.ops.B_OR;
+			j = j + 1;
+			break;
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN_BXOR) then
+			assign_op = node.ops.B_XOR;
+			j = j + 1;
+			break;
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN_SHL) then
+			assign_op = node.ops.B_SHL;
+			j = j + 1;
+			break;
+		elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_ASSIGN_SHR) then
+			assign_op = node.ops.B_SHR;
 			j = j + 1;
 			break;
 		elseif #targets == 1 then
