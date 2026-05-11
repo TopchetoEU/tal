@@ -104,6 +104,12 @@ function process:wait(udata) end
 --- @field stderr _impl.stream
 local _impl = {};
 
+--- Converts an OS fd to a stream
+--- @param fd integer
+--- @return _impl.stream? file
+--- @return string? err
+function _impl:openfd(fd) end
+
 --- @param path string
 --- @param flags std.io.open_flags
 --- @param mode integer
