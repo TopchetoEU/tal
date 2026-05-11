@@ -1,4 +1,4 @@
---- @meta impl
+--- @meta
 --- Declaration file for the expected functions an implementation shall provide
 
 -- All "async" functions can short-circtuit by returning true + the return values.
@@ -28,6 +28,19 @@ function file:flush(udata) end
 --- @return std.io.stat? stat
 --- @return string? err
 function file:stat(udata) end
+
+--- @param mode integer
+--- @return boolean sync
+--- @return true? ok
+--- @return string? err
+function file:chmod(udata, mode) end
+--- @param uid integer
+--- @param gid integer
+--- @return boolean sync
+--- @return true? ok
+--- @return string? err
+function file:chown(udata, uid, gid) end
+
 function file:close() end
 
 --- @class _impl.stream
@@ -110,24 +123,28 @@ function _impl:mkdir(udata, path, mode) end
 --- @return string? err
 function _impl:opendir(udata, path) end
 
+--- @param src string
+--- @param dst string
+--- @return boolean sync
+--- @return true? ok
+--- @return string? err
+function _impl:symlink(udata, src, dst) end
+--- @param src string
+--- @param dst string
+--- @return boolean sync
+--- @return true? ok
+--- @return string? err
+function _impl:hardlink(udata, src, dst) end
+--- @param path string
+--- @return boolean sync
+--- @return string? res
+--- @return string? err
+function _impl:readlink(udata, path) end
 --- @param path string
 --- @return boolean sync
 --- @return true? ok
 --- @return string? err
 function _impl:delete(udata, path) end
---- @param path integer
---- @param mode integer
---- @return boolean sync
---- @return true? ok
---- @return string? err
-function _impl:chmod(udata, path, mode) end
---- @param path integer
---- @param uid integer
---- @param gid integer
---- @return boolean sync
---- @return true? ok
---- @return string? err
-function _impl:chown(udata, path, uid, gid) end
 
 --- @param addr string
 --- @param port integer

@@ -28,12 +28,14 @@ local proc = require "std.proc";
 --- | "c" Reads a chunk of data, the size of which is determined by the underlying stream. Useful in network streams
 
 --- @alias std.io.open_flags string
---- |+ "r"
---- |+ "w"
---- |+ "a"
---- |+ "c"
---- |+ "t"
---- |+ "d"
+--- |+ "r" Read
+--- |+ "w" Write
+--- |+ "a" Append
+--- |+ "c" Create
+--- |+ "t" Truncate
+--- |+ "d" Direct
+--- |+ "l" No follow
+--- |+ "s" Stat
 
 local io = {};
 

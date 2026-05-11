@@ -33,6 +33,18 @@ function file_index:stat(udata)
 
 	return self_data.ev:stat(udata, self_data.fd);
 end
+function file_index:chmod(udata, mode)
+	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
+	if self_data.closed then return true, nil, "file is closed" end
+
+	return self_data.ev:file_chmod(udata, self_data.fd, mode);
+end
+function file_index:chown(udata, uid, gid)
+	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
+	if self_data.closed then return true, nil, "file is closed" end
+
+	return self_data.ev:file_chown(udata, self_data.fd, uid, gid);
+end
 function file_index:close()
 	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
 	if self_data.closed then return end

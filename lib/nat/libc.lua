@@ -4,10 +4,16 @@ local libc = ffi.load "ev";
 ffi.cdef [[
 void *malloc(size_t n);
 void free(void *ptr);
+
+void strlen(const char *ptr);
 ]];
 
 local c = {};
 
+--- @param ptr ffi.cdata*
+function c.strlen(ptr)
+	return libc.strlen(ptr);
+end
 function c.malloc(n)
 	local res = libc.malloc(n);
 	if res == ffi.cast("void*", 0) then error "out of memory" end
@@ -18,6 +24,19 @@ function c.malloc_gc(n)
 end
 function c.free(ptr)
 	return libc.free(ptr);
+end
+
+--- @param str string
+function c.strdup(str)
+	local res = c.malloc(#str);
+	ffi.copy(res, str);
+	return res;
+end
+--- @param str string
+function c.strdup_gc(str)
+	local res = c.malloc_gc(#str);
+	ffi.copy(res, str);
+	return res;
 end
 
 return c;
