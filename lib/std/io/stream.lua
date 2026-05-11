@@ -8,9 +8,12 @@ local sig = require "std.sig";
 --- @field read? fun(self, ptr: ffi.cdata*, n: integer): integer?, string?
 --- @field write? fun(self, ptr: ffi.cdata*, n: integer): integer?, string?
 --- @field seek? fun(self, offset: integer, whence: "set" | "cur" | "end"): integer?, string?
---- @field stat? fun(self): std.io.stat?, string?
 --- @field flush? fun(self): true?, string?
 --- @field close? fun(self): true?, string?
+---
+--- @field stat? fun(self): std.io.stat?, string?
+--- @field chmod? fun(self, mod: integer): true?, string?
+--- @field chown? fun(self, uid: integer, gid: integer): true?, string?
 
 --- @class std.io.stream
 --- @field _backend std.io.stream.backend
@@ -221,9 +224,22 @@ function stream_index:flush()
 	if not self._backend.flush then return true end
 	return self._backend:flush();
 end
+
 function stream_index:stat()
 	if not self._backend.stat then return nil, "not supported" end
 	return self._backend:stat();
+end
+--- @param mode integer | string
+function stream_index:chmod(mode)
+	if type(mode) == "string" then mode = assert(tonumber(mode, 8), "bad mode") end
+	if not self._backend.chmod then return nil, "not supported" end
+	return self._backend:chmod(mode);
+end
+--- @param uid integer
+--- @param gid integer
+function stream_index:chown(uid, gid)
+	if not self._backend.chown then return nil, "not supported" end
+	return self._backend:chown(uid, gid);
 end
 
 --- @param fmt? std.io.readmode
@@ -362,6 +378,14 @@ local function from_file(file)
 	function self:stat()
 		if not self.fd then return nil, "closed" end
 		return loop.sync_ret(self.fd:stat((coroutine.running())));
+	end
+	function self:chmod(mode)
+		if not self.fd then return nil, "closed" end
+		return loop.sync_ret(self.fd:chmod((coroutine.running()), mode));
+	end
+	function self:chown(uid, gid)
+		if not self.fd then return nil, "closed" end
+		return loop.sync_ret(self.fd:chown((coroutine.running()), uid, gid));
 	end
 	function self:close()
 		if self.fd then

@@ -24,8 +24,6 @@ typedef struct ev_dir *ev_dir_t;
 typedef struct ev_proc *ev_proc_t;
 
 typedef enum {
-	// The file will be usable only for statting (by default allowed)
-	EV_OPEN_STAT = 0,
 	// Opens the file in read mode
 	EV_OPEN_READ = 1,
 	// Opens the file in write mode
@@ -42,13 +40,16 @@ typedef enum {
 	// Keeps the file open after an exec() call
 	// By default, all files, not marked with this, are closed
 	EV_OPEN_SHARED = 64,
+
+	// Doesn't follow symlinks. Useful for statting
+	EV_OPEN_NOFOLLOW = 128,
+	// Opens the file in statting mode. Mutually-exclusive with READ, WRITE and APPEND and takes precedence over them
+	EV_OPEN_STAT= 128,
 } ev_open_flags_t;
 
 typedef enum {
 	// Use parent's stdio handle (default)
 	EV_SPAWN_STD_INHERIT,
-	// Use file descriptor, stored in the ev_fd_t* argument
-	EV_SPAWN_STD_DUP,
 	// Create a dummy file descriptor (pipe), store it in the ev_fd_t* argument and use that for the stdio handle
 	EV_SPAWN_STD_PIPE,
 } ev_spawn_stdio_flags_t;
@@ -154,8 +155,12 @@ void ev_free(ev_t ev);
 bool ev_busy(ev_t ev);
 
 // Signals to ev that a task has begun. Used to track `ev_busy`
+// ev_exec implicitly calls this
 void ev_begin(ev_t ev);
-// Pushes a result to the message queue
+// Signals to ev that a task has ended. Used to track `ev_busy`
+// ev_exec and ev_push implicitly call this
+void ev_end(ev_t ev);
+// Pushes a result to the message queue. Thread-safe
 // NOTE: using the same udata twice is UB
 ev_code_t ev_push(ev_t ev, void *udata, ev_code_t err);
 // Calls worker with pargs in a ev-managed thread and returns a new ticket to it
@@ -201,9 +206,22 @@ ev_code_t ev_stat(ev_t ev, void *udata, ev_handle_t fd, ev_stat_t *buff);
 // Equivalent to posix's open
 ev_code_t ev_file_open(ev_t ev, void *udata, ev_handle_t *pres, const char *path, ev_open_flags_t flags, int mode);
 // A file-specific read function
-ev_code_t ev_file_read(ev_t ev, void *udata, ev_handle_t fd, const char *buff, size_t *pn, size_t offset);
+ev_code_t ev_file_read(ev_t ev, void *udata, ev_handle_t fd, char *buff, size_t *pn, size_t offset);
 // A file-specific write function
 ev_code_t ev_file_write(ev_t ev, void *udata, ev_handle_t fd, char *buff, size_t *pn, size_t offset);
+// Changes the permissions of the given file
+ev_code_t ev_file_chmod(ev_t ev, void *udata, ev_handle_t hnd, int mode);
+// Changes the owner of the given file
+ev_code_t ev_file_chown(ev_t ev, void *udata, ev_handle_t hnd, int uid, int gid);
+
+// Creates a symbolic link to path at target
+ev_code_t ev_file_symlink(ev_t ev, void *udata, const char *src, const char *dst);
+// Creates a hard link to the file
+ev_code_t ev_file_hardlink(ev_t ev, void *udata, const char *src, const char *dst);
+// Reads the given symlink into a malloc'd string
+ev_code_t ev_file_readlink(ev_t ev, void *udata, const char *path, char **pres);
+// Deletes the given file
+ev_code_t ev_file_delete(ev_t ev, void *udata, const char *path);
 
 // Equivalent to posix's mkdir
 ev_code_t ev_dir_new(ev_t ev, void *udata, const char *path, int mode);
@@ -239,6 +257,23 @@ ev_code_t ev_proc_wait(ev_t ev, void *udata, ev_proc_t proc, int *psig, int *pco
 // Equivalent to posix's getaddrinfo (with a few simplifications)
 ev_code_t ev_getaddrinfo(ev_t ev, void *udata, ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags);
 
+// Signal handling utilities. NOTE: these won't correlate to signals 1:1, as signals have a stupid amount of historic baggage
+// Activating one logical ev signal might activate multiple OS signals, or none at all. Furthermore, the set of signals you can
+// receive has been reduced to ones you will want to receive.
+
+// On windows, signals don't exist, so they are "faked" with other facilities.
+// This means that some ev signals will never be produced on windows.
+
+// Activates the given signal for receiving. After this call, wait_sig will receive this signal, when generated, as well
+// Internally, both this and ev_sig_off use a refcount, so the two must be called in pairs (calling off is optional,
+// but it must be called no more times than on has been called per signal)
+ev_code_t ev_sig_on(ev_t ev, ev_signo_t sig);
+// Deactivates the given signal and restores its default semantics. After this call, wait_sig will no longer receiv eit
+ev_code_t ev_sig_off(ev_t ev, ev_signo_t sig);
+
+// Blocks until the given signal is received.
+// NOTE: activating a signal and then not calling sig_wait is equivalent to ignoring it
+ev_code_t ev_sig_wait(ev_t ev, void *udata, ev_signo_t *pres);
 
 // These functions give you more or less direct access to the underlying OS I/O functions
 // Most of these have async versions, except for environment, path, time and close functions, which aren't meant to be async
@@ -250,6 +285,14 @@ void evs_close(ev_handle_t fd);
 ev_code_t evs_file_open(ev_handle_t *pres, const char *path, ev_open_flags_t flags, int mode);
 ev_code_t evs_file_read(ev_handle_t fd, char *buff, size_t *n, size_t offset);
 ev_code_t evs_file_write(ev_handle_t fd, char *buff, size_t *n, size_t offset);
+ev_code_t evs_file_chmod(ev_handle_t hnd, int mode);
+ev_code_t evs_file_chown(ev_handle_t hnd, int uid, int gid);
+
+ev_code_t evs_file_symlink(const char *path, const char *target);
+ev_code_t evs_file_hardlink(const char *path, const char *target);
+ev_code_t evs_file_readlink(const char *path, char **pres);
+ev_code_t evs_file_delete(const char *path);
+
 ev_code_t evs_sync(ev_handle_t fd);
 ev_code_t evs_stat(ev_handle_t fd, ev_stat_t *buff);
 
@@ -275,31 +318,12 @@ ev_code_t evs_proc_spawn(
 ev_code_t evs_proc_wait(ev_proc_t proc, int *psig, int *pcode);
 
 ev_code_t evs_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags);
-
-// Signal handling utilities. NOTE: these won't correlate to signals 1:1, as signals have a stupid amount of historic baggage
-// Activating one logical ev signal might activate multiple OS signals, or none at all. Furthermore, the set of signals you can
-// receive has been reduced to ones you will want to receive.
-
-// On windows, signals don't exist, so they are "faked" with other facilities.
-// This means that some ev signals will never be produced on windows.
-
-// Activates the given signal for receiving. After this call, wait_sig will receive this signal, when generated, as well
-// Internally, both this and ev_sig_off use a refcount, so the two must be called in pairs (calling off is optional,
-// but it must be called no more times than on has been called per signal)
-ev_code_t ev_sig_on(ev_t ev, ev_signo_t sig);
-// Deactivates the given signal and restores its default semantics. After this call, wait_sig will no longer receiv eit
-ev_code_t ev_sig_off(ev_t ev, ev_signo_t sig);
-
-// Blocks until the given signal is received.
-// NOTE: activating a signal and then not calling sig_wait is equivalent to ignoring it
-ev_code_t ev_sig_wait(ev_t ev, void *udata, ev_signo_t *pres);
-
 // Gets a malloc'd string, representing the requested path
 ev_code_t evs_getpath(char **pres, ev_path_type_t type);
 
-// Gets an env variable from the current get_args
+// Gets an env variable from the current process
 ev_code_t evs_getenv(const char *name, char **pres);
-// Sets an env variable in the current get_args (if val is NULL, unsets it)
+// Sets an env variable in the current process (if val is NULL, unsets it)
 ev_code_t evs_setenv(const char *name, const char *val);
 // Iterates all key-value env pairs and sets them to pit, as "KEY=VAL\0"
 // pit contains impl-specific iteration data. Passing the pointer, stored after an iteration more than once is UB
@@ -316,6 +340,10 @@ ev_code_t evs_monotime(ev_time_t *pres);
 
 // Sleeps until the monotone timestamp provided occurs
 void evs_sleep(ev_time_t time);
+
+// Blocks until the given signal is received.
+// NOTE: activating a signal and then not calling sig_wait is equivalent to ignoring it
+ev_code_t evs_sig_wait(ev_signo_t *pres);
 ]];
 
 local ev_cbs = prop();
@@ -528,6 +556,10 @@ function ev:file_open(udata, path, flags, mode)
 			real_flags = real_flags + 16;
 		elseif c == "d" then
 			real_flags = real_flags + 32;
+		elseif c == "l" then
+			real_flags = real_flags + 128;
+		elseif c == "s" then
+			real_flags = real_flags + 256;
 		end
 	end
 
@@ -580,6 +612,93 @@ function ev:file_write(udata, fd, offset, n, buff)
 	};
 
 	return ev_sync_call(libev.ev_file_write, self, ctx, fd, ctx.buff, ctx.pn, offset);
+end
+--- @param fd ev.handle
+--- @param mode integer
+--- @return boolean sync
+--- @return integer? n
+--- @return string? err
+function ev:file_chmod(udata, fd, mode)
+	local ctx = {
+		udata = udata,
+		get_args = function () return true end
+	};
+
+	return ev_sync_call(libev.ev_file_chmod, self, ctx, fd, mode);
+end
+--- @param fd ev.handle
+--- @param uid integer
+--- @param gid integer
+--- @return boolean sync
+--- @return integer? n
+--- @return string? err
+function ev:file_chown(udata, fd, uid, gid)
+	local ctx = {
+		udata = udata,
+		get_args = function () return true end
+	};
+
+	return ev_sync_call(libev.ev_file_chown, self, ctx, fd, uid, gid);
+end
+
+--- @param src string
+--- @param dst string
+--- @return boolean sync
+--- @return integer? n
+--- @return string? err
+function ev:file_symlink(udata, src, dst)
+	local ctx = {
+		udata = udata,
+		keep_path = src,
+		keep_target = dst,
+		get_args = function () return true end
+	};
+
+	return ev_sync_call(libev.ev_file_symlink, self, ctx, src, dst);
+end
+--- @param src string
+--- @param dst string
+--- @return boolean sync
+--- @return integer? n
+--- @return string? err
+function ev:file_hardlink(udata, src, dst)
+	local ctx = {
+		udata = udata,
+		keep_target = dst,
+		get_args = function () return true end
+	};
+
+	return ev_sync_call(libev.ev_file_hardlink, self, ctx, src, dst);
+end
+--- @param path string
+--- @return boolean sync
+--- @return integer? n
+--- @return string? err
+function ev:file_readlink(udata, path)
+	local ctx = {
+		udata = udata,
+		pres = ffi.new "char*[1]",
+		keep_target = target,
+		get_args = function (self)
+			local res = ffi.string(self.pres[0], libc.strlen(self.pres[0]));
+			libc.free(self.pres[0]);
+			return res;
+		end
+	};
+
+	return ev_sync_call(libev.ev_file_readlink, self, ctx, path, ctx.pres);
+end
+--- @param path string
+--- @return boolean sync
+--- @return integer? n
+--- @return string? err
+function ev:file_delete(udata, path)
+	local ctx = {
+		udata = udata,
+		get_args = function () return true end
+	};
+
+	return ev_sync_call(libev.ev_file_delete, self, ctx, path);
 end
 
 --- @param path string

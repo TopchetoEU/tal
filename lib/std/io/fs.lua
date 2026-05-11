@@ -36,6 +36,38 @@ local dir_meta = {
 	__gc = dir_index.close,
 };
 
+
+--- @param path string
+--- @param mode string | integer
+--- @return true?, string?
+function fs.chmod(path, mode)
+	local f, err = io.xopen(path, "s");
+	if not f then return nil, err end
+
+	local _, err = f:chmod(mode);
+	if err then return nil, err end
+
+	local _, err = f:close();
+	if err then return nil, err end
+
+	return true;
+end
+--- @param path string
+--- @param uid integer
+--- @param gid integer
+--- @return true?, string?
+function fs.chown(path, uid, gid)
+	local f, err = io.xopen(path, "s");
+	if not f then return nil, err end
+
+	local _, err = f:chown(uid, gid);
+	if err then return nil, err end
+
+	local _, err = f:close();
+	if err then return nil, err end
+
+	return true;
+end
 --- @param path string
 function fs.stat(path)
 	path = sig.str(path, "path");
@@ -96,32 +128,27 @@ function fs.readdir(path)
 	end
 end
 
+--- @param src string
+--- @param dst string
+--- @return true?, string?
+function fs.symlink(src, dst)
+	return loop.sync_ret(impl:symlink((coroutine.running()), src, dst));
+end
+--- @param src string
+--- @param dst string
+--- @return true?, string?
+function fs.hardlink(src, dst)
+	return loop.sync_ret(impl:hardlink((coroutine.running()), src, dst));
+end
 --- @param path string
+--- @return string?, string?
+function fs.readlink(path)
+	return loop.sync_ret(impl:readlink((coroutine.running()), path));
+end
+--- @param path string
+--- @return true?, string?
 function fs.delete(path)
-	path = sig.str(path, "path");
-
-	-- TODO: TO BE DONE
-	return os.remove(path);
-end
---- @param path string
---- @param mod integer
-function fs.chmod(path, mod)
-	path = sig.str(path, "path");
-	mod = sig.num(mod, "mod");
-
-	-- TODO: TO BE DONE
-	return nil, "not implemented";
-end
---- @param path string
---- @param uid integer
---- @param gid integer
-function fs.chown(path, uid, gid)
-	path = sig.str(path, "path");
-	uid = sig.num(uid, "uid");
-	gid = sig.num(gid, "gid");
-
-	-- TODO: TO BE DONE
-	return nil, "not implemented";
+	return loop.sync_ret(impl:delete((coroutine.running()), path));
 end
 
 --- @param type? std.fs.path = "cwd"
@@ -130,5 +157,6 @@ function fs.path(type)
 
 	return assert(impl:getpath(type or "cwd"));
 end
+
 
 return fs;

@@ -62,14 +62,17 @@ function ev_impl_index:opendir(udata, path)
 	end), path);
 end
 
+function ev_impl_index:symlink(udata, path, target)
+	return self.ev:file_symlink(udata, path, target);
+end
+function ev_impl_index:hardlink(udata, path, target)
+	return self.ev:file_hardlink(udata, path, target);
+end
+function ev_impl_index:readlink(udata, path)
+	return self.ev:file_readlink(udata, path);
+end
 function ev_impl_index:delete(udata, path)
-	return true, nil, "not supported";
-end
-function ev_impl_index:chmod(udata, path)
-	return true, nil, "not supported";
-end
-function ev_impl_index:chown(udata, path)
-	return true, nil, "not supported";
+	return self.ev:file_delete(udata, path);
 end
 
 function ev_impl_index:bind(udata, addr, port, protocol, max_n)
