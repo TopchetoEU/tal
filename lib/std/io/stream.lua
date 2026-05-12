@@ -271,6 +271,9 @@ function stream_index:close()
 		self._mngd = nil;
 		self._backend:close();
 	end
+
+	-- Let standard lua code assert close()
+	return true;
 end
 
 local stream_meta = {
