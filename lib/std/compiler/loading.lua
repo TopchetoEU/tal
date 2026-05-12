@@ -74,14 +74,10 @@ function loading.err_map(err, fallback)
 	local name, loc, msg = loading.err_parse(err);
 	if not name then return msg end
 
-	local sname = loading.short_name(name);
+	local map = maps["@" .. name] or maps["=" .. name] or fallback;
 
-	if sname then
-		local map = maps[sname] or fallback;
-
-		if loc and sname and map and map[loc.row] then
-			loc = map[loc.row];
-		end
+	if loc and map and map[loc.row] then
+		loc = map[loc.row];
 	end
 
 	return loading.err_stringify(name, loc, msg);
@@ -90,9 +86,6 @@ end
 --- @param name string
 --- @param line integer
 function loading.map(name, line)
-	if type(name) == "string" then
-		name = name:match "^[@=](.*)";
-	end
 	if not name then return nil end
 
 	if name and line and maps[name] and maps[name][line] then
@@ -154,8 +147,8 @@ function loading.load(chunk, name, mode, env, no_map)
 	local fun, err = load_raw(str, name, "t", env or getfenv(2));
 	if not fun then return nil, loading.err_map(err --[[@as string]], map) end
 
-	if not no_map and name:match "^[=@]" then
-		maps[name:sub(2)] = map;
+	if not no_map then
+		maps[name] = map;
 	end
 
 	return fun;

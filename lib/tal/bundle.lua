@@ -79,7 +79,7 @@ return function (...)
 		end
 	end
 
-	if not compiler_cmd and not output then
+	if not compiler_cmd and not output and mode == "gen" then
 		return io.stderr:write(help_msg);
 	end
 

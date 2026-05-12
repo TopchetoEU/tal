@@ -218,7 +218,7 @@ local walker = walk(
 		elseif node.type == "for_in" then
 			local child = scope_child(scope);
 			walk_var_decls(child, node.names, false);
-			node.values = self:walk_multiexp(node.values, #node.names);
+			node.values = self:walk_multiexp(node.values, #node.names, ctx, scope);
 			node.body = self:walk_body(node.body, ctx, child);
 			return node;
 		elseif node.type == "scope" then

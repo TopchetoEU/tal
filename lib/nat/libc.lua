@@ -6,13 +6,15 @@ void *malloc(size_t n);
 void free(void *ptr);
 
 void strlen(const char *ptr);
+void strnlen(const char *ptr, size_t max);
 ]];
 
 local c = {};
 
 --- @param ptr ffi.cdata*
-function c.strlen(ptr)
-	return libc.strlen(ptr);
+--- @param n? integer
+function c.strlen(ptr, n)
+	return n and libc.strnlen(ptr, n) or libc.strlen(ptr);
 end
 function c.malloc(n)
 	local res = libc.malloc(n);

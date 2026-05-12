@@ -133,8 +133,12 @@ return function (opts)
 				return curr_n;
 			end
 
+			if self.hnd:get_error(0) == 6 then
+				return nil, "pipe broken";
+			end
+
 			if self.hnd:get_error(0) == 5 then
-				if code == 0 then return nil end
+				if code == 0 then return 0 end
 			end
 
 			local ok, err = ssl_handle_err(self, code);

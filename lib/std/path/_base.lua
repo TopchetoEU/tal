@@ -139,7 +139,7 @@ end
 --- @param ... string
 --- @return string
 function path_base.filename(split, ...)
-	return table.remove(split(...)) or "";
+	return table.remove((split(...))) or "";
 end
 
 return path_base;
