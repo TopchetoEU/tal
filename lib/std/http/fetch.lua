@@ -2,7 +2,7 @@ local url = require "std.fmt.url";
 local net = require "std.io.net";
 local headers = require "std.http.headers";
 local http = require "std.http";
-local ssl  = require "std.io.ssl"
+local ssl = require "std.io.ssl";
 
 --- @param arg { url: string, method?: string, headers?: http_headers, body?: http_body }
 return function (arg)
