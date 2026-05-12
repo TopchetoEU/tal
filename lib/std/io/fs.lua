@@ -125,7 +125,7 @@ function fs.hardlink(src, dst)
 end
 --- @param path string
 function fs.readlink(path)
-	iassert(loop.sync_ret(impl:readlink((coroutine.running()), path)));
+	return iassert(loop.sync_ret(impl:readlink((coroutine.running()), path)));
 end
 --- @param path string
 function fs.delete(path)

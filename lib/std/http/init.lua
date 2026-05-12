@@ -117,7 +117,7 @@ local function http_read_body(conn, hdr)
 
 	local encoding = { hdr:get "transfer-encoding" };
 	for i = 1, #encoding do
-		for el in encoding[i]:split ", " do
+		for _, el in encoding[i]:split ", " do
 			if el == "chunked" then
 				chunked = true;
 			else
