@@ -73,21 +73,30 @@ local codes_msgs = {
 	[511] = "Network Authentication Required",
 };
 
---- @alias http_body (fun(): string?, string?) | std.io.stream | string | nil
+--- @class std.http.req
+--- @field method string
+--- @field path string
+--- @field headers std.http.headers
+--- @field body? std.io.stream
 
-local parse = {};
---- @param str std.io.stream
-function parse.read_headers(str)
+--- @class std.http.res
+--- @field code integer
+--- @field headers std.http.headers
+--- @field body? std.io.stream
+
+local http = {};
+
+local function http_read_headers(conn)
 	local res = headers.new();
 
 	while true do
-		local line, err = str:read "L";
-		if not line then return nil, err or "EOF" end
+		local line = conn:read "L";
+		if not line then return nil end
 
 		if line == "\r\n" then return res end
 
 		local key, val = line:match "^(.-): ?(.*)\r\n$";
-		if not key then return nil, "unexpected header format" end
+		if not key then error "unexpected header format" end
 		key = key:lower();
 
 		-- if val:find ", " then
@@ -102,36 +111,34 @@ function parse.read_headers(str)
 		-- end
 	end
 end
---- @param str std.io.stream
---- @param headers http_headers
---- @return std.io.stream?, string?
-function parse.read_body(str, headers)
-	local len = tonumber((headers:get "content-length"));
+local function http_read_body(conn, hdr)
+	local len = tonumber((hdr:get "content-length"));
 	local chunked = false;
 
-	local encoding = { headers:get "transfer-encoding" };
+	local encoding = { hdr:get "transfer-encoding" };
 	for i = 1, #encoding do
-		if encoding[i] == "chunked" then
-			chunked = true;
-		else
-			return nil, "unknown transfer encoding '" .. encoding[i] .. "'";
+		for el in encoding[i]:split ", " do
+			if el == "chunked" then
+				chunked = true;
+			else
+				error("unknown transfer encoding '" .. el .. "'");
+			end
 		end
 	end
 
 	if chunked then
-		local self = { str = str, done = false, buff = buffer.new() };
+		local self = { str = conn, done = false, buff = buffer.new() };
 
 		function self:read(ptr, n)
-			if not self.str then return "closed" end
+			if not self.str then ierror "closed" end
 			if self.done then return nil end
 
 			if #self.buff == 0 then
-				-- TODO: make async
-				local line, err = self.str:read "L";
-				if not line then return err or "broken pipe" end
+				local line = self.str:read "L";
+				if not line then ierror "pipe broken" end
 
-				local slen = line:match "^([%da-zA-Z]+)\r\n$";
-				if not slen then return "malformed chunked encoding" end
+				local slen = line:match "^([%da-zA-Z]+)\r?\n$";
+				if not slen then ierror "malformed chunked encoding" end
 				local len = tonumber(slen, 16);
 
 				if len == 0 then
@@ -139,14 +146,11 @@ function parse.read_body(str, headers)
 					return nil;
 				end
 
-				local line, err = self.str:read(len);
-				if not line then return err or "broken pipe" end
-
+				local line = iassert(self.str:read(len), "broken pipe");
 				self.buff:put(line);
 
-				local term, err = self.str:read(2);
-				if not term then return err or "broken pipe" end
-				if term ~= "\r\n" then return "malformed chunked encoding" end
+				local term = iassert(self.str:read "L", "broken pipe");
+				if not term:find "^\r?\n$" then ierror "malformed chunked encoding" end
 			end
 
 			if n > #self.buff then
@@ -158,7 +162,7 @@ function parse.read_body(str, headers)
 			return n;
 		end
 		function self:write()
-			return nil, "readonly";
+			return ierror "readonly";
 		end
 		function self:close()
 			if self.str then
@@ -170,26 +174,25 @@ function parse.read_body(str, headers)
 		return stream.new(self, true);
 	elseif len then
 		local self = {
-			str = str,
+			str = conn,
 			n = len,
 		};
 
 		function self:read(ptr, n)
-			if not self.str then return nil, "closed" end
-			if self.n == 0 then return nil end
+			if not self.str then return ierror "closed" end
+			if self.n == 0 then return 0 end
 
 			n = n or 8192;
 			if n > self.n then
 				n = self.n;
 			end
 
-			local n, err = self.str:ptrread(false, ptr, n);
-			if err then return nil, err end
-			if n then self.n = self.n - n end
+			local n = self.str:ptrread(false, ptr, n);
+			self.n = self.n - n;
 			return n;
 		end
 		function self:write(n, ptr)
-			return nil, "readonly";
+			ierror "readonly";
 		end
 		function self:close()
 			if self.str then
@@ -202,99 +205,71 @@ function parse.read_body(str, headers)
 	else
 		return nil;
 	end
-
 end
 
---- @return { method: string, path: string, headers: http_headers }? head
---- @return string? err
-function parse.read_req(stream)
-	local line, err = stream:read "L";
-	if not line then
-		if err then return nil, err end
-		return nil;
-	end
+--- @param conn std.io.stream
+--- @return std.http.req? head
+function http.read_req(conn)
+	local line = conn:read "L";
+	if not line then return nil end
 
-	local type, path, version = line:match "^(%S-) (%S-) HTTP/(%S-)\r\n$";
-	if not type then return nil, "unexpected format" end
-	if version ~= "1.1" and version ~= "1.0" then return nil, "only HTTP 1.1/1.0 supported, got " .. version end
+	local type, path, version = line:match "^(%S-) (%S-) HTTP/(%S-)\r?\n$";
+	if not type then error "bad HTTP request" end
+	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
-	local headers, err = parse.read_headers(stream);
-	if not headers then return nil, err end
+	local hdr = assert(http_read_headers(conn), "bad HTTP headers");
+	local body = http_read_body(conn, hdr);
 
-	return { method = type, path = path, headers = headers };
+	return { method = type, path = path, headers = hdr, body = body };
 end
---- @return { code: integer, headers: http_headers }? code
---- @return string? err
-function parse.read_res(stream)
-	local line, err = stream:read "L";
-	if not line then
-		if err then return nil, err end
-		return nil;
-	end
+--- @param conn std.io.stream
+--- @return std.http.res? code
+function http.read_res(conn)
+	local line = conn:read "L";
+	if not line then return nil end
 
 	local version, code = line:match "^HTTP/(%S-) (%S-) (.-)\r\n$";
-	if not version then return nil, "unexpected format" end
-	if version ~= "1.1" and version ~= "1.0" then return nil, "only HTTP 1.1/1.0 supported, got " .. version end
+	if not version then return error "bad HTTP response" end
+	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
-	local headers, err = parse.read_headers(stream);
-	if not headers then return nil, err end
+	local hdr = assert(http_read_headers(conn), "bad HTTP headers");
+	local body = http_read_body(conn, hdr);
 
-	return { code = tonumber(code), headers = headers };
+	return {
+		code = tonumber(code),
+		headers = hdr,
+		body = body,
+	};
 end
 
---- @param stream std.io.stream
---- @param key? string
---- @param ... string
-function parse.write_header(stream, key, ...)
-	if not key then
-		return stream:write "\r\n";
-	else
-		for i = 1, select("#", ...) do
-			local res, err = stream:write(("%s: %s\r\n"):format(key, (select(i, ...))));
-			if not res then return nil, err end
+local function http_write_headers(conn, hdr)
+	for key in hdr:keys() do
+		for _, val in ipairs { hdr:get(key) } do
+			conn:write(("%s: %s\r\n"):format(key, val));
 		end
-
-		return true;
-	end
-end
---- @param stream std.io.stream
---- @param headers http_headers
-function parse.write_headers(stream, headers)
-	for key in headers:keys() do
-		local _, err = parse.write_header(stream, key, headers:get(key));
-		if not _ then return nil, err end
 	end
 
-	return parse.write_header(stream);
+	conn:write "\r\n";
 end
+local function http_write_body(conn, body, hdr)
+	if not body then return nil end
 
---- @param str std.io.stream
-local function http_setup_body(str, body, headers)
-	if not body then return true end
+	local len = hdr:get "content-length";
+	if len and tonumber(len) then return conn end
 
-	local len = headers:get "content-length";
-	if len and tonumber(len) then return str end
-
-	local _, err = str:write("transfer-encoding: chunked\r\n");
-	if not _ then return nil, err end
+	hdr:set("transfer-encoding", "chunked");
 
 	return stream.new({
-		str = str,
+		str = conn,
 		read = function ()
-			return nil, "writeonly";
+			ierror "writeonly";
 		end,
 		write = function (self, ptr, n)
-			if self.str == nil then return nil, "closed" end
+			if self.str == nil then ierror "closed" end
 			if n > 0 then
-				local _, err = self.str:write(("%x\r\n"):format(n));
-				if err then return nil, err end
-
-				local _, err = self.str:ptrwrite(true, ptr, n);
-				if err then return nil, err end
-
-				local _, err = self.str:write("\r\n");
-				if err then return nil, err end
-
+				self.str:write(("%x\r\n"):format(n));
+				self.str:ptrwrite(true, ptr, n);
+				self.str:write("\r\n");
 				return n;
 			else
 				return 0;
@@ -302,83 +277,40 @@ local function http_setup_body(str, body, headers)
 		end,
 		close = function (self)
 			if self.str then
-				self.str:write("0\r\n\r\n");
+				self.str:write "0\r\n\r\n";
+				self.str:close();
 			end
+
 			self.str = nil;
 		end
-	});
+	}, true);
 end
 
---- @param stream std.io.stream
---- @param method string
---- @param path string
---- @param headers http_headers
---- @param body? false
---- @return true?, string?
---- @overload fun(stream: std.io.stream, method: string, path: string, headers: http_headers, body: true): std.io.stream?, string?
-function parse.write_req(stream, method, path, headers, body)
-	local _, err = stream:write(("%s %s HTTP/1.1\r\n"):format(method, path));
-	if not _ then return nil, err end
+--- @param conn std.io.stream
+--- @param req std.http.req
+--- @param body? boolean
+--- @return std.io.stream?
+--- @overload fun(conn: std.io.stream, req: std.http.req, body: true): std.io.stream
+function http.write_req(conn, req, body)
+	req.body = http_write_body(conn, body, req.headers);
 
-	local body_str, err = http_setup_body(stream, body, headers);
-	if not body_str then return nil, err end
+	conn:write(("%s %s HTTP/1.1\r\n"):format(req.method, req.path));
+	http_write_headers(conn, req.headers);
 
-	local _, err = parse.write_headers(stream, headers);
-	if not _ then return nil, err end
-
-	return body_str;
+	return req.body;
 end
---- @param stream std.io.stream
---- @param code integer
---- @param headers http_headers
---- @param body? false
---- @return true?, string?
---- @overload fun(stream: std.io.stream, code: integer, headers: http_headers, body: true): std.io.stream?, string?
-function parse.write_res(stream, code, headers, body)
-	local _, err = stream:write(("HTTP/1.1 %d %s\r\n"):format(code, codes_msgs[code] or "Unknown"));
-	if not _ then return nil, err end
+--- @param conn std.io.stream
+--- @param res std.http.res
+--- @param body? boolean
+--- @return std.io.stream?
+--- @overload fun(conn: std.io.stream, res: std.http.res, body: true): std.io.stream
+function http.write_res(conn, res, body)
+	res.body = http_write_body(conn, body, res.headers);
 
-	local body_str, err = http_setup_body(stream, body, headers);
-	if not body_str then return nil, err end
+	conn:write(("HTTP/1.1 %d %s\r\n"):format(res.code, codes_msgs[res.code] or "Unknown"));
+	http_write_headers(conn, res.headers);
 
-	local _, err = parse.write_headers(stream, headers);
-	if not _ then return nil, err end
-
-	return body_str;
+	return res.body;
 end
 
---- @param stream std.io.stream
-function parse.write_body(stream, body)
-	if type(body) == "function" then
-		while true do
-			local data, err = body();
-			if err then return nil, err end
-			if not data then break end
-
-			local _, err = stream:write(data);
-			if err then return nil, err end
-		end
-	elseif type(body) == "string" then
-		stream:write(body);
-	elseif body then
-		local buff = buffer.new();
-
-		--- @cast body std.io.stream
-		while true do
-			local n, err = body:ptrread(false, buff:reserve(4096));
-			if err then return nil, err end
-			if n == 0 or not n then break end
-
-			buff:commit(n);
-
-			local n, err = stream:ptrwrite(true, buff:ref());
-			if not n then return nil, err end
-			buff:skip(n);
-		end
-	end
-
-	stream:close();
-	return true;
-end
-
-return parse;
+return http;

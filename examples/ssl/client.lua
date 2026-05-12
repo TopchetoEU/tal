@@ -28,7 +28,7 @@ return function (...)
 		end
 	end
 
-	local f = ssl { backend = assert(net.connect(ip, port)), owned = true, role = "client" };
+	local f = ssl { backend = net.connect(ip, port), owned = true, role = "client" };
 
 	if not username then
 		io.stderr:write "Username: ";
@@ -36,8 +36,8 @@ return function (...)
 	end
 
 	loop.fork(function ()
-		while true do
-			local cmd = json.parse(assert(utils.read_string(f)));
+		for raw in utils.read_string, f do
+			local cmd = json.parse(raw);
 			utils.print_event(cmd);
 		end
 	end);

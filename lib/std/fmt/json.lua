@@ -158,6 +158,7 @@ local function parse_impl(str, pos, end_delim)
 	end
 end
 
+--- @return string
 local function stringify_impl(obj, all, indent_str, n)
 	local s = {};	-- We'll build the string as an array of strings to be concatenated.
 	local kind = kind_of(obj);	-- This is 'array' if it's an array or type(obj) otherwise.
@@ -218,10 +219,11 @@ local function stringify_impl(obj, all, indent_str, n)
 	elseif all then
 		return tostring(obj);
 	else
-		return nil;
+		return "nil";
 	end
 end
 
+--- @return string
 function json.stringify(obj, indent_str)
 	if indent_str == true then
 		indent_str = "    ";

@@ -105,8 +105,7 @@ function url.parse_path(raw)
 end
 
 --- @param raw string
---- @return url?
---- @return string?
+--- @return url
 function url.parse(raw)
 	local scheme, username, password, host, port, path, params;
 
@@ -154,7 +153,7 @@ function url.parse(raw)
 		i = raw:match("^()/", i);
 	end
 
-	if not i then return nil, "invalid URL syntax" end
+	if not i then error "invalid URL syntax" end
 
 	path, i = raw:match("^([^?]*)()", i);
 	params = url.parse_params(raw:sub(i));

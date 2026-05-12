@@ -18,13 +18,13 @@ return function (...)
 	for arg, isopt in argv:iter() do
 		if isopt then
 			if arg == "--addr" then
-				ip = argv:pop "expected address";
+				ip = argv:pop();
 			elseif arg == "--port" then
-				port = assert(tonumber(argv:pop "expected port", 10), "invalid port");
+				port = assert(tonumber(argv:pop(), 10), "invalid port");
 			elseif arg == "--cert" then
-				cert_p = argv:pop "expected cert file";
+				cert_p = argv:pop();
 			elseif arg == "--key" then
-				key_p = argv:pop "expected key file";
+				key_p = argv:pop();
 			else
 				error("unknown option '" .. arg .. "'");
 			end
@@ -40,14 +40,14 @@ return function (...)
 	assert(#res > 0, "bind address not resolved");
 
 	local f = assert(io.open(cert_p));
-	local cert = assert(f:read "a");
+	local cert = f:read "a";
 	f:close();
 
 	local f = assert(io.open(key_p));
-	local key = assert(f:read "a");
+	local key = f:read "a";
 	f:close();
 
-	local server = assert(net.bind(ip or "127.0.0.1", port or 4312));
+	local server = net.bind(ip or "127.0.0.1", port or 4312);
 
 	local broadcast_pipe = pipe();
 	--- @type table<std.io.stream, true>
@@ -65,66 +65,62 @@ return function (...)
 		end
 	end);
 
-	loop.fork(function ()
-		while true do
-			local conn = assert(server:next());
+	for conn, conn_ip, conn_port in server:iter() do
+		loop.fork(function ()
+			print("Connection from " .. conn_ip .. ":" .. conn_port);
+			local sconn = ssl { backend = conn, owned = true, role = "server", key = key, cert = cert };
+			conns[sconn] = true;
 
-			loop.fork(function ()
-				print("Connection from " .. conn.ip .. ":" .. conn.port);
-				local sconn = ssl { backend = conn.client, owned = true, role = "server", key = key, cert = cert };
-				conns[sconn] = true;
+			local username;
 
-				local username;
+			local ok, err = xpcall(function ()
+				username = assert(utils.read_string(sconn), "expected username");
+				i = i + 1;
 
-				local ok, err = xpcall(function ()
-					username = assert(utils.read_string(sconn));
-					i = i + 1;
+				broadcast_pipe:write { type = "join", who = username };
 
-					broadcast_pipe:write { type = "join", who = username };
+				for raw in utils.read_string, sconn do
+					local msg, err = json.parse(raw);
 
-					while true do
-						local msg, err = json.parse(assert(utils.read_string(sconn)));
+					if msg.type == "username" then
+						username = msg.username;
+					elseif msg.type == "msg" then
+						broadcast_pipe:write { type = "msg", from = username, msg = msg.msg };
+					elseif msg.type == "cmd" then
+						local cmd, args = msg.cmd:match "(%S+)%s-(.*)";
 
-						if msg.type == "username" then
-							username = msg.username;
-						elseif msg.type == "msg" then
-							broadcast_pipe:write { type = "msg", from = username, msg = msg.msg };
-						elseif msg.type == "cmd" then
-							local cmd, args = msg.cmd:match "(%S+)%s-(.*)";
-
-							if cmd == "leave" then
-								break;
-							elseif cmd == "shout" then
-								broadcast_pipe:write { type = "shout", from = username, msg = args };
-							elseif cmd == "help" then
-								utils.write_string(sconn, json.stringify {
-									type = "system",
-									msg = "Supported commands: /leave /shout [what] /help"
-								});
-							else
-								utils.write_string(sconn, json.stringify {
-									type = "system",
-									msg = "Bad syntax with your command"
-								});
-							end
+						if cmd == "leave" then
+							break;
+						elseif cmd == "shout" then
+							broadcast_pipe:write { type = "shout", from = username, msg = args };
+						elseif cmd == "help" then
+							utils.write_string(sconn, json.stringify {
+								type = "system",
+								msg = "Supported commands: /leave /shout [what] /help"
+							});
+						else
+							utils.write_string(sconn, json.stringify {
+								type = "system",
+								msg = "Bad syntax with your command"
+							});
 						end
-
-						if err then error(err) end
-						if not msg then break end
 					end
-				end, debug.traceback);
 
-				if not ok then
-					print(err);
+					if err then error(err) end
+					if not msg then break end
 				end
+			end, debug.traceback);
 
-				sconn:close();
-				conns[sconn] = nil;
+			if not ok then
+				print(err);
+			end
 
-				if username then
-					broadcast_pipe:write { type = "leave", who = username };
-				end
-			end);
-		end
-	end);
+			sconn:close();
+			conns[sconn] = nil;
+
+			if username then
+				broadcast_pipe:write { type = "leave", who = username };
+			end
+		end);
+	end
 end

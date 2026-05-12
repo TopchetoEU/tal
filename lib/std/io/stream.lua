@@ -5,15 +5,15 @@ local ffi = require "ffi";
 local sig = require "std.sig";
 
 --- @class std.io.stream.backend
---- @field read? fun(self, ptr: ffi.cdata*, n: integer): integer?, string?
---- @field write? fun(self, ptr: ffi.cdata*, n: integer): integer?, string?
---- @field seek? fun(self, offset: integer, whence: "set" | "cur" | "end"): integer?, string?
---- @field flush? fun(self): true?, string?
---- @field close? fun(self): true?, string?
+--- @field read? fun(self, ptr: ffi.cdata*, n: integer): integer
+--- @field write? fun(self, ptr: ffi.cdata*, n: integer): integer
+--- @field seek? fun(self, offset: integer, whence: "set" | "cur" | "end"): integer
+--- @field flush? fun(self)
+--- @field close? fun(self)
 ---
---- @field stat? fun(self): std.io.stat?, string?
---- @field chmod? fun(self, mod: integer): true?, string?
---- @field chown? fun(self, uid: integer, gid: integer): true?, string?
+--- @field stat? fun(self): std.io.stat
+--- @field chmod? fun(self, mod: integer)
+--- @field chown? fun(self, uid: integer, gid: integer)
 
 --- @class std.io.stream
 --- @field _backend std.io.stream.backend
@@ -27,35 +27,10 @@ ffi.cdef [[
 	void *memchr(const void *stack, int needle, size_t len);
 ]];
 
---- Writes buff_n bytes of buff to the stream
---- @param full boolean If true, calls write until all bytes are written. Else, calls just once. On almost all cases, you want 'true' here
---- @param buff ffi.cdata*
---- @param buff_n integer
-function stream_index:ptrwrite(full, buff, buff_n)
-	if not full then
-		return self._backend:write(buff, buff_n);
-	else
-		local n = 0;
-
-		while buff_n > 0 do
-			local write_n, err = self._backend:write(buff, buff_n);
-			if err then return nil, err end
-			if not write_n or write_n == 0 then break end
-
-			buff_n = buff_n - write_n;
-			buff = buff + write_n;
-			n = n + write_n;
-		end
-
-		return n;
-	end
-end
 --- Reads raw data into the given buffers. Reads no more than buff_n
 --- @param full boolean If true, fills the buffer, even if that requires multiple reads. If false, performs at most one read
 --- @param buff ffi.cdata*
 --- @param buff_n integer
---- @return integer? n
---- @return string? err
 function stream_index:ptrread(full, buff, buff_n)
 	local acc_n = 0;
 
@@ -75,19 +50,38 @@ function stream_index:ptrread(full, buff, buff_n)
 	end
 
 	while acc_n < buff_n do
-		local read_n, err = self._backend:read(buff + acc_n, buff_n - acc_n);
-		if err then return nil, err end
-
+		local read_n = self._backend:read(buff + acc_n, buff_n - acc_n);
 		acc_n = acc_n + read_n;
 		if not full then break end
 	end
 
 	return acc_n;
 end
+--- Writes buff_n bytes of buff to the stream
+--- @param full boolean If true, calls write until all bytes are written. Else, calls just once. On almost all cases, you want 'true' here
+--- @param buff ffi.cdata*
+--- @param buff_n integer
+function stream_index:ptrwrite(full, buff, buff_n)
+	if not full then
+		return self._backend:write(buff, buff_n);
+	else
+		local n = 0;
+
+		while buff_n > 0 do
+			local write_n = self._backend:write(buff, buff_n);
+			if write_n == 0 then break end
+
+			buff_n = buff_n - write_n;
+			buff = buff + write_n;
+			n = n + write_n;
+		end
+
+		return n;
+	end
+end
 
 --- @param fmt std.io.readmode | string | integer?
 --- @return string? data
---- @return string? err
 function stream_index:read(fmt)
 	fmt = fmt or "l";
 
@@ -95,8 +89,7 @@ function stream_index:read(fmt)
 		if #self.buffr == 0 then return res end
 
 		if self._backend.seek then
-			local _, err = self._backend:seek(-#self.buffr, "cur");
-			if err then return nil, err end
+			self._backend:seek(-#self.buffr, "cur");
 			self.buffr:reset();
 		end
 
@@ -113,9 +106,8 @@ function stream_index:read(fmt)
 	--- @param n? integer
 	local function read_next(n)
 		local ptr, ptr_n = self.buffr:reserve(n or 8192);
-		local read_n, err = self._backend:read(ptr, ptr_n);
-		if err then return nil, err end
-		if read_n == 0 or not read_n then
+		local read_n = self._backend:read(ptr, ptr_n);
+		if read_n == 0 then
 			if #self.buffr == 0 and fmt ~= "a" then
 				return nil;
 			else
@@ -181,32 +173,49 @@ end
 --- @param ... string | integer | string.buffer
 function stream_index:write(...)
 	local function flush_buff()
-		if #self.buffw == 0 then return true end
-
-		local _, err = self:ptrwrite(true, self.buffw:ref());
-		if err then return nil, err end
-
-		self.buffw:reset();
-
-		return true;
+		if #self.buffw > 0 then
+			self:ptrwrite(true, self.buffw:ref());
+			self.buffw:reset();
+		end
 	end
 
 	for i = 1, select("#", ...) do
 		local arg = select(i, ...);
 
 		if getmetatable(arg) == "buffer" then
-			local _, err = flush_buff();
-			if err then return nil, err end
-
-			local _, err = self:ptrwrite(true, arg:ref());
-			if err then return nil, err end
+			flush_buff();
+			self:ptrwrite(true, arg:ref());
 		else
 			self.buffw:put(arg);
 		end
 	end
 
-	local _, err = flush_buff();
-	if err then return nil, err end
+	flush_buff();
+	return self;
+end
+
+--- Writes the given stream, string or string generator to the stream
+--- @param other std.io.stream | string | (fun(): string)
+function stream_index:pipe(other)
+	if type(other) == "string" then
+		self:write(other);
+	elseif type(other) == "function" then
+		for part in other do
+			self:write(part);
+		end
+	else
+		local buff = buffer.new();
+
+		while true do
+			local read_n = other:ptrread(false, buff:reserve(4096));
+			buff:commit(read_n);
+
+			local write_n = self:ptrwrite(true, buff:ref());
+			buff:skip(write_n);
+
+			if read_n == 0 then break end
+		end
+	end
 
 	return self;
 end
@@ -221,43 +230,47 @@ function stream_index:seek(whence, pos)
 	return self._backend:seek(pos, whence);
 end
 function stream_index:flush()
-	if not self._backend.flush then return true end
-	return self._backend:flush();
+	if self._backend.flush then
+		self._backend:flush();
+	end
 end
 
+--- @return std.io.stat
 function stream_index:stat()
-	if not self._backend.stat then return nil, "not supported" end
-	return self._backend:stat();
+	if not self._backend.stat then ierror "not supported" end
+	return iassert(self._backend:stat());
 end
 --- @param mode integer | string
 function stream_index:chmod(mode)
 	if type(mode) == "string" then mode = assert(tonumber(mode, 8), "bad mode") end
-	if not self._backend.chmod then return nil, "not supported" end
-	return self._backend:chmod(mode);
+	if not self._backend.chmod then ierror "not supported" end
+	iassert(self._backend:chmod(mode));
+	return self;
 end
 --- @param uid integer
 --- @param gid integer
 function stream_index:chown(uid, gid)
-	if not self._backend.chown then return nil, "not supported" end
-	return self._backend:chown(uid, gid);
+	if not self._backend.chown then ierror "not supported" end
+	iassert(self._backend:chown(uid, gid));
+	return self;
 end
 
 --- @param fmt? std.io.readmode
 --- @param close? boolean
 function stream_index:lines(fmt, close)
 	return function ()
-		local res, err = self:read(fmt);
+		local res = self:read(fmt);
 		if close and not res then self:close() end
-		if err then error(err, 2) end
 
 		return res;
 	end
 end
 
---- @return true?, string?
 function stream_index:close()
-	self._mngd = nil;
-	return self._backend:close();
+	if self._mngd then
+		self._mngd = nil;
+		self._backend:close();
+	end
 end
 
 local stream_meta = {
@@ -297,38 +310,29 @@ local function combine(read, write)
 		write_str = write,
 
 		read = function (self, ptr, n)
-			if not self.read_str then return nil, "closed" end
+			if not self.read_str then ierror "closed" end
 			return self.read_str:rawread(ptr, n);
 		end,
 		write = function (self, ptr, n)
-			if not self.write_str then return nil, "closed" end
+			if not self.write_str then ierror "closed" end
 			return self.write_str:rawwrite(true, ptr, n);
 		end,
 		sync = function (self, ctx, cb)
-			if not self.read_str then return nil, "closed" end
-			if not self.write_str then return nil, "closed" end
+			if not self.read_str then ierror "closed" end
+			if not self.write_str then ierror "closed" end
 
-			local _, err = self.read_str:flush();
-			if err then return nil, err end
-
-			local _, err = self.write_str:flush();
-			if err then return nil, err end
-
-			return true;
+			self.read_str:flush();
+			self.write_str:flush();
 		end,
 		close = function (self)
 			if self.read_str then
-				local ok, err = self.read_str:close();
-				if not ok then return nil, err end
+				self.read_str:close();
 				self.read_str = nil;
 			end
 			if self.write_str then
-				local ok, err = self.write_str:close();
-				if not ok then return nil, err end
+				self.write_str:close();
 				self.write_str = nil;
 			end
-
-			return true;
 		end,
 	}, mngd);
 end
@@ -341,29 +345,28 @@ local function from_file(file)
 	};
 
 	function self:read(ptr, n)
-		if not self.fd then return nil, "closed" end
+		if not self.fd then ierror "closed" end
 
-		local read_n, err = loop.sync_ret(self.fd:read(coroutine.running(), self.ptr, ptr, n));
-		if read_n then self.ptr = self.ptr + read_n end
-		return read_n, err;
+		local read_n = iassert(loop.sync_ret(self.fd:read(coroutine.running(), self.ptr, ptr, n)));
+		self.ptr = self.ptr + read_n;
+		return read_n;
 	end
 	function self:write(ptr, n)
-		if not self.fd then return nil, "closed" end
+		if not self.fd then ierror "closed" end
 
-		local write_n, err = loop.sync_ret(self.fd:write(coroutine.running(), self.ptr, ptr, n));
-		if write_n then self.ptr = self.ptr + write_n end
-		return write_n, err;
+		local write_n = iassert(loop.sync_ret(self.fd:write(coroutine.running(), self.ptr, ptr, n)));
+		self.ptr = self.ptr + write_n;
+		return write_n;
 	end
 	function self:seek(offset, whence)
-		if not self.fd then return nil, "closed" end
+		if not self.fd then ierror "closed" end
 
 		if whence == "set" then
 			self.ptr = offset;
 		elseif whence == "cur" then
 			self.ptr = self.ptr + offset;
 		elseif whence == "end" then
-			local stat, err = loop.sync_ret(self.fd:stat(coroutine.running()));
-			if not stat then return nil, err end
+			local stat = iassert(loop.sync_ret(self.fd:stat(coroutine.running())));
 			self.ptr = self.ptr + stat.size;
 		end
 
@@ -372,20 +375,20 @@ local function from_file(file)
 		return self.ptr;
 	end
 	function self:flush()
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:flush((coroutine.running())));
+		if not self.fd then ierror "closed" end
+		iassert(loop.sync_ret(self.fd:flush((coroutine.running()))));
 	end
 	function self:stat()
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:stat((coroutine.running())));
+		if not self.fd then ierror "closed" end
+		return iassert(loop.sync_ret(self.fd:stat((coroutine.running()))));
 	end
 	function self:chmod(mode)
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:chmod((coroutine.running()), mode));
+		if not self.fd then ierror "closed" end
+		iassert(loop.sync_ret(self.fd:chmod((coroutine.running()), mode)));
 	end
 	function self:chown(uid, gid)
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:chown((coroutine.running()), uid, gid));
+		if not self.fd then ierror "closed" end
+		iassert(loop.sync_ret(self.fd:chown((coroutine.running()), uid, gid)));
 	end
 	function self:close()
 		if self.fd then
@@ -401,25 +404,23 @@ end
 
 --- @param str _impl.stream
 local function from_stream(str, mngd)
-	local self = {
-		fd = str,
-	};
+	local self = { fd = str };
 
 	function self:read(ptr, n)
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:read(coroutine.running(), ptr, n));
+		if not self.fd then ierror "closed" end
+		return iassert(loop.sync_ret(self.fd:read(coroutine.running(), ptr, n)));
 	end
 	function self:write(ptr, n)
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:write(coroutine.running(), ptr, n));
+		if not self.fd then ierror "closed" end
+		return iassert(loop.sync_ret(self.fd:write(coroutine.running(), ptr, n)));
 	end
 	function self:flush()
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:flush((coroutine.running())));
+		if not self.fd then ierror "closed" end
+		iassert(loop.sync_ret(self.fd:flush((coroutine.running()))));
 	end
 	function self:stat()
-		if not self.fd then return nil, "closed" end
-		return loop.sync_ret(self.fd:stat((coroutine.running())));
+		if not self.fd then ierror "closed" end
+		return iassert(loop.sync_ret(self.fd:stat((coroutine.running()))));
 	end
 	function self:close()
 		if self.fd then

@@ -346,7 +346,7 @@ local function read_escape_char(ctx, i)
 	elseif ctx.src:match("^u", i) then
 		local val, j = ctx.src:match("^u{([0-9a-fA-F]+)}()", i);
 		if not val then return nil, "invalid \\u escape sequence" end
-		return nil, "unicode escape sequences not supported yet", find_loc(ctx, i - 1);
+		return nil, "unicode escape sequences not supported yet";
 		-- return j, utf8.char(tonumber(val, 16));
 	elseif ctx.src:match("^[0-9]", i) then
 		local val, j = ctx.src:match("^([0-9][0-9]?[0-9]?)()", i);

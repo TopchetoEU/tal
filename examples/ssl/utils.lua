@@ -3,16 +3,14 @@ local utils = {};
 
 --- @param stream std.io.stream
 function utils.read_string(stream)
-	local res, err = stream:read "l";
-	if err then return nil, err end
-	if not res then return nil end
-	return res:unquote();
+	local res = stream:read "l";
+	return res and res:unquote();
 end
 
 --- @param stream std.io.stream
 --- @param str string
 function utils.write_string(stream, str)
-	return stream:write(str:quote(), "\n");
+	stream:write(str:quote(), "\n");
 end
 -- --- @param stream std.io.stream
 -- function utils.read_string(stream)

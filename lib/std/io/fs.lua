@@ -1,8 +1,9 @@
 local impl = require "impl";
+
 local sig = require "std.sig";
 local loop = require "std.loop";
-local collected = require "std.collected"
 local p = require "std.path";
+local collected = require "std.collected";
 
 local fs = {};
 
@@ -14,17 +15,18 @@ local fs = {};
 --- | "runtime"
 --- | "cwd"
 
-
 --- @class std.fs.dir
 --- @field hnd _impl.dir
 --- @field closed boolean
 local dir_index = {};
 
 --- @return string?
---- @return string? err
 function dir_index:read()
 	if self.closed then return nil end
-	return loop.sync_ret(self.hnd:next(coroutine.running()));
+	return iassert(loop.sync_ret(self.hnd:next(coroutine.running())));
+end
+function dir_index:iter()
+	return self.read, self;
 end
 function dir_index:close()
 	if self.closed or self.hnd == nil then return end
@@ -37,37 +39,20 @@ local dir_meta = {
 	__gc = dir_index.close,
 };
 
-
 --- @param path string
 --- @param mode string | integer
---- @return true?, string?
 function fs.chmod(path, mode)
-	local f, err = io.xopen(path, "s");
-	if not f then return nil, err end
-
-	local _, err = f:chmod(mode);
-	if err then return nil, err end
-
-	local _, err = f:close();
-	if err then return nil, err end
-
-	return true;
+	iassert(io.xopen(path, "s"))
+		:chmod(mode)
+		:close();
 end
 --- @param path string
 --- @param uid integer
 --- @param gid integer
---- @return true?, string?
 function fs.chown(path, uid, gid)
-	local f, err = io.xopen(path, "s");
-	if not f then return nil, err end
-
-	local _, err = f:chown(uid, gid);
-	if err then return nil, err end
-
-	local _, err = f:close();
-	if err then return nil, err end
-
-	return true;
+	iassert(io.xopen(path, "s"))
+		:chown(uid, gid)
+		:close();
 end
 --- @param path string
 function fs.stat(path)
@@ -76,10 +61,13 @@ function fs.stat(path)
 	local fd, err = io.xopen(path, "ls");
 	if not fd then return nil, err end
 
-	local res, err = fd:stat();
-	fd:close();
-	if not res then return nil, err end
+	local res = fd:stat();
+	iassert(fd:close());
 	return res;
+end
+--- @param path string
+function fs.astat(path)
+	return iassert(fs.stat(path));
 end
 
 --- @param path string
@@ -93,7 +81,7 @@ function fs.mkdir(path, mode)
 		mode = sig.num(mode, "mode");
 	end
 
-	return loop.sync_ret(impl:mkdir(coroutine.running(), path, mode));
+	iassert(loop.sync_ret(impl:mkdir(coroutine.running(), path, mode)));
 end
 --- @param path string
 --- @param mode? integer | string
@@ -105,17 +93,14 @@ function fs.mkdirs(path, mode)
 
 	for i = 1, #segs do
 		table.insert(res, segs[i]);
-		fs.mkdir(p.stringify(res, root, false), mode or "777");
+		pcall(fs.mkdir, p.stringify(res, root, false), mode or "777");
 	end
 end
 --- @param path string
---- @return std.fs.dir?
---- @return string? err
 function fs.opendir(path)
 	path = sig.str(path, "path");
 
-	local fd, err = loop.sync_ret(impl:opendir(coroutine.running(), path));
-	if not fd then return nil, err end
+	local fd = iassert(loop.sync_ret(impl:opendir(coroutine.running(), path)));
 
 	return collected(setmetatable({
 		hnd = fd,
@@ -124,52 +109,33 @@ function fs.opendir(path)
 end
 function fs.readdir(path)
 	path = sig.str(path, "path");
-
-	local dir, err = fs.opendir(path);
-	if not dir then return nil, err end
-
-	return function ()
-		if not dir then return nil, "closed" end
-
-		local next, err = dir:read();
-		if not next then
-			dir:close();
-			dir = nil;
-		end
-
-		if err then return nil, err end
-		return next;
-	end
+	return iassert(fs.opendir(path)):iter();
 end
 
 --- @param src string
 --- @param dst string
 --- @return true?, string?
 function fs.symlink(src, dst)
-	return loop.sync_ret(impl:symlink((coroutine.running()), src, dst));
+	iassert(loop.sync_ret(impl:symlink((coroutine.running()), src, dst)));
 end
 --- @param src string
 --- @param dst string
---- @return true?, string?
 function fs.hardlink(src, dst)
-	return loop.sync_ret(impl:hardlink((coroutine.running()), src, dst));
+	iassert(loop.sync_ret(impl:hardlink((coroutine.running()), src, dst)));
 end
 --- @param path string
---- @return string?, string?
 function fs.readlink(path)
-	return loop.sync_ret(impl:readlink((coroutine.running()), path));
+	iassert(loop.sync_ret(impl:readlink((coroutine.running()), path)));
 end
 --- @param path string
---- @return true?, string?
 function fs.delete(path)
-	return loop.sync_ret(impl:delete((coroutine.running()), path));
+	iassert(loop.sync_ret(impl:delete((coroutine.running()), path)));
 end
 
 --- @param type? std.fs.path = "cwd"
 function fs.path(type)
 	type = sig.str(type, "type");
-
-	return assert(impl:getpath(type or "cwd"));
+	return iassert(impl:getpath(type or "cwd"));
 end
 
 

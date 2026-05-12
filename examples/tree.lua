@@ -4,12 +4,24 @@
 local fs = require "std.io.fs";
 local path = require "std.path";
 local time = require "std.time";
+local buffer = require "string.buffer";
 
 -- local f = assert(io.open("test.txt", "w"));
 local f = io.stdout;
 
+local n = 2 ^ 16;
+local buff = buffer.new(n);
+
+local function write(...)
+	buff:put(...);
+	if #buff > n then
+		f:write(buff);
+		buff:reset();
+	end
+end
+
 local function list(dir_path, line, ...)
-	f:write(line, "\n");
+	write(line, "\n");
 	if assert(fs.stat(dir_path)).type ~= "dir" then return end
 
 	local children = {};
@@ -18,17 +30,17 @@ local function list(dir_path, line, ...)
 	end
 
 	for i = 1, #children do
-		local child_path = path.join(dir_path, children[i]);
+		local child_path = dir_path .. "/" .. children[i];
 
 		for i = select("#", ...), 1, -1 do
-			f:write((select(i, ...)));
+			write((select(i, ...)));
 		end
 
 		if i == #children then
-			f:write("└─ ");
+			write("└─ ");
 			list(child_path, children[i], "   ", ...);
 		else
-			f:write("├─ ");
+			write("├─ ");
 			list(child_path, children[i], "│  ", ...);
 		end
 	end
@@ -40,5 +52,7 @@ return function (path)
 	else
 		list(path, path);
 	end
+
+	f:write(buff);
 end
 

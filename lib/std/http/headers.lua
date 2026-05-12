@@ -1,10 +1,10 @@
---- @class http_headers
+--- @class std.http.headers
 --- @field _map table<string, string[]>
 local headers_index = {};
---- @return (fun(self: http_headers, prev?: string): string?, ...: string?), http_headers
+--- @return (fun(self: std.http.headers, prev?: string): string?, ...: string?), std.http.headers
 function headers_index:keys()
 	--- @param prev string?
-	--- @param self http_headers
+	--- @param self std.http.headers
 	return function (self, prev)
 		return (next(self._map, prev));
 	end, self;
@@ -48,7 +48,7 @@ local headers_meta = { __index = headers_index };
 
 --- @class http_headers_lib
 local headers = {};
---- @return http_headers
+--- @return std.http.headers
 function headers.new()
 	return setmetatable({ _map = {} }, headers_meta);
 end

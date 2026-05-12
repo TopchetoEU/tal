@@ -15,13 +15,10 @@ local proc_fd = field();
 --- @field stderr std.io.stream?
 local proc_index = {};
 function proc_index:wait()
-	if not self._mng then return nil, "closed" end
+	if not self._mng then ierror "closed" end
 
-	local kind, code = loop.sync_ret(self._fd:wait(coroutine.running()));
-	if not code then return nil, kind end
-
-	--- @cast kind "sig" | "exit"
-	--- @cast code integer
+	--- @type "sig" | "exit", integer
+	local kind, code = assert(loop.sync_ret(self._fd:wait(coroutine.running())));
 
 	proc_fd:set(self, nil);
 
@@ -34,31 +31,27 @@ function proc_index:wait()
 	end
 end
 function proc_index:close()
-	if not self._mng then return true end
+	if not self._mng then return end
 
-	local code, err = self:wait();
-	if err then return nil, err end
-	if code ~= 0 then return nil, "process exited with code " .. code, code end
-	return true;
+	local code = self:wait();
+	if code ~= 0 then ierror(code) end
 end
 function proc_index:to_stream()
 	local self = { p = self };
 	function self:read(ptr, n)
-		if not self.p.stdout then return nil, "writeonly" end
+		if not self.p.stdout then ierror "writeonly" end
 		return self.p.stdout:ptrread(false, ptr, n);
 	end
 	function self:write(ptr, n)
-		if not self.p.stdin then return nil, "readonly" end
+		if not self.p.stdin then ierror "readonly" end
 		return self.p.stdin:ptrwrite(false, ptr, n);
 	end
 	function self:flush(ptr, n)
 		if self.p.stdin then
-			local _, err = self.p.stdin:flush();
-			if err then return nil, err end
+			self.p.stdin:flush();
 		end
 		if self.p.stdout then
-			local _, err = self.p.stdout:flush();
-			if err then return nil, err end
+			self.p.stdout:flush();
 		end
 		return true;
 	end
@@ -66,12 +59,10 @@ function proc_index:to_stream()
 		if not self.p._mng then return true end
 
 		if self.p.stdin then
-			local _, err = self.p.stdin:close();
-			if err then return nil, err end
+			self.p.stdin:close();
 		end
 		if self.p.stdout then
-			local _, err = self.p.stdout:close();
-			if err then return nil, err end
+			self.p.stdout:close();
 		end
 
 		return self.p:close();
@@ -97,8 +88,6 @@ end
 --- @field stderr? "inherit" | "pipe"
 
 --- @param opts std.proc.opts
---- @return std.proc?
---- @return string? err
 return function (opts)
 	opts.stdin = opts.stdin or "inherit";
 	opts.stdout = opts.stdout or "inherit";
@@ -130,15 +119,14 @@ return function (opts)
 		end
 	end
 
-	local res, err = loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr));
-	if err then return nil, err end
+	local res = iassert(loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr)));
 
 	local self = setmetatable(collected({
 		_fd = res.proc,
 		_mng = debug.traceback(),
-		stdin = res.stdin and stream.from_stream(res.stdin, false),
-		stdout = res.stdout and stream.from_stream(res.stdout, false),
-		stderr = res.stderr and stream.from_stream(res.stderr, false)
+		stdin = res.stdin and stream.from_stream(res.stdin, true),
+		stdout = res.stdout and stream.from_stream(res.stdout, true),
+		stderr = res.stderr and stream.from_stream(res.stderr, true)
 	}), proc_meta);
 	proc_fd:set(self, res.proc);
 

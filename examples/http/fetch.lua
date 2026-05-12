@@ -39,12 +39,12 @@ return function (...)
 		f = assert(io.open(data, "r"));
 	end
 
-	local res = assert(fetch {
+	local res = fetch {
 		url = url,
 		method = method,
 		body = f,
 		headers = hdrs,
-	});
+	};
 
 	for k in res.headers:keys() do
 		print(k .. ": " .. table.concat({ res.headers:get(k) }, "; "));
