@@ -195,7 +195,6 @@ function cli.main(...)
 		package.root = fs.path "cwd";
 
 		cli.stacktrace_call(function ()
-
 			local mod = require(module);
 			if type(mod) == "table" then
 				if mod.__main then
