@@ -46,6 +46,7 @@ io.stderr = stream.from_stream(impl.stderr, false);
 --- @param path string
 --- @param flags std.io.open_flags
 --- @param mode? integer | string
+--- @return std.io.stream?, string?
 function io.xopen(path, flags, mode)
 	mode = mode or "666";
 	if type(mode) == "string" then mode = assert(tonumber(mode, 8)) end
@@ -114,25 +115,19 @@ function io.write(...)
 	return io.stdout:write(...);
 end
 function io.flush()
-	local _, err = io.stdin:flush();
-	if err then return nil, err end
-
-	local _, err = io.stdout:flush();
-	if err then return nil, err end
-
-	local _, err = io.stderr:flush();
-	if err then return nil, err end
-
+	io.stdin:flush();
+	io.stdout:flush();
+	io.stderr:flush();
 	return true;
 end
 --- @param file? std.io.stream
 function io.close(file)
 	if file then
-		return file:close();
+		file:close();
 	else
-		assert(io.stdin:close());
-		assert(io.stdout:close());
-		assert(io.stderr:close());
+		io.stdin:close();
+		io.stdout:close();
+		io.stderr:close();
 	end
 end
 

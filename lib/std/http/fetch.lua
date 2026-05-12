@@ -3,22 +3,20 @@ local net = require "std.io.net";
 local headers = require "std.http.headers";
 local http = require "std.http";
 local ssl = require "std.io.ssl";
+local sig = require "std.sig";
 
---- @param arg { url: string, method?: string, headers?: http_headers, body?: http_body }
+--- @param arg { url: string, method?: string, headers?: std.http.headers, body?: string | std.io.stream | fun(): string? }
 return function (arg)
-	local parsed = assert(url.parse(arg.url));
-	if not parsed.scheme then return nil, "scheme must be specified" end
+	local parsed = url.parse(arg.url);
+	if not parsed.scheme then sig.error("arg.url", "scheme must be specified") end
 	if
 		parsed.scheme ~= "http" and
 		parsed.scheme ~= "https"
-	then
-		return nil, "only http and https supported";
-	end
-	if not parsed.host then return nil, "host must be specified" end
-	if parsed.username then return nil, "username and password not supported" end
+	then sig.error("arg.url", "only http and https supported") end
+	if not parsed.host then sig.error("arg.url", "host must be specified") end
+	if parsed.username or parsed.password then sig.error("arg.url", "username and password not supported") end
 
-	local dns_res, err = net.getaddrinfo(parsed.host, "");
-	if not dns_res then return nil, err or "unable to resolve host" end
+	local dns_res = net.getaddrinfo(parsed.host, "");
 
 	if not arg.headers then
 		arg.headers = headers.new();
@@ -33,47 +31,30 @@ return function (arg)
 		default_port = 443;
 	end
 
-	local conn, err;
+	local ok, conn;
 	for i = 1, #dns_res do
-		conn, err = net.connect(dns_res[i], parsed.port or default_port);
-		if conn then break end
+		ok, conn = pcall(net.connect, dns_res[i], parsed.port or default_port);
+		if ok then break end
 	end
 
-	if not conn then return nil, err or "couldn't connect" end
+	if not ok then error(conn) end
+	if not conn then error("unknown host") end
 
 	if parsed.scheme == "https" then
 		conn = ssl { backend = conn, owned = true, host = parsed.host };
 	end
 
-	local body_out, err = http.write_req(conn, arg.method or "GET", url.stringify { path = parsed.path, params = parsed.params }, arg.headers, arg.body ~= nil);
-	if not body_out then return nil, err end
+	local body_out = http.write_req(conn, {
+		method = arg.method or "GET",
+		path = url.stringify { path = parsed.path, params = parsed.params },
+		headers = arg.headers,
+	}, arg.body ~= nil);
 
 	if arg.body then
 		--- @cast body_out std.io.stream
-		local _, err = http.write_body(body_out, arg.body);
-		if not _ then return nil, err end
+		body_out:pipe(arg.body);
 	end
 
-	local res, err = http.read_res(conn);
-	if not res then return nil, err end
-
-	local body, err = http.read_body(conn, res.headers);
-	if not body and err then return nil, err end
-
-	return { code = res.code, headers = res.headers, body = body };
+	local res = assert(http.read_res(conn), "no response");
+	return res;
 end
-
--- --- @param stream std.io.stream
--- --- @param code? integer
--- --- @param hdrs? http_headers
--- --- @param body? http_body
--- local function http_respond(stream, code, hdrs, body)
--- 	local body_out, err = http_write_res(stream, code or 200, hdrs or headers.new(), body);
--- 	if not body_out then return nil, err end
-
--- 	if body then
--- 		local _, err = http_write_body(body_out, body);
--- 		if not _ then return nil, err end
--- 	end
--- 	return true;
--- end

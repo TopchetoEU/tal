@@ -52,6 +52,7 @@ function debug.sethook(...)
 			if ... == "line" then
 				local info = old_getinfo(2, "Sl");
 				local loc = loading.map(info.source, info.currentline);
+				-- print(info.source, loc and loc.row or info.currentline);
 				return old_f(..., loc and loc.row or info.currentline, loc and loc.col);
 			else
 				return old_f(...);

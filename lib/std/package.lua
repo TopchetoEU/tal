@@ -98,7 +98,7 @@ function package.searchlua(name)
 	if not file then return err end
 
 	local f = assert(io.open(file, "r"));
-	local src = assert(f:read "a");
+	local src = f:read "a";
 	f:close();
 
 	local res, err = load(src, "@" .. file, "t");

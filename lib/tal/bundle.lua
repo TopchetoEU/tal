@@ -112,18 +112,19 @@ return function (...)
 
 			table.insert(compiler_cmd, lj_lib)
 
-			local comp_proc = assert(spawn {
+			local comp_proc = spawn {
 				argv = compiler_cmd,
 				stdin = "pipe",
 				env = { PATH = os.getenv "PATH" or "" }
-			});
+			};
 
 			local libs = {};
 
 			mklua.gen(mklua_ctx, { f = comp_proc.stdin --[[@as file*]], libs = libs });
 
 			comp_proc.stdin:close();
-			assert(comp_proc:wait());
+			local code = comp_proc:wait();
+			if code ~= 0 then error("compiler exited with code " .. code) end
 
 			if #libs > 0 then
 -- 				io.stderr:write [[

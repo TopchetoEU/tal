@@ -214,9 +214,7 @@ function cli.main(...)
 
 			package.root = path.dirname(file);
 
-			local func, err = load(src, "@" .. file, "t");
-			if not func then error(err, 0) end
-
+			local func = iassert(load(src, "@" .. file, "t"));
 			return func(table.unpack(args));
 		end);
 	end

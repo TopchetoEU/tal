@@ -25,8 +25,14 @@ end
 exit = os.exit;
 require = package.require;
 unpack = table.unpack;
+
 error = err.error;
 assert = err.assert;
 throw = err.throw;
+
+ierror = err.ierror;
+iassert = err.iassert;
+
+spcall = err.spcall;
 
 return _G;

@@ -20,6 +20,7 @@ local int_libs = {
 	string = true,
 	table = true,
 	ffi = true,
+	jit = true,
 	["table.clear"] = true,
 	["table.new"] = true,
 	["string.buffer"] = true,
@@ -268,7 +269,7 @@ end
 --- @param src? string
 --- @param out tal.mklua.out
 --- @param passed table<string, string>
-local function emit_lua(ctx, name, filename, src, out, passed, map_parts)
+local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_parts)
 	if passed[name] then return end
 
 	local lua_deps = {};
@@ -277,7 +278,7 @@ local function emit_lua(ctx, name, filename, src, out, passed, map_parts)
 
 	if not src then
 		local f = assert(io.open(filename, "r"));
-		src = assert(f:read "a");
+		src = f:read "a";
 		f:close();
 
 		for dep in find_ffi(src) do
@@ -304,7 +305,7 @@ local function emit_lua(ctx, name, filename, src, out, passed, map_parts)
 
 		if kind == "lua" then
 			table.insert(lua_deps, dep);
-			emit_lua(ctx, dep, path --[[@as string]], nil, out, passed, map_parts);
+			emit_lua(ctx, dep, path --[[@as string]], nil, "@" .. path, out, passed, map_parts);
 		elseif kind == "c" then
 			table.insert(c_deps, dep);
 			passed[dep] = "luaopen_" .. dep:gsub("[%.%-]", "_");
@@ -313,11 +314,11 @@ local function emit_lua(ctx, name, filename, src, out, passed, map_parts)
 		end
 	end
 
-	local func = assert(load(src, "@" .. filename, "t"));
-	map = loading.get_map("@" .. filename);
+	local func = assert(load(src, chunkname, "t"));
+	map = loading.get_map(chunkname);
 	map_name = filename;
 
-	if map_name and map then
+	if chunkname:match "^@" and map_name and map then
 		table.insert(map_parts, emit_map_emitter(map_name, map));
 	end
 
@@ -335,7 +336,7 @@ local function emit_lua(ctx, name, filename, src, out, passed, map_parts)
 			out.f:write(("\ttalb_register(ctx, %q, %s);\n"):format(c_deps[i], "luaopen_" .. c_deps[i]:gsub("[%.%-]", "_")));
 		end
 
-		out.f:write (("\n\tif (luaL_loadbufferx(ctx, %s, %d, %q, \"b\")) {\n"):format(c_escape(bc), #bc, "@" .. filename));
+		out.f:write (("\n\tif (luaL_loadbufferx(ctx, %s, %d, %q, \"b\")) {\n"):format(c_escape(bc), #bc, chunkname));
 		out.f:write ("\t\tluaL_error(ctx, \"lua bytecode error: %s\", lua_tostring(ctx, -1));\n");
 		out.f:write ("\t}\n\n");
 		out.f:write (("\tlua_pushstring(ctx, %q);\n"):format(name));
@@ -355,7 +356,7 @@ end
 local function emit_luaopen(ctx, name, out, passed, map_parts)
 	local kind, path = resolve_lua(ctx, name);
 	if kind == "lua" then
-		emit_lua(ctx, name, path --[[@as string]], nil, out, passed, map_parts);
+		emit_lua(ctx, name, path --[[@as string]], nil, "@" .. path, out, passed, map_parts);
 		passed[name] = "talb_open_" .. name:gsub("[%.%-]", "_");
 	elseif kind == "c" then
 		passed[name] = "luaopen_" .. name:gsub("[%.%-]", "_");
@@ -413,12 +414,12 @@ local function gen(ctx, out)
 				local node = require "std.compiler.node";
 			]] .. table.concat(map_parts, "\n");
 			-- TODO: fix when less asleep
-			emit_lua(ctx, "__map_loader", "<internal>", map_src, { f = out.f }, passed, map_parts);
+			emit_lua(ctx, "__map_loader", "<internal>", map_src, "=<internal>", { f = out.f }, passed, map_parts);
 			map_loader_call = passed["__map_loader"] .. "(ctx)";
 		end
 
 
-		emit_lua(ctx, "__err_handle", "<internal>", "return debug.traceback", { f = out.f }, passed, map_parts);
+		emit_lua(ctx, "__err_handle", "<internal>", "return debug.traceback", "=<internal>", { f = out.f }, passed, map_parts);
 
 		local args_str = {};
 		local args = ctx.args or {};

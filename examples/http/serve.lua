@@ -11,12 +11,14 @@ local path = require "std.path";
 local url = require "std.fmt.url";
 local fs = require "std.io.fs";
 local headers = require "std.http.headers";
-local net     = require "std.io.net"
+local net = require "std.io.net";
 
 local function send_dir(conn, get_path, file_path)
-	local res_f = assert(http.write_res(conn, 200, headers.of {
-		["Content-Type"] = "text/html",
-	}, true));
+	local res_f = http.write_res(conn, {
+		code = 200,
+		headers = headers.of { ["Content-Type"] = "text/html" }
+	}, true);
+
 	res_f:write("<!DOCTYPE html>\n");
 	res_f:write("File contents of " .. get_path .. ":<ul>");
 
@@ -30,7 +32,7 @@ local function send_dir(conn, get_path, file_path)
 	res_f:close();
 end
 local function send_not_found(conn)
-	return assert(respond(conn, 404, nil, "Not found :/\n"));
+	return respond(conn, 404, nil, "Not found :/\n");
 end
 
 return function (serve_path)
@@ -39,34 +41,31 @@ return function (serve_path)
 		return;
 	end
 
-	local server = assert(net.bind("0.0.0.0", 8080));
+	local server = net.bind("0.0.0.0", 8080);
 
-	while true do
-		local conn = assert(server:next()).client;
-		loop.fork(function (conn)
+	for conn in server:iter() do
+		loop.fork(function ()
 			local ok, err = xpcall(function ()
-				local method, get_path, headers_req = assert(http.read_req(conn));
-				if method ~= "GET" then
-					return assert(respond(conn, 405));
-				end
+				local req = http.read_req(conn);
+				if not req then return end
 
-				get_path = url.parse_path(get_path);
-				print("GET", get_path);
+				if req.method ~= "GET" then return respond(conn, 405) end
 
-				local file_path = path.chroot(serve_path, get_path);
+				req.path = url.parse_path(req.path);
+				print("GET", req.path);
+
+				local file_path = path.chroot(serve_path, req.path);
 
 				local f = io.open(file_path, "r");
 				if not f then return send_not_found(conn) end
 
-				local stat = assert(f:stat());
+				local stat = f:stat();
 
 				if stat.type == "dir" then
 					f:close();
-					return send_dir(conn, get_path, file_path);
+					return send_dir(conn, req.path, file_path);
 				elseif stat.type == "file" then
-					local ok, err = respond(conn, 200, nil, f);
-					f:close();
-					return assert(ok, err);
+					return respond(conn, 200, nil, f);
 				else
 					return send_not_found(conn);
 				end
@@ -76,6 +75,6 @@ return function (serve_path)
 				print("Unhandled error: " .. tostring(err));
 				return respond(conn, 500, nil, "Internal server error\n")
 			end
-		end, conn);
+		end);
 	end
 end
