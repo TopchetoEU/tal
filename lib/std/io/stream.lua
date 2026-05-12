@@ -211,9 +211,9 @@ function stream_index:write(...)
 	return self;
 end
 
---- @param pos integer
 --- @param whence "set" | "cur" | "end"
-function stream_index:seek(pos, whence)
+--- @param pos integer
+function stream_index:seek(whence, pos)
 	if not self._backend.seek then
 		return nil, "seeking not supported";
 	end

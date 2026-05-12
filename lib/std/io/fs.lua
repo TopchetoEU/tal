@@ -2,6 +2,7 @@ local impl = require "impl";
 local sig = require "std.sig";
 local loop = require "std.loop";
 local collected = require "std.collected"
+local p = require "std.path";
 
 local fs = {};
 
@@ -72,7 +73,7 @@ end
 function fs.stat(path)
 	path = sig.str(path, "path");
 
-	local fd, err = io.xopen(path, "");
+	local fd, err = io.xopen(path, "ls");
 	if not fd then return nil, err end
 
 	local res, err = fd:stat();
@@ -93,6 +94,19 @@ function fs.mkdir(path, mode)
 	end
 
 	return loop.sync_ret(impl:mkdir(coroutine.running(), path, mode));
+end
+--- @param path string
+--- @param mode? integer | string
+function fs.mkdirs(path, mode)
+	path = sig.str(path, "path");
+	local segs, root = p.split(p.cwd("/", path));
+
+	local res = {};
+
+	for i = 1, #segs do
+		table.insert(res, segs[i]);
+		fs.mkdir(p.stringify(res, root, false), mode or "777");
+	end
 end
 --- @param path string
 --- @return std.fs.dir?

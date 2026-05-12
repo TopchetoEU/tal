@@ -1,8 +1,7 @@
 local headers = require "std.http.headers";
 local stream = require "std.io.stream";
 local buffer = require "string.buffer";
-local ffi    = require "ffi"
-local mutex  = require "std.sync.mutex"
+local ffi = require "ffi";
 
 local codes_msgs = {
 	[100] = "Continue",
@@ -91,16 +90,16 @@ function parse.read_headers(str)
 		if not key then return nil, "unexpected header format" end
 		key = key:lower();
 
-		if val:find ", " then
-			local i = 1;
-			repeat
-				local l = val:find(", ", i);
-				res:add(key, val:sub(i, l and (l - 1) or -1));
-				if l then i = l + 1; end
-			until not l;
-		else
+		-- if val:find ", " then
+		-- 	local i = 1;
+		-- 	repeat
+		-- 		local l = val:find(", ", i);
+		-- 		res:add(key, val:sub(i, l and (l - 1) or -1));
+		-- 		if l then i = l + 1; end
+		-- 	until not l;
+		-- else
 			res:add(key, val);
-		end
+		-- end
 	end
 end
 --- @param str std.io.stream
