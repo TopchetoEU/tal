@@ -115,9 +115,8 @@ function io.write(...)
 	return io.stdout:write(...);
 end
 function io.flush()
-	io.stdin:flush();
-	io.stdout:flush();
-	io.stderr:flush();
+	pcall(io.stdout.flush, io.stdout);
+	pcall(io.stderr.flush, io.stderr);
 	return true;
 end
 --- @param file? std.io.stream
