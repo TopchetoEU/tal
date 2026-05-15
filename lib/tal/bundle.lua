@@ -29,9 +29,24 @@ return function (...)
 	local mode = "gen";
 	local bootstrap = "tal.entry";
 	local compiler_cmd;
+	local lib_cmd = { "%" };
 	local output;
 	local debug = false;
 	local entry;
+
+	local function read_cmdline(res)
+		for arg, isopt in argv:iter() do
+			if isopt and (arg == "--stop" or arg == "-s") then
+				break;
+			elseif isopt and (arg == "--escape" or arg == "-e") then
+				table.insert(res, argv:pop());
+			else
+				table.insert(res, arg);
+			end
+		end
+
+		return res;
+	end
 
 	for arg, isopt in argv:iter() do
 		if isopt then
@@ -55,12 +70,16 @@ return function (...)
 				local compiler = argv:pop();
 				if compiler == "gcc" then
 					compiler_cmd = { "cc", "-x", "c", "-", "-x", "none", "-lm" };
+					lib_cmd = { "%" };
+
 					if output then
 						table.insert(compiler_cmd, "-o");
 						table.insert(compiler_cmd, output);
 					end
 				elseif compiler == "mscv" then
 					compiler_cmd = { "cl", "/Tc", "-" };
+					lib_cmd = { "%" };
+
 					if output then
 						table.insert(compiler_cmd, "/Fe:" .. output);
 					end
@@ -69,8 +88,9 @@ return function (...)
 				end
 
 			elseif arg == "--compiler-cmd" or arg == "-C" then
-				compiler_cmd = { argv:poprest() };
-
+				compiler_cmd = read_cmdline(compiler_cmd or {});
+			elseif arg == "--lib-cmd" or arg == "-S" then
+				lib_cmd = read_cmdline {};
 			else
 				error("unknown option " .. arg);
 			end
@@ -102,15 +122,26 @@ return function (...)
 		if compiler_cmd then
 			local lj_lib, err_a, err_so;
 			lj_lib, err_a = package.searchpath("luajit", ffi.apath);
+			if not lj_lib then lj_lib, err_so = package.searchpath("luajit", ffi.path) end
 			if not lj_lib then
-				lj_lib, err_so = package.searchpath("luajit", ffi.path)
-				if not lj_lib then
-					io.stderr:write("luajit not found in ffi path:\n" .. err_a .. "\n" .. err_so);
-					return;
+				io.stderr:write("luajit not found in ffi path:\n" .. err_a .. "\n" .. err_so);
+				return;
+			end
+
+			local function template_lib(templ, fname)
+				for i = 1, #templ do
+					table.insert(compiler_cmd, (templ[i]:gsub("%%", fname)));
 				end
 			end
 
-			table.insert(compiler_cmd, lj_lib)
+			template_lib(lib_cmd, lj_lib);
+
+			local ldeps = {};
+			mklua.gen(mklua_ctx, { ldeps = ldeps });
+
+			for _, path in pairs(ldeps) do
+				template_lib(lib_cmd, path);
+			end
 
 			local comp_proc = spawn {
 				argv = compiler_cmd,
@@ -118,26 +149,14 @@ return function (...)
 				env = { PATH = os.getenv "PATH" or "" }
 			};
 
-			local libs = {};
-
-			mklua.gen(mklua_ctx, { f = comp_proc.stdin --[[@as file*]], libs = libs });
+			mklua.gen(mklua_ctx, { f = comp_proc.stdin --[[@as file*]], ldeps = ldeps });
 
 			comp_proc.stdin:close();
 			local code = comp_proc:wait();
 			if code ~= 0 then error("compiler exited with code " .. code) end
-
-			if #libs > 0 then
--- 				io.stderr:write [[
--- The lua code depends on some native libraries. For luajit's ffi to find them,
--- they need to be in ffi.path locations. Make sure to include them either next
--- to the executable or in the standard library locations.
-
--- To get a list of all used libraries, use the -L option.
--- ]];
-			end
 		elseif output then
 			local f, close = mklua.open_w(output);
-			mklua.gen(mklua_ctx, { f = f });
+			mklua.gen(mklua_ctx, { f = f, libdeps = {} });
 			close(f);
 		else
 			print(help_msg);

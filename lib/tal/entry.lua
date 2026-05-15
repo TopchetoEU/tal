@@ -17,51 +17,36 @@ return function (entry_mod, ...)
 		local root = arg[0]:match "^(.*)/[^/]-$" or ".";
 
 		local old_path = package.path;
-		package.path =
+		package.path = (
 			root .. "/?.lua;" .. root .. "/?/init.lua;" ..
 			root .. "/../lib/lua/?.lua;" .. root .. "/../lib/lua/?/init.lua;" ..
-			old_path;
+			old_path
+		):gsub("/", old_path:match "[/\\]");
 
 		if not pcall(require, "std.path") then
 			print "error: TAL std libraries not found in the expected locations or the lua path. Please, fix your LUA_PATH";
 			os.exit(1);
 		end
 
+		local package = require "std.package";
+		local ffi = require "nat.ffi";
 		local path = require "std.path";
 
-		package.path =
-			path.join(root, "?.lua") .. ";" .. path.join(root, "?/init.lua") .. ";" ..
-			path.join(root, "../lib/lua/?.lua") .. ";" .. path.join(root, "../lib/lua/?/init.lua") .. ";" ..
-			old_path;
+		local old_ffi_roots = ffi.roots;
+		local old_pkg_roots = package.roots;
 
-		local ffi = require "nat.ffi";
-		local package = require "std.package";
+		ffi.roots = { root, path.join(root, "../lib"), table.unpack(old_ffi_roots) };
+		package.roots = { root, path.join(root, "../lib"), table.unpack(old_pkg_roots) };
+
 		require = package.require;
 
-		local old_ffi_path = ffi.path;
-		ffi.path, ffi.apath = ffi.addpath(ffi.path, root);
-		ffi.path, ffi.apath = ffi.addpath(ffi.path, path.join(root, "../lib"));
+		package:init_paths(old_path);
 
-		local cwd = require "impl":getpath "cwd";
+		local cwd = assert(require "impl":getpath "cwd");
+		root = path.cwd(cwd, root);
 
-		if cwd then
-			root = path.cwd(cwd, root);
-		else
-			root = path.join(root);
-		end
-
-		local override = path.join(root, "?.lua") .. ";" .. path.join(root, "?/init.lua") .. ";;";
-		if root ~= path.join(root, "../lib") then
-			override = path.join(root, "../lib/lua/?.lua") .. ";" .. path.join(root, "../lib/lua/?/init.lua") .. ";" .. override;
-		end
-
-		override = override .. path.join("@", "?.lua") .. ";" .. path.join("@", "?/init.lua");
-
-		package.path = package.overridepath(old_path, override);
-
-		ffi.path, ffi.apath = ffi.addpath(old_ffi_path, root);
-		ffi.path, ffi.apath = ffi.addpath(ffi.path, path.join(root, "../lib"));
-
+		ffi.roots = { root, path.join(root, "../lib"), table.unpack(old_ffi_roots) };
+		package.roots = { root, path.join(root, "../lib"), table.unpack(old_pkg_roots) };
 	end
 
 	if has_dbg then

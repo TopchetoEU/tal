@@ -1,14 +1,12 @@
 local argp = require "std.fmt.argp";
 local ffi = require "ffi";
 local loading = require "std.compiler.loading"
+local lex     = require "std.compiler.lex"
 
 --- @class tal.mklua.ctx
---- @field mode "deps" | "libs" | "gen"
 --- @field entries string[]
 ---
---- @field path? string
---- @field cpath? string
---- @field ffi_path? string
+--- @field ffi_genstat? fun(ctx: tal.mklua.ctx, out: tal.mklua.out, cb: fun(name: string))
 --- @field output? string | file*
 --- @field args? string[]
 --- @field debug? boolean
@@ -29,8 +27,7 @@ local int_libs = {
 --- @class tal.mklua.out
 --- @field f? file*
 --- @field deps? table<string, string>
---- @field ffi_deps? table<string, string>
---- @field libs? string[]
+--- @field ldeps? table<string, string>
 
 local help_msg = [[
 A tool that walks a lua dependency tree and emits a C file, used to
@@ -68,7 +65,8 @@ TALB_EXPORT int TALB_ENTRY_NAME(lua_State *ctx, int argc, const char **argv) {
 	lua_checkstack(ctx, argc + %d + 16);
 
 	lua_createtable(ctx, argc, 0);
-	lua_setfield(ctx, LUA_REGISTRYINDEX, "_FFI_PRELOAD");
+	%s
+	lua_setfield(ctx, LUA_REGISTRYINDEX, "_FFI_STATIC");
 
 	/* Emit other requiref-s */
 	%s
@@ -214,40 +212,62 @@ local function c_escape(str)
 end
 
 --- @param src string
-local function find_lua(src)
-	local func = src:gmatch "require%s*([\"'])([^\n\\\"\'']-)%1";
-	return function ()
-		return select(2, func());
+--- @param on_req fun(name: string)
+--- @param on_ffi fun(name: string)
+local function find_deps(src, on_req, on_ffi)
+	local toks = lex.parse(src);
+	if not toks then return end
+
+	local function check_str_call(i, cb)
+		local j = i;
+
+		if toks[j] and toks[j]:is_op(lex.operators.PAREN_OPEN) then
+			j = j + 1;
+
+			if not toks[j]:is_str() then return i end
+			local val = toks[j].val --[[@as string]];
+			j = j + 1;
+
+			if not toks[j]:is_op(lex.operators.PAREN_CLOSE) then return i end
+			j = j + 1;
+
+			cb(val);
+			return j;
+		end
+
+		if not toks[j]:is_str() then return i end
+		cb(toks[j].val --[[@as string]]);
+		return j + 1;
 	end
-end
---- @param src string
-local function find_ffi(src)
-	local func = src:gmatch "ffi%.load%s*([\"'])([^\n\\\"']-)%1";
-	return function ()
-		return select(2, func());
+
+	local i = 1;
+	while i < #toks do
+		if toks[i]:is_id "require" then
+			i = check_str_call(i + 1, on_req);
+		elseif toks[i]:is_id "ffi" then
+			i = i + 1;
+			if toks[i]:is_op(lex.operators.DOT) then
+				i = i + 1;
+				if toks[i]:is_id "load" then
+					i = check_str_call(i + 1, on_ffi);
+				end
+			end
+		else
+			i = i + 1;
+		end
 	end
 end
 
 --- @param ctx tal.mklua.ctx
 --- @param name string
 local function resolve_lua(ctx, name)
-	local path;
-	path = package.searchpath(name, ctx.path or package.path);
-	if path then
-		return "lua", path;
-	end
+	local path = package.searchpath(name, package.path, nil, nil, package.roots);
+	if path then return "lua", path end
 
-	path = package.searchpath(name, ctx.cpath or package.cpath);
-	if path then
-		return "c", path;
-	end
+	local path = package.searchpath(name, package.cpath, nil, nil, package.croots);
+	if path then return "c", path end
 
 	return nil;
-end
---- @param ctx tal.mklua.ctx
---- @param dep string
-local function resolve_ffi(ctx, dep)
-	return package.searchpath(dep, ctx.ffi_path or ffi.path);
 end
 
 local function emit_map_emitter(name, map)
@@ -278,41 +298,40 @@ local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_pa
 
 	if not src then
 		local f = assert(io.open(filename, "r"));
-		src = f:read "a";
+		src = f:read "a" --[[@as string]];
 		f:close();
-
-		for dep in find_ffi(src) do
-			local path = resolve_ffi(ctx, dep);
-
-			if out.ffi_deps then
-				out.ffi_deps[dep] = path;
-			end
-
-			if not path then
-				io.stderr:write("FFI library '" .. dep .. "' could not be resolved!\n");
-			elseif out.libs then
-				table.insert(out.libs, path);
-			end
-		end
 	end
 
-	for dep in find_lua(src) do
-		local kind, path = resolve_lua(ctx, dep);
+	find_deps(src,
+		function (dep)
+			local kind, path = resolve_lua(ctx, dep);
 
-		if out.deps then
-			out.deps[dep] = path;
-		end
+			if out.deps then
+				out.deps[dep] = path;
+			end
 
-		if kind == "lua" then
-			table.insert(lua_deps, dep);
-			emit_lua(ctx, dep, path --[[@as string]], nil, "@" .. path, out, passed, map_parts);
-		elseif kind == "c" then
-			table.insert(c_deps, dep);
-			passed[dep] = "luaopen_" .. dep:gsub("[%.%-]", "_");
-		elseif not kind and not int_libs[dep] then
-			io.stderr:write("Module '" .. dep .. "' could not be resolved!\n");
+			if kind == "lua" then
+				table.insert(lua_deps, dep);
+				emit_lua(ctx, dep, path --[[@as string]], nil, "@" .. path, out, passed, map_parts);
+			elseif kind == "c" then
+				table.insert(c_deps, dep);
+				passed[dep] = "luaopen_" .. dep:gsub("[%.%-]", "_");
+			elseif not kind and not int_libs[dep] then
+				io.stderr:write("Module '" .. dep .. "' could not be resolved!\n");
+			end
+		end,
+		function (dep)
+			local dpath = package.searchpath(dep, ffi.path, nil, nil, ffi.roots);
+			if dpath then
+				if out.ldeps then
+					out.ldeps[dep] = dpath;
+				end
+				return;
+			end
+
+			io.stderr:write("FFI library '" .. dep .. "' could not be resolved!\n");
 		end
-	end
+	);
 
 	local func = assert(load(src, chunkname, "t"));
 	map = loading.get_map(chunkname);
@@ -399,13 +418,6 @@ local function gen(ctx, out)
 	end
 
 	if ctx.entry and out.f then
-		local register_calls = {};
-
-		for i = 2, #ctx.entries do
-			local name = ctx.entries[i];
-			table.insert(register_calls, ("talb_register(ctx, %q, %s);"):format(name, passed[name]))
-		end
-
 		local map_loader_call = "";
 
 		if #map_parts > 0 then
@@ -418,22 +430,37 @@ local function gen(ctx, out)
 			map_loader_call = passed["__map_loader"] .. "(ctx)";
 		end
 
-
 		emit_lua(ctx, "__err_handle", "<internal>", "return debug.traceback", "=<internal>", { f = out.f }, passed, map_parts);
 
-		local args_str = {};
-		local args = ctx.args or {};
+		local ffi_static_calls = {};
+		if ctx.ffi_genstat then
+			local i = 1;
 
-		for i = 1, #args do
-			table.insert(args_str, ("\tlua_pushstring(ctx, %q);"):format(args[i]));
+			ctx.ffi_genstat(ctx, out, function (name)
+				table.insert(ffi_static_calls, ("lua_pushinteger(ctx, %d);\n\tlua_pushstring(ctx, %q);\n\tlua_settable(ctx, -3);"):format(i, name));
+				i += 1;
+			end);
+		end
+
+		local register_calls = {};
+		for i, name in ipairs(ctx.entries) do
+			if i >= 2 then
+				table.insert(register_calls, ("talb_register(ctx, %q, %s);"):format(name, passed[name]))
+			end
+		end
+
+		local args_str = {};
+		for _, arg in ipairs(ctx.args or {}) do
+			table.insert(args_str, ("\tlua_pushstring(ctx, %q);"):format(arg));
 		end
 
 		out.f:write(entry_format:format(
-			#args,
+			#args_str,
+			table.concat(ffi_static_calls, "\n\t"),
 			table.concat(register_calls, "\n\t\t"),
 			map_loader_call, passed["__err_handle"], passed[ctx.entries[1]],
 			table.concat(args_str, "\n"),
-			#args
+			#args_str
 		));
 
 		if ctx.main then
@@ -462,11 +489,14 @@ return {
 	main = function (...)
 		local argv = argp.new(...);
 
+		--- @type "deps" | "gen"
+		local mode = "gen";
+		local libs = false;
+
 		--- @type tal.mklua.ctx
 		local ctx = {
 			entries = {},
 			args = {},
-			mode = "gen",
 		};
 
 		for arg, isopt in argv:iter() do
@@ -483,20 +513,12 @@ return {
 					ctx.entry = true;
 				elseif arg == "--entry" then
 					ctx.entry = true;
-				elseif arg == "--header" then
-					ctx.header = true;
 				elseif arg == "--gen" or arg == "-G" then
-					ctx.mode = "gen";
+					mode = "gen";
 				elseif arg == "--deps" or arg == "-D" then
-					ctx.mode = "deps";
+					mode = "deps";
 				elseif arg == "--libs" or arg == "-L" then
-					ctx.mode = "libs";
-				elseif arg == "--path" then
-					ctx.path = argv:pop();
-				elseif arg == "--cpath" then
-					ctx.cpath = argv:pop();
-				elseif arg == "--ffi-path" then
-					ctx.ffi_path = argv:pop();
+					libs = true;
 				elseif arg == "--output" or arg == "-o" then
 					ctx.output = argv:pop();
 				elseif arg == "--arg" then
@@ -509,24 +531,26 @@ return {
 			end
 		end
 
-		if not ctx.cpath and ctx.mode == "gen" and not ctx.output then
+		if mode == "gen" and not ctx.output then
 			print(help_msg);
 			return;
 		end
 
-		if ctx.mode == "deps" then
-			local deps = {};
-			gen(ctx, { deps = deps });
-			for k, v in pairs(deps) do
-				io.stdout:write(v .. "\n");
+		if mode == "deps" then
+			if libs then
+				local libs = {};
+				gen(ctx, { libs = libs });
+				for i = 1, #libs do
+					io.stdout:write(libs[i] .. "\n");
+				end
+			else
+				local deps = {};
+				gen(ctx, { deps = deps });
+				for k, v in pairs(deps) do
+					io.stdout:write(v .. "\n");
+				end
 			end
-		elseif ctx.mode == "libs" then
-			local libs = {};
-			gen(ctx, { libs = libs });
-			for i = 1, #libs do
-				io.stdout:write(libs[i] .. "\n");
-			end
-		elseif ctx.output then
+		else
 			local f, close = open_w(ctx.output);
 			gen(ctx, { f = f });
 			close(f);
