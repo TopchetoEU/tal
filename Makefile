@@ -26,6 +26,7 @@ install: $(PREFIX)/bin/tal all
 
 	cp $(LUAJIT_EXE) "$(PREFIX)/bin/"
 	cp $(LIBS) "$(PREFIX)/lib"
+	cp -r deps/luajit/src/jit "$(PREFIX)/lib/lua/"
 	cp -r lib/* "$(PREFIX)/lib/lua"
 
 	ln -fs "../lib/lua/tal.lua" "$(PREFIX)/bin/tal.lua"
