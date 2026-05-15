@@ -86,16 +86,6 @@ function argp:iter()
 	return self.next, self;
 end
 
-function argp:popopt()
-	local arg = self:get();
-	if not arg then return false end
-
-	local res = self:popopt(arg);
-	if res then self:trypop() end
-
-	return res;
-end
-
 --- @param ... string
 function argp.new(...)
 	return setmetatable({ pending = {}, ddash = true, noopt = false, i = 1, ... }, argp);
