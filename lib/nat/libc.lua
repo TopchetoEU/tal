@@ -5,8 +5,14 @@ ffi.cdef [[
 void *malloc(size_t n);
 void free(void *ptr);
 
-void strlen(const char *ptr);
-void strnlen(const char *ptr, size_t max);
+size_t strlen(const char *ptr);
+size_t strnlen(const char *ptr, size_t max);
+
+int strcmp(const char *a, const char *b);
+int strncmp(const char *a, const char *b, size_t n);
+
+const char *strchr(const char *str, char c);
+const char *memchr(size_t n, const char *str, char c);
 ]];
 
 local c = {};
@@ -39,6 +45,23 @@ function c.strdup_gc(str)
 	local res = c.malloc_gc(#str);
 	ffi.copy(res, str);
 	return res;
+end
+
+function c.strcmp(a, b)
+	return libc.strcmp(a, b);
+end
+function c.strncmp(a, b, n)
+	return libc.strncmp(a, b, n);
+end
+function c.strchr(str, char)
+	local ptr = libc.strchr(str, char);
+	if ptr == ffi.cast("void*", 0) then return nil end
+	return ptr - str;
+end
+function c.strnchr(str, char, n)
+	local ptr = libc.memchr(n, str, char);
+	if ptr == ffi.cast("void*", 0) then return nil end
+	return ptr - str;
 end
 
 return c;

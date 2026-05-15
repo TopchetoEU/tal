@@ -30,6 +30,8 @@ function loading.err_stringify(name, loc, msg)
 	end
 
 	if loc then
+		if loc.get then loc:get() end
+
 		if loc.row then
 			if #parts > 0 then table.insert(parts, ":") end
 			table.insert(parts, tostring(loc.row));
@@ -108,8 +110,8 @@ end
 --- @param mode? loadmode
 --- @param env? table
 --- @param no_map? boolean
-function loading.load(chunk, name, mode, env, no_map)
-	-- do return load_raw(chunk, name, mode, env, no_map) end
+function loading.load(chunk, name, mode, env, no_map, force_no_raw)
+	-- if not force_no_raw then return load_raw(chunk, name, mode, env, no_map) end
 
 	if type(chunk) == "function" then
 		local res = {};

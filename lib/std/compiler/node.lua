@@ -1,9 +1,5 @@
 local node = {};
 
---- @class node.loc
---- @field row integer
---- @field col integer
-
 --- @class node.base
 --- @field loc? node.loc
 
@@ -57,7 +53,7 @@ local node = {};
 
 --- @class node.return: node.base
 --- @field type "return"
---- @field [integer] node.exp
+--- @field vals node.exp[]
 
 --- @class node.break: node.base
 --- @field type "break"
@@ -65,16 +61,24 @@ local node = {};
 --- @class node.continue: node.base
 --- @field type "continue"
 
+--- @class node.goto: node.base
+--- @field type "goto"
+--- @field target node.label
+
+--- @class node.label: node.base
+--- @field type "label"
+--- @field name string
+
 --- @class node.call: node.base
 --- @field type "call"
 --- @field func node.exp
---- @field [integer] node.exp
+--- @field args node.exp[]
 
 --- @class node.method: node.base
 --- @field type "method"
 --- @field obj node.exp
 --- @field name string
---- @field [integer] node.exp
+--- @field args node.exp[]
 
 --- @class node.index: node.base
 --- @field type "index"
@@ -86,7 +90,6 @@ local node = {};
 --- @field op integer
 --- @field a node.exp
 --- @field b? node.exp
---- @field [integer] node.exp
 
 --- @class node.paren: node.base
 --- @field type "paren"
@@ -138,7 +141,7 @@ local node = {};
 
 --- @alias node.exp node.func | node.call | node.method | node.index | node.op | node.table | node.var | node.args | node.nil | node.str | node.bool | node.fl | node.int | node.paren | node.error
 --- @alias node.assign_target node.index | node.name
---- @alias node.stm node.decl | node.assign | node.if | node.while | node.repeat | node.for | node.for_in | node.scope | node.return | node.break | node.continue | node.call
+--- @alias node.stm node.decl | node.assign | node.if | node.while | node.repeat | node.for | node.for_in | node.scope | node.return | node.break | node.continue | node.call | node.goto | node.label
 --- @alias node node.stm | node.exp | node.name
 
 --- @alias node.body node.stm[]
@@ -183,34 +186,38 @@ node.ops = {
 	PREC_NONE = 100,
 };
 
-local loc_meta = {};
-function loc_meta:__tostring()
-	return self.row.. ":" .. self.col;
+--- @class node.loc
+--- @field _cb? fun(): integer, integer
+--- @field row? integer
+--- @field col? integer
+local loc_index = {};
+loc_index.__index = loc_index;
+
+function loc_index:get()
+	if not self.row or not self.col then
+		self.row, self.col = self._cb();
+		self._cb = nil;
+	end
+
+	return self;
 end
 
+function loc_index:__tostring()
+	local r, c = self:get();
+	return r .. ":" .. c;
+end
+
+--- @param cb fun(self: node.loc)
+--- @return node.loc
+function node.lazy_loc(cb)
+	return { get = cb };
+end
 --- @param row integer
 --- @param col integer
 --- @return node.loc
 function node.loc(row, col)
-	return setmetatable({ row = row, col = col }, loc_meta);
+	return { row = row, col = col };
 end
-
-if _G["jit"] then
-	local ffi = require "ffi";
-	ffi.cdef [[
-		typedef struct {
-			uint32_t row;
-			uint32_t col;
-		} node_loc_t;
-	]];
-
-	node.loc = ffi.metatype("node_loc_t", {
-		__tostring = function (self)
-			return ("%d:%d"):format(self.row, self.col);
-		end,
-	}) --[[@as fun(row: integer, col: integer): node.loc]];
-end
-
 
 --- @param arr node.stm[]
 function node.body(arr)
@@ -275,17 +282,26 @@ function node.scope(line, body)
 	return { type = "scope", loc = line, body = body } --[[@as node.scope]];
 end
 --- @param line? node.loc
---- @param ... node.exp
-function node._return(line, ...)
-	return { type = "return", loc = line, ... } --[[@as node.return]];
+--- @param vals node.exp
+function node._return(line, vals)
+	return { type = "return", loc = line, vals = vals } --[[@as node.return]];
 end
 --- @param line? node.loc
-function node._break(line, ...)
+function node._break(line)
 	return { type = "break", loc = line } --[[@as node.break]];
 end
 --- @param line? node.loc
-function node._continue(line, ...)
+function node._continue(line)
 	return { type = "continue", loc = line } --[[@as node.continue]];
+end
+--- @param line? node.loc
+function node._goto(line, target)
+	return { type = "goto", target = target, loc = line } --[[@as node.goto]];
+end
+--- @param line? node.loc
+--- @param name string
+function node.label(line, name)
+	return { type = "label", name = name, loc = line } --[[@as node.label]];
 end
 
 --- @param name string
@@ -348,16 +364,16 @@ end
 
 --- @param line? node.loc
 --- @param func node.exp
---- @param ... node.exp
-function node.call(line, func, ...)
-	return { type = "call", loc = line, func = func, ... } --[[@as node.call]];
+--- @param args node.exp[]
+function node.call(line, func, args)
+	return { type = "call", loc = line, func = func, args = args } --[[@as node.call]];
 end
 --- @param line? node.loc
 --- @param obj node.exp
 --- @param name string
---- @param ... node.exp
-function node.method(line, obj, name, ...)
-	return { type = "method", loc = line, obj = obj, name = name, ... } --[[@as node.method]];
+--- @param args node.exp[]
+function node.method(line, obj, name, args)
+	return { type = "method", loc = line, obj = obj, name = name, args = args } --[[@as node.method]];
 end
 --- @param line? node.loc
 --- @param keys node.exp[]
