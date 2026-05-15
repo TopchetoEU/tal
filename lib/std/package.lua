@@ -5,6 +5,7 @@ require "std.printing";
 local load = require "std.compiler.loading".load;
 local path = require "std.path";
 
+--- @class packagelib
 local package = {
 	path = package.path,
 	cpath = package.cpath,
@@ -12,6 +13,8 @@ local package = {
 	preload = package.preload,
 	pathsep = ".",
 	pathrep = path.sep,
+	roots = {"."},
+	croots = {"."},
 };
 
 local function override_one(old, override)
@@ -55,33 +58,61 @@ function package.overridepath(...)
 
 	return old;
 end
+--- Like lua's searchpath algorithm, but extended to replace @ with a list of roots
+--- (useful for a more ergonomic path specification API)
+--- @generic T
 --- @param name string
 --- @param path string
 --- @param sep? string
 --- @param rep? string
---- @return string? filename
+--- @param roots? string[]
+--- @param func fun(path: string): T?, string?
+--- @return T? filename
 --- @return string? errmsg
-function package.searchpath(name, path, sep, rep)
-	local pat = {
-		["?"] = name:gsub("%" .. (sep or package.pathsep), rep or package.pathrep),
-		["@"] = package.root or ".",
-	};
-
+function package.searchpathx(name, path, sep, rep, roots, func)
 	local lines = {};
 
 	for _, part in path:split ";" do
-		local real_path = part:gsub("[%@%?]", pat);
+		local real_path = part:gsub("%?", (name:gsub("%" .. (sep or package.pathsep), rep or package.pathrep)));
 
-		local f = io.open(real_path, "r");
-		if f then
-			f:close();
-			return real_path;
+		if real_path:find "@" then
+			if roots then
+				for _, root in ipairs(roots) do
+					local res, err = func(real_path:gsub("@", root));
+					if res then return res end
+					if err then table.insert(lines, err) end
+				end
+			end
+
+			local res, err = func(real_path:gsub("@", "."));
+			if res then return res end
+			if err then table.insert(lines, err) end
+		else
+			local res, err = func(real_path);
+			if res then return res end
+			if err then table.insert(lines, err) end
 		end
-
-		table.insert(lines, "\tno file '" .. real_path .. "'");
 	end
 
 	return nil, table.concat(lines, "\n");
+end
+--- @param name string
+--- @param path string
+--- @param sep? string
+--- @param rep? string
+--- @param roots? string[]
+--- @return string? filename
+--- @return string? errmsg
+function package.searchpath(name, path, sep, rep, roots)
+	return package.searchpathx(name, path, sep, rep, roots, function (path)
+		local f = io.open(path, "r");
+		if f then
+			f:close();
+			return path;
+		end
+
+		return nil, "\tno file '" .. path .. "'";
+	end);
 end
 
 --- @param name string
@@ -164,5 +195,20 @@ end
 
 package.loaders = { package.searchpreload, package.searchlua, package.searchc };
 package.searchers = package.loaders;
+
+--- @param path? string
+--- @param cpath? string
+function package:init_paths(path, cpath)
+	path = path or self.path;
+	cpath = cpath or self.cpath;
+
+	self.path = package.overridepath(path, ";;@" .. package.pathrep .. "?.lua;@" .. package.pathrep .. "?" .. package.pathrep .. "init.lua");
+
+	if jit.os == "Windows" then
+		self.cpath = package.overridepath(cpath, ";;@\\?.dll");
+	else
+		self.cpath = package.overridepath(cpath, ";;@/lib?.so");
+	end
+end
 
 return package;

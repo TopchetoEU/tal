@@ -6,13 +6,13 @@ package = require "std.package";
 -- Then, we import our ffi, to add our custom load function (without it, everything breaks)
 require "nat.ffi";
 
-require "std.printing";
-require "std.string";
+local printing = require "std.printing";
 local err = require "std.error";
 
 debug = require "std.debug";
 io = require "std.io";
 jit = require "jit";
+string = require "std.string";
 
 table.clear = require "table.clear";
 table.new = require "table.new";
@@ -20,8 +20,11 @@ table.unpack = unpack or table.unpack;
 
 load = require "std.compiler.loading".load;
 function loadfile(filename, mode, env)
-	return load(io.lines(filename, 4096), "@" .. filename, mode, env);
+	return load(io.lines(filename, "c"), "@" .. filename, mode, env);
 end
+
+pprint = printing.pprint;
+
 exit = os.exit;
 require = package.require;
 unpack = table.unpack;

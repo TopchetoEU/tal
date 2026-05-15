@@ -236,38 +236,36 @@ local function stringify_int(obj, n, color, passed, hit, max_line)
 	end
 end
 
+local printing = {};
+
 --- @param colors? true | false | table
-local function stringify(obj, colors)
+function printing.stringify(obj, colors)
 	if colors == nil or colors == true then colors = default_colors end
 	return stringify_int(obj, "", mkcolors(colors), { next = 0 }, {}, 120);
 end
 
-function pprint(...)
+function printing.print(...)
+	if select("#", ...) == 0 then
+		return;
+	elseif select("#", ...) == 1 then
+		assert(io.stderr:write(tostring(...), "\n"));
+	else
+		assert(io.stderr:write(tostring(...), "\t"));
+		return print(select(2, ...));
+	end
+end
+function printing.pprint(...)
 	if select("#", ...) == 0 then return end
 
 	local function fix(...)
 		if select("#", ...) == 0 then
 			return;
 		else
-			return stringify((...), true), fix(select(2, ...));
+			return printing.stringify((...), true), fix(select(2, ...));
 		end
 	end
 
 	print(fix(...));
 end
--- function print(...)
--- 	if select("#", ...) == 0 then
--- 		return;
--- 	elseif select("#", ...) == 1 then
--- 		assert(io.stderr:write(tostring(...), "\n"));
--- 	else
--- 		assert(io.stderr:write(tostring(...), "\t"));
--- 		return print(select(2, ...));
--- 	end
--- end
 
-return {
-	print = print,
-	pprint = pprint,
-	stringify = stringify,
-};
+return printing;
