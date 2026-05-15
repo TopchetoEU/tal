@@ -155,9 +155,6 @@ function cli.main(...)
 				module = argv:pop();
 				args = { argv:poprest() };
 				any = true;
-			elseif arg == "--" then
-				rest = true;
-				any = true;
 			else
 				error("unknown option " .. arg);
 			end
