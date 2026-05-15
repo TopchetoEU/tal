@@ -242,5 +242,8 @@ return function (exp_cb, stm_cb)
 	--- @param node node.break
 	stm_walkers["continue"] = function (self, node) return node end
 
+	stm_walkers["goto"] = function (self, node) return node end
+	stm_walkers["label"] = function (self, node) return node end
+
 	return self;
 end

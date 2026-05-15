@@ -1,6 +1,9 @@
 local nodes = require "std.compiler.node";
+local buffer = require "string.buffer";
+
 --- @class stringify.ctx
---- @field parts string[]
+--- @field buff string.buffer
+--- @field lines integer
 --- @field map table<integer, node.loc>
 
 --- @type table<string, fun(self: stringify.ctx, node: node)>
@@ -42,21 +45,29 @@ local op_str_map = {
 }
 
 --- @param self stringify.ctx
---- @param loc node | node.loc
---- @param str string
-local function emit(self, loc, str)
-	table.insert(self.parts, str);
-	if loc.loc then
-		self.map[#self.parts] = loc.loc;
-	else
-		self.map[#self.parts] = loc --[[@as node.loc]];
-	end
+--- @param ... string
+local function suffix(self, ...)
+	self.buff:put(...);
 end
 --- @param self stringify.ctx
---- @param str string
-local function suffix(self, str)
-	if #self.parts == 0 then error "can't suffix now" end
-	self.parts[#self.parts] = self.parts[#self.parts] .. str;
+--- @param loc node | node.loc
+--- @param ... string
+local function emit(self, loc, ...)
+	self.lines = self.lines + 1;
+	if loc and loc.loc then
+		if loc.loc.get then loc.loc:get() end
+		self.map[self.lines] = loc.loc;
+	else
+		if loc and loc.get then loc:get() end
+		self.map[self.lines] = loc --[[@as node.loc]];
+	end
+
+	if #self.buff == 0 then
+		return suffix(self, ...);
+	else
+		return suffix(self, "\n", ...);
+	end
+
 end
 
 --- @param self stringify.ctx
@@ -183,14 +194,14 @@ end
 function walkers.call(self, node)
 	walk(self, node.func);
 	suffix(self, "(");
-	walk_all(self, node, ",");
+	walk_all(self, node.args, ",");
 	suffix(self, ")");
 end
 --- @param node node.method
 function walkers.method(self, node)
 	walk(self, node.obj);
 	emit(self, node, ":" .. node.name .. "(");
-	walk_all(self, node, ",");
+	walk_all(self, node.args, ",");
 	suffix(self, ")");
 end
 --- @param node node.index
@@ -300,11 +311,20 @@ end
 --- @param node node.return
 walkers["return"] = function (self, node)
 	emit(self, node, "return");
-	walk_all(self, node, ",");
+	walk_all(self, node.vals, ",");
 end
 --- @param node node.break
 walkers["break"] = function (self, node)
 	emit(self, node, "break");
+end
+--- @param node node.goto
+walkers["goto"] = function (self, node)
+	emit(self, node, "goto");
+	suffix(self, " ", node.target.name)
+end
+--- @param node node.label
+function walkers.label(self, node)
+	emit(self, node, "::", node.name, "::");
 end
 
 --- @generic T
@@ -312,9 +332,9 @@ end
 --- @param func fun(self: stringify.ctx, arg: T)
 local function wrap(arg, func)
 	--- @type stringify.ctx
-	local self = { parts = {}, map = {} };
+	local self = { buff = buffer.new(), lines = 0, map = {} };
 	func(self, arg);
-	return table.concat(self.parts, "\n"), self.map;
+	return self.buff:tostring(), self.map;
 end
 
 return {

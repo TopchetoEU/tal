@@ -123,7 +123,7 @@ local walker = walk(
 				node.b = node.b and self:walk_exp(node.b, "multi", ctx, scope);
 
 				local id = polyfill(ctx, "operator_" .. node.op, func);
-				return nodes.call(node.loc, nodes.var(node.loc, id), node.a, node.b);
+				return nodes.call(node.loc, nodes.var(node.loc, id), { node.a, node.b });
 			end
 		end
 
@@ -164,8 +164,7 @@ local walker = walk(
 					node,
 					nodes.call(node.loc,
 						nodes.var(node.loc, polyfill(ctx, "setfenv", polyfills.setfenv)),
-						nodes.int(node.loc, 0),
-						nodes.var(node.loc, tmp)
+						{ nodes.int(node.loc, 0), nodes.var(node.loc, tmp) }
 					),
 				};
 			end
