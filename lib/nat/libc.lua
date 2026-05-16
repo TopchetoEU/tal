@@ -12,7 +12,7 @@ int strcmp(const char *a, const char *b);
 int strncmp(const char *a, const char *b, size_t n);
 
 const char *strchr(const char *str, char c);
-const char *memchr(size_t n, const char *str, char c);
+const char *memchr(const char *str, char c, size_t n);
 ]];
 
 local c = {};
@@ -59,7 +59,7 @@ function c.strchr(str, char)
 	return ptr - str;
 end
 function c.strnchr(str, char, n)
-	local ptr = libc.memchr(n, str, char);
+	local ptr = libc.memchr(str, char, n);
 	if ptr == ffi.cast("void*", 0) then return nil end
 	return ptr - str;
 end

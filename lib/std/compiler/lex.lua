@@ -208,13 +208,13 @@ local op_map = {
 		{ "&&", lexer.operators.AND },
 
 		{ "&=", lexer.operators.ASSIGN_BAND },
-		{ "&", lexer.operators.BAND },
+		{ "&", lexer.operators.B_AND },
 	},
 	[chars.pipe] = {
 		{ "||", lexer.operators.OR },
 
 		{ "|=", lexer.operators.ASSIGN_BOR },
-		{ "|", lexer.operators.BOR },
+		{ "|", lexer.operators.B_OR },
 	},
 
 	[chars.caret] = {
@@ -224,7 +224,7 @@ local op_map = {
 
 	[chars.lt] = {
 		{ "<<=", lexer.operators.ASSIGN_SHL },
-		{ "<<", lexer.operators.SHL },
+		{ "<<", lexer.operators.B_SHL },
 
 		{ "<=", lexer.operators.LEQ },
 		{ "<",  lexer.operators.LE },
@@ -232,7 +232,7 @@ local op_map = {
 
 	[chars.gt] = {
 		{ ">>=", lexer.operators.ASSIGN_SHR },
-		{ ">>", lexer.operators.SHR },
+		{ ">>", lexer.operators.B_SHR },
 
 		{ ">=", lexer.operators.GREQ },
 		{ ">",  lexer.operators.GR },
@@ -245,7 +245,7 @@ local op_map = {
 
 	[chars.tilde] = {
 		{ "~=", lexer.operators.NEQ },
-		{ "~", lexer.operators.XOR },
+		{ "~", lexer.operators.B_XOR },
 	},
 
 	[chars.bang] = {
@@ -288,7 +288,6 @@ local function lex_pcall_fin(ok, ...)
 	if ok then return true, ... end
 	local err = ...;
 	if type(err) == "table" and err[tag] then return false, err end
-	pprint(err);
 	error(err, 0);
 end
 local function lex_pcall(f, ...)
@@ -615,7 +614,7 @@ local function read_escape_char(ctx, i, buff)
 		lex_error(find_loc(ctx, i), "unicode escape sequences not supported yet");
 		-- return j, utf8.char(tonumber(val, 16));
 	elseif ctx.src[i] >= chars.zero and ctx.src[i] <= chars.nine then
-		local i, val = read_dec(ctx.src, i);
+		local i, val = read_dec(ctx, i);
 		assert(val);
 
 		if val >= 256 then lex_error(find_loc(ctx, i), "decimal escape too large") end
@@ -822,7 +821,7 @@ end
 function lexer.parse(src, strip)
 	local ok, res = lex_pcall(function ()
 		--- @type lex.ctx
-		local ctx = { lines = { 0 }, n = #src, src = ffi.cast("const char*", src) };
+		local ctx = { lines = { 0 }, n = #src, src = ffi.cast("const unsigned char*", src) };
 		local res = {};
 		local i = 0;
 

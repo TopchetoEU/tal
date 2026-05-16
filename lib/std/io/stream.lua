@@ -1,8 +1,11 @@
 local collected = require "std.collected";
-local buffer = require "string.buffer";
 local loop = require "std.loop";
-local ffi = require "ffi";
 local sig = require "std.sig";
+
+local buffer = require "string.buffer";
+
+local ffi = require "ffi";
+local libc = require "nat.libc";
 
 --- @class std.io.stream.backend
 --- @field read? fun(self, ptr: ffi.cdata*, n: integer): integer
@@ -21,11 +24,6 @@ local sig = require "std.sig";
 --- @field buffw string.buffer
 --- @field _mngd boolean | string? If managed (aka not closed by the owner), this is set to true or a stack trace
 local stream_index = {};
-
-local libc = ffi.C;
-ffi.cdef [[
-	void *memchr(const void *stack, int needle, size_t len);
-]];
 
 --- Reads raw data into the given buffers. Reads no more than buff_n
 --- @param full boolean If true, fills the buffer, even if that requires multiple reads. If false, performs at most one read
@@ -149,9 +147,9 @@ function stream_index:read(fmt)
 		local eol = fmt:byte(2) or ("\n"):byte();
 
 		function process(ptr, n)
-			local nl_ptr = libc.memchr(ptr, eol, n);
-			if nl_ptr ~= ffi.cast("void*", 0) then
-				local nl_i = ffi.cast("char*", nl_ptr) - ffi.cast("char*", ptr) + 1;
+			local nl_ptr = libc.strnchr(ptr, eol, n);
+			if nl_ptr then
+				local nl_i = nl_ptr + 1;
 
 				if bigl then
 					return seek_remainder(copy_res(#self.buffr - n + nl_i));
