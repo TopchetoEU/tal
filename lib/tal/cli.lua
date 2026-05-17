@@ -1,6 +1,5 @@
 local readline = require "nat.libreadline";
 local printing = require "std.printing";
-local fs = require "std.io.fs";
 local path = require "std.path";
 local argp = require "std.fmt.argp";
 local cli = {};
@@ -189,9 +188,7 @@ function cli.main(...)
 	end
 
 	if module then
-		package.root = fs.path "cwd";
-
-		cli.stacktrace_call(function ()
+		return cli.stacktrace_call(function ()
 			local mod = require(module);
 			if type(mod) == "table" then
 				if mod.__main then
@@ -203,17 +200,18 @@ function cli.main(...)
 				return mod(table.unpack(args));
 			end
 		end);
+
 	elseif file then
-		cli.stacktrace_call(function ()
-			local f = assert(io.open(file));
-			local src = f:read "a";
-			f:close();
+		package.roots:with(function ()
+			cli.stacktrace_call(function ()
+				local f = assert(io.open(file));
+				local src = f:read "a";
+				f:close();
 
-			package.root = path.dirname(file);
-
-			local func = iassert(load(src, "@" .. file, "t"));
-			return func(table.unpack(args));
-		end);
+				local func = iassert(load(src, "@" .. file, "t"));
+				return func(table.unpack(args));
+			end);
+		end, path.join_file(file, ".."));
 	end
 
 	if repl then
