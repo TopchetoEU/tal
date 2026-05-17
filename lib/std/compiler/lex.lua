@@ -394,7 +394,7 @@ end
 --- @param ctx lex.ctx
 --- @param i integer
 --- @return integer, ffi.cdata*?, integer?
-local function read_longlit(ctx, i)
+local function parse_longlit(ctx, i)
 	local j = i;
 
 	if ctx.src[j] ~= chars.bracket_open then return j end
@@ -432,46 +432,8 @@ local function read_longlit(ctx, i)
 	end
 end
 
---- @param ctx lex.ctx
 --- @param i integer
---- @return integer
-local function skip_white(ctx, i)
-	while true do
-		local c = ctx.src[i];
-
-		if
-			c == chars.space or
-			c == chars.tab or
-			c == chars.newl or
-			c == chars.bad_newl
-		then
-			i = i + 1;
-		elseif
-			c == chars.hash and
-			libc.strncmp(ctx.src + i, "--", 2) == 0 or
-			i == 0 and libc.strncmp(ctx.src, "#!", 2) == 0
-		then
-			local find_i = libc.strchr(ctx.src + i + 2, chars.newl);
-			if not find_i then return ctx.n end
-			i = i + 2 + find_i;
-		elseif c == chars.dash then
-			if libc.strncmp(ctx.src + i, "--[[", 4) == 0 then
-				i = read_longlit(ctx, i + 2);
-			elseif libc.strncmp(ctx.src + i, "--", 2) == 0 then
-				local find_i = libc.strchr(ctx.src + i + 2, chars.newl);
-				if not find_i then return ctx.n end
-				i = i + 2 + find_i;
-			else
-				return i;
-			end
-		else
-			return i;
-		end
-	end
-end
-
---- @param i integer
-local function read_hex(ctx, i)
+local function parse_hex(ctx, i)
 	local j = i;
 	local res = 0;
 	local any = false;
@@ -498,7 +460,7 @@ local function read_hex(ctx, i)
 	return j, res;
 end
 --- @param i integer
-local function read_dec(ctx, i)
+local function parse_dec(ctx, i)
 	local j = i;
 	local res = 0;
 	local any = false;
@@ -519,7 +481,7 @@ local function read_dec(ctx, i)
 	return j, res;
 end
 --- @param i integer
-local function read_fract(ctx, i)
+local function parse_fract(ctx, i)
 	local j = i;
 	local res = 0.;
 	local any = false;
@@ -540,7 +502,7 @@ local function read_fract(ctx, i)
 	return j, res;
 end
 --- @param i integer
-local function read_bin(ctx, i)
+local function parse_bin(ctx, i)
 	local j = i;
 	local res = 0;
 	local any = false;
@@ -562,7 +524,7 @@ local function read_bin(ctx, i)
 end
 
 --- @param i integer
-local function read_escape_char(ctx, i, buff)
+local function parse_escape_char(ctx, i, buff)
 	if ctx.src[i] == chars.a then
 		buff:put "\a";
 		return i + 1;
@@ -591,7 +553,7 @@ local function read_escape_char(ctx, i, buff)
 		buff:put "\"";
 		return i + 1;
 	elseif ctx.src[i] == chars.x then
-		local i, val = read_hex(ctx, i + 1);
+		local i, val = parse_hex(ctx, i + 1);
 		if not val then lex_error(find_loc(ctx, i), "invalid \\x escape sequence") end
 		buff:put(string.char(val));
 		return i;
@@ -600,7 +562,7 @@ local function read_escape_char(ctx, i, buff)
 
 		if ctx.src[i] ~= chars.brace_open then lex_error(find_loc(ctx, i), "expected '{'") end
 
-		local i, val = read_hex(ctx, i);
+		local i, val = parse_hex(ctx, i);
 		if not val then lex_error(find_loc(ctx, i), "expected a hex number") end
 
 		if ctx.src[i] ~= chars.brace_open then lex_error(find_loc(ctx, i), "expected '}'") end
@@ -614,7 +576,7 @@ local function read_escape_char(ctx, i, buff)
 		lex_error(find_loc(ctx, i), "unicode escape sequences not supported yet");
 		-- return j, utf8.char(tonumber(val, 16));
 	elseif ctx.src[i] >= chars.zero and ctx.src[i] <= chars.nine then
-		local i, val = read_dec(ctx, i);
+		local i, val = parse_dec(ctx, i);
 		assert(val);
 
 		if val >= 256 then lex_error(find_loc(ctx, i), "decimal escape too large") end
@@ -639,8 +601,8 @@ local function read_escape_char(ctx, i, buff)
 	end
 end
 --- @param i integer
-local function read_string(ctx, i)
-	local ll_i, ll, ll_n = read_longlit(ctx, i);
+local function parse_string(ctx, i)
+	local ll_i, ll, ll_n = parse_longlit(ctx, i);
 	if ll then return ll_i, ffi.string(ll, ll_n) end
 
 	if
@@ -662,7 +624,7 @@ local function read_string(ctx, i)
 			i = i + 1;
 			return i, res:tostring();
 		elseif ctx.src[i] == chars.backslash then
-			i = read_escape_char(ctx, i + 1, res);
+			i = parse_escape_char(ctx, i + 1, res);
 		elseif ctx.src[i] then
 			res:put(string.char(ctx.src[i]));
 			i = i + 1;
@@ -672,13 +634,13 @@ local function read_string(ctx, i)
 	end
 end
 --- @param i integer
-local function read_number(ctx, i)
+local function parse_number(ctx, i)
 	local j = i;
 
 	if ctx.src[j] == chars.zero then
 		if ctx.src[j + 1] == chars.x or ctx.src[j + 1] == chars.x then
 			j = j + 2;
-			local j, hex = read_hex(ctx, j);
+			local j, hex = parse_hex(ctx, j);
 			if not hex then lex_error(find_loc(ctx, j), "expected a hex number") end
 
 			return j, "int", hex;
@@ -686,7 +648,7 @@ local function read_number(ctx, i)
 
 		if ctx.src[j + 1] == chars.b or ctx.src[j + 1] == chars.B then
 			j = j + 2;
-			local j, hex = read_bin(ctx, j);
+			local j, hex = parse_bin(ctx, j);
 			if not hex then lex_error(find_loc(ctx, j), "expected a binary number") end
 
 			return j, "int", hex;
@@ -696,11 +658,11 @@ local function read_number(ctx, i)
 
 	local whole, fract, e, e_neg;
 
-	j, whole = read_dec(ctx, j);
+	j, whole = parse_dec(ctx, j);
 
 	if ctx.src[j] == chars.dot then
 		j = j + 1;
-		j, fract = read_fract(ctx, j);
+		j, fract = parse_fract(ctx, j);
 	end
 
 	if (whole or fract) and ctx.src[j] == chars.e then
@@ -712,7 +674,7 @@ local function read_number(ctx, i)
 		end
 
 		j = j + 1;
-		j, e = read_dec(ctx, j);
+		j, e = parse_dec(ctx, j);
 		if not e then lex_error(find_loc(ctx, j), "malformed number") end
 	end
 
@@ -744,7 +706,7 @@ local function read_number(ctx, i)
 	end
 end
 --- @param i integer
-local function read_id(ctx, i)
+local function parse_id(ctx, i)
 	local start = ctx.src + i;
 	local n = 0;
 
@@ -767,9 +729,8 @@ local function read_id(ctx, i)
 
 	return i, ffi.string(start, n);
 end
-
 --- @param i integer
-local function read_op(ctx, i)
+local function parse_op(ctx, i)
 	local res = op_map[ctx.src[i]];
 	if not res then return i end
 
@@ -788,17 +749,55 @@ local function mktok(type, loc, val)
 	return setmetatable({ type = type, loc = loc, val = val }, token_meta);
 end
 
+--- @param ctx lex.ctx
+--- @param i integer
+--- @return integer
+local function skip_white(ctx, i)
+	while true do
+		local c = ctx.src[i];
+
+		if
+			c == chars.space or
+			c == chars.tab or
+			c == chars.newl or
+			c == chars.bad_newl
+		then
+			i = i + 1;
+		elseif
+			c == chars.hash and
+			libc.strncmp(ctx.src + i, "--", 2) == 0 or
+			i == 0 and libc.strncmp(ctx.src, "#!", 2) == 0
+		then
+			local find_i = libc.strchr(ctx.src + i + 2, chars.newl);
+			if not find_i then return ctx.n end
+			i = i + 2 + find_i;
+		elseif c == chars.dash then
+			if libc.strncmp(ctx.src + i, "--[[", 4) == 0 then
+				i = parse_longlit(ctx, i + 2);
+			elseif libc.strncmp(ctx.src + i, "--", 2) == 0 then
+				local find_i = libc.strchr(ctx.src + i + 2, chars.newl);
+				if not find_i then return ctx.n end
+				i = i + 2 + find_i;
+			else
+				return i;
+			end
+		else
+			return i;
+		end
+	end
+end
+
 local function parse_one(ctx, i, strip)
 	local val, kind;
 	local start_i = i;
 
-	i, val = read_string(ctx, i);
+	i, val = parse_string(ctx, i);
 	if val then return i, mktok("str", not strip and find_loc(ctx, start_i) or nil, val) end
 
-	i, kind, val = read_number(ctx, i);
+	i, kind, val = parse_number(ctx, i);
 	if val then return i, mktok(kind, not strip and find_loc(ctx, start_i) or nil, val) end
 
-	i, val = read_id(ctx, i);
+	i, val = parse_id(ctx, i);
 	if val then
 		if lexer.kw_map[val] then
 			return i, mktok("op", not strip and find_loc(ctx, start_i) or nil, lexer.kw_map[val]);
@@ -807,7 +806,7 @@ local function parse_one(ctx, i, strip)
 		end
 	end
 
-	i, val = read_op(ctx, i);
+	i, val = parse_op(ctx, i);
 	if val then return i, mktok("op", not strip and find_loc(ctx, start_i) or nil, val) end
 
 	lex_error(find_loc(ctx, i), "unknown syntax");

@@ -294,7 +294,7 @@ local function new(backend, mngd)
 		buffr = buffer.new(),
 		buffw = buffer.new(),
 		_backend = backend,
-		_mngd = mngd,
+		_mngd = mngd or true,
 	}, stream_meta));
 end
 --- NOTE: doesn't support seeking
