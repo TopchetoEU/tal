@@ -1,4 +1,4 @@
-local ffi = require "ffi";
+local ffi = require "nat.ffi";
 local prop = require "std.field";
 local objects = require "nat.utils.objects";
 local libc = require "nat.libc";
@@ -685,7 +685,7 @@ function ev:file_readlink(udata, path)
 	local ctx = {
 		udata = udata,
 		pres = ffi.new "char*[1]",
-		keep_target = target,
+		keep_path = path,
 		get_args = function (self)
 			local res = ffi.string(self.pres[0], libc.strlen(self.pres[0]));
 			libc.free(self.pres[0]);
@@ -982,42 +982,6 @@ function ev:getaddrinfo(udata, name, flags)
 	};
 
 	return ev_sync_call(libev.ev_getaddrinfo, self, ctx, ctx.pres, name, real_flags);
-end
-
-local exec_cache = setmetatable({}, { __mode = "k" });
-
-function ev:exec(udata, func, sig_str, ret_t, ...)
-	local sig;
-	if exec_cache[func] then
-		sig = exec_cache[func];
-	else
-		local pres = ffi.new "ev_dyn_sig_t[1]";
-
-		local code = libev_dyn.ev_dyn_sig_new(func, sig_str, pres);
-		if code ~= 0 then error(ffi.string(libev.ev_strerr(code)), 2) end
-
-		sig = pres[0];
-		exec_cache[func] = sig;
-	end
-
-	local args = ffi.new("void*[?]", select("#", ...) + 1);
-
-	for i = 1, select("#", ...) do
-		local arg = select(i, ...);
-		if type(arg) ~= "cdata" then
-			error("bad argument #" .. i + 2 .. " (cdata expected)", 2);
-		end
-
-		args[i - 1] = ffi.new(ffi.typeof("$[1]", arg), arg);
-	end
-
-	local ctx = {
-		udata = udata,
-		pret = ffi.new(ffi.typeof("$[1]", ffi.typeof(ret_t))),
-		get_args = function (self) return self.pret[0] end
-	};
-
-	return ev_sync_call(libev.ev_exec, self, ctx, libev_dyn.ev_dyn_cb, libev_dyn.ev_dyn_args_new(sig, ctx.pret, args), true);
 end
 
 --- @param sig integer

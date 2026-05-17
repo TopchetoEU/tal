@@ -1,7 +1,9 @@
 --- @class ffilib
 local ffi = require "ffi";
-local package = require "std.package";
+local pkgpath = require "std.package.path";
 local path = require "std.path";
+local roots = require "std.package.roots";
+local reg = debug.getregistry();
 
 local ffi_over = ffi;
 
@@ -14,14 +16,14 @@ function ffi_over.load(name, glob)
 		end
 	end
 
-	local res, err = package.searchpathx(name, ffi.path, nil, nil, ffi.roots, function (path)
+	local res, err = pkgpath.search(name, ffi.path, nil, nil, ffi.roots, function (path)
 		local ok, res = pcall(old_load, path, glob);
-		if not ok then return nil, res --[[@as string]] end
+		if not ok then return nil, "\t" .. res --[[@as string]] end
 		return res;
 	end);
 
 	if not res then
-		if err then
+		if not err then
 			return error("failed to load " .. name);
 		else
 			return error("failed to load " .. name .. ":\n" .. err);
@@ -31,45 +33,46 @@ function ffi_over.load(name, glob)
 	end
 end
 
-local reg = debug.getregistry();
-reg._FFI_STATIC = reg._FFI_STATIC or {};
-
-ffi.path = package.overridepath("?", os.getenv "FFI_PATH");
-ffi.apath = package.overridepath("", os.getenv "FFI_APATH");
-
 if jit.os == "Windows" then
-	ffi.path = package.overridepath(
-		ffi.path,
+	ffi.path = pkgpath.override(
+		reg._FFI_PATH,
+		os.getenv "FFI_PATH",
 		path.join("@", "lib?.dll") .. ";" ..
 		path.join("@", "?.dll") .. ";" ..
-		path.join("@", "?") .. ";;"
+		path.join("@", "?") .. ";?;;"
 	);
 else
-	ffi.path = package.overridepath(
-		ffi.path,
+	ffi.path = pkgpath.override(
+		reg._FFI_PATH,
+		os.getenv "FFI_PATH",
 		path.join("@", "lib?.so") .. ";" ..
 		path.join("@", "?.so") .. ";" ..
-		path.join("@", "?") .. ";;"
-	);
-	ffi.apath = package.overridepath(
-		ffi.apath,
-		path.join("@", "lib?.a") .. ";" ..
-		path.join("@", "?.a") .. ";;"
+		path.join("@", "?") .. ";?;;"
 	);
 end
 
+ffi.apath = pkgpath.override(
+	reg._FFI_APATH,
+	os.getenv "FFI_APATH",
+	path.join("@", "lib?.a") .. ";" ..
+	path.join("@", "?.a") .. ";;"
+);
 --- A list of all libraries that are statically-linked against the current executable
 --- @type string[]
-ffi.static = reg._FFI_STATIC;
+ffi.static = reg._FFI_STATIC or {};
 
---- @type string[]
-ffi.roots = { "." };
+ffi.roots = roots.new(reg._FFI_ROOTS):addenv(os.getenv "FFI_ROOTS");
 
 if jit.os == "Windows" then
-	table.insert(ffi.roots, "C:\\Windows\\System32");
+	ffi.roots:addif("C:\\Windows\\System32");
+-- Very shitty way of detecting system 'width'
+elseif ffi.sizeof "void*" ~= 8 then
+	ffi.roots:addif("/lib", "/usr/lib", "/usr/local/lib");
 else
-	table.insert(ffi.roots, "/usr/lib");
-	table.insert(ffi.roots, "/usr/local/lib");
+	ffi.roots:addif("/lib", "/usr/lib", "/usr/local/lib");
 end
+
+reg._FFI_STATIC = ffi.static;
+reg._FFI_ROOTS = ffi.roots;
 
 return ffi;

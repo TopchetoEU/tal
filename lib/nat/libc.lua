@@ -1,6 +1,6 @@
-local ffi = require "ffi";
+local ffi = require "nat.ffi";
 
-local libc = ffi.load "ev";
+local libc = ffi.C;
 ffi.cdef [[
 void *malloc(size_t n);
 void free(void *ptr);

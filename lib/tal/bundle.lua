@@ -121,8 +121,8 @@ return function (...)
 	if mode == "gen" then
 		if compiler_cmd then
 			local lj_lib, err_a, err_so;
-			lj_lib, err_a = package.searchpath("luajit", ffi.apath);
-			if not lj_lib then lj_lib, err_so = package.searchpath("luajit", ffi.path) end
+			lj_lib, err_a = package.searchpath("luajit", ffi.apath, nil, nil, ffi.roots);
+			if not lj_lib then lj_lib, err_so = package.searchpath("luajit", ffi.path, nil, nil, ffi.roots) end
 			if not lj_lib then
 				io.stderr:write("luajit not found in ffi path:\n" .. err_a .. "\n" .. err_so);
 				return;

@@ -29,8 +29,6 @@ install: $(PREFIX)/bin/tal all
 	cp -r deps/luajit/src/jit "$(PREFIX)/lib/lua/"
 	cp -r lib/* "$(PREFIX)/lib/lua"
 
-	ln -fs "../lib/lua/tal.lua" "$(PREFIX)/bin/tal.lua"
-
 clean: $(LUAJIT_MK) $(LIBEV_MK)
 	$(MAKE) -C deps/luajit clean
 	$(MAKE) -C deps/libev clean
@@ -39,7 +37,7 @@ clean: $(LUAJIT_MK) $(LIBEV_MK)
 $(PREFIX)/bin/tal:
 	mkdir -p $(dir $@)
 	echo '#!/usr/bin/env sh' > $@
-	echo '"$(PREFIX)/bin/luajit" "$@.lua" "$$@"' >> $@
+	echo '"$(PREFIX)/bin/luajit" "$(PREFIX)/lib/lua/tal.lua" "$$@"' >> $@
 	chmod +x $@
 
 $(LUAJIT_MK):
