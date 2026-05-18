@@ -14,27 +14,26 @@ local net = {};
 --- @class std.net.server
 --- @field _fd _impl.server
 --- @field _mngd string | true?
-local server_index = {};
+local server = {};
+server.__index = server;
+server.__metatable = "std.io.net.server";
 
 --- @return std.io.stream client
 --- @return string ip
 --- @return integer port
-function server_index:next()
+function server:next()
 	local res = iassert(loop.sync_ret(self._fd:next((coroutine.running()))));
 	return stream.from_stream(res.client, true), res.ip, res.port;
 end
-function server_index:iter()
+function server:iter()
 	return self.next, self;
 end
-function server_index:close()
+function server:close()
 	self._mngd = nil;
 	return self._fd:close();
 end
 
-local server_meta = {
-	__index = server_index,
-	__gc = server_index.close,
-};
+server.__gc = server.close;
 
 --- @param addr string
 --- @param port integer
@@ -43,7 +42,7 @@ local server_meta = {
 --- @return std.net.server
 function net.bind(addr, port, protocol, max_n)
 	local f = iassert(loop.sync_ret(impl:bind(coroutine.running(), addr, port, protocol or "tcp", max_n or 32)));
-	return collected(setmetatable({ _fd = f, _mngd = true }, server_meta));
+	return collected(setmetatable({ _fd = f, _mngd = true }, server));
 end
 --- @param addr string
 --- @param port integer

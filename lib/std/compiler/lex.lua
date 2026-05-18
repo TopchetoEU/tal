@@ -319,25 +319,26 @@ end
 
 --- @class lex.tok_base
 --- @field loc node.loc
-local token_meta = {};
-token_meta.__index = token_meta;
+local token = {};
+token.__index = token;
+token.__metatable = "lex.token";
 
 --- @param self lex.tok
 --- @param val? integer
-function token_meta:is_op(val)
+function token:is_op(val)
 	if self.type ~= "op" then return false end
 	if val and self.val ~= val then return false end
 
 	return true;
 end
 --- @param self lex.tok
-function token_meta:is_assign_op()
+function token:is_assign_op()
 	if self.type ~= "op" then return false end
 	return self.val >= lexer.operators.ASSIGN and self.val <= lexer.operators.ASSIGN_SHR;
 end
 --- @param self lex.tok
 --- @param val? string
-function token_meta:is_id(val)
+function token:is_id(val)
 	if self.type ~= "id" then return false end
 	if val and self.val ~= val then return false end
 
@@ -345,7 +346,7 @@ function token_meta:is_id(val)
 end
 --- @param self lex.tok
 --- @param val? string
-function token_meta:is_str(val)
+function token:is_str(val)
 	if self.type ~= "str" then return false end
 	if val and self.val ~= val then return false end
 
@@ -741,7 +742,7 @@ local function parse_op(ctx, i)
 end
 
 local function mktok(type, loc, val)
-	return setmetatable({ type = type, loc = loc, val = val }, token_meta);
+	return setmetatable({ type = type, loc = loc, val = val }, token);
 end
 
 --- @param ctx lex.ctx

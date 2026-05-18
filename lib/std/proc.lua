@@ -5,22 +5,21 @@ local collected = require "std.collected";
 local path = require "std.path";
 local impl = require "impl"
 
-local proc_fd = field();
-
 --- @class std.proc
 --- @field _fd _impl.process
 --- @field _mng string?
 --- @field stdin std.io.stream?
 --- @field stdout std.io.stream?
 --- @field stderr std.io.stream?
-local proc_index = {};
-function proc_index:wait()
+local proc = {};
+proc.__index = proc;
+proc.__metatable = "std.proc";
+
+function proc:wait()
 	if not self._mng then ierror "closed" end
 
 	--- @type "sig" | "exit", integer
 	local kind, code = assert(loop.sync_ret(self._fd:wait(coroutine.running())));
-
-	proc_fd:set(self, nil);
 
 	self._mng = nil;
 
@@ -30,13 +29,13 @@ function proc_index:wait()
 		return code;
 	end
 end
-function proc_index:close()
+function proc:close()
 	if not self._mng then return end
 
 	local code = self:wait();
 	if code ~= 0 then ierror(code) end
 end
-function proc_index:to_stream()
+function proc:to_stream()
 	local self = { p = self };
 	function self:read(ptr, n)
 		if not self.p.stdout then ierror "writeonly" end
@@ -71,8 +70,7 @@ function proc_index:to_stream()
 	return stream.new(self, true);
 end
 
-local proc_meta = { __index = proc_index };
-function proc_meta:__gc()
+function proc:__gc()
 	if self._mng then
 		print("warn: proc not freed: " .. self._mng);
 	end
@@ -127,8 +125,7 @@ return function (opts)
 		stdin = res.stdin and stream.from_stream(res.stdin, true),
 		stdout = res.stdout and stream.from_stream(res.stdout, true),
 		stderr = res.stderr and stream.from_stream(res.stderr, true)
-	}), proc_meta);
-	proc_fd:set(self, res.proc);
+	}), proc);
 
 	return self;
 end

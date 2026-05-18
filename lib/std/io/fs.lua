@@ -18,26 +18,25 @@ local fs = {};
 --- @class std.fs.dir
 --- @field hnd _impl.dir
 --- @field closed boolean
-local dir_index = {};
+local dir = {};
+dir.__index = dir;
+dir.__metatable = "std.io.fs.dir";
 
 --- @return string?
-function dir_index:read()
+function dir:read()
 	if self.closed then return nil end
 	return iassert(loop.sync_ret(self.hnd:next(coroutine.running())));
 end
-function dir_index:iter()
+function dir:iter()
 	return self.read, self;
 end
-function dir_index:close()
+function dir:close()
 	if self.closed or self.hnd == nil then return end
 	self.hnd:close();
 	self.closed = true;
 end
 
-local dir_meta = {
-	__index = dir_index,
-	__gc = dir_index.close,
-};
+dir.__gc = dir.close;
 
 --- @param path string
 --- @param mode string | integer
@@ -101,11 +100,7 @@ function fs.opendir(path)
 	path = sig.str(path, "path");
 
 	local fd = iassert(loop.sync_ret(impl:opendir(coroutine.running(), path)));
-
-	return collected(setmetatable({
-		hnd = fd,
-		closed = false,
-	}, dir_meta));
+	return collected(setmetatable({ hnd = fd, closed = false }, dir));
 end
 function fs.readdir(path)
 	path = sig.str(path, "path");

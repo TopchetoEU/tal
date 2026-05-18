@@ -6,7 +6,6 @@ local errors = {
 	pcall = pcall,
 	xpcall = xpcall,
 };
-local sptag = {};
 
 function errors.throw(err)
 	return real_error(err, 0);
@@ -64,35 +63,40 @@ function errors.ierror(err)
 	return errors.error(err, 0);
 end
 
+local serror_meta = {
+	__metatable = "std.serror",
+};
+
 --- If the error is a stackful error, splits it into its base error and a stack trace
 --- Useful when working with non stackful error-aware code, like coroutine.resume
 function errors.serrunpack(err)
 	local trace;
-	while type(err) == "table" do
+	while getmetatable(err) == "std.serror" do
 		trace = err.trace;
 		err = err.err;
 	end
 
 	return err, trace;
 end
+function errors.serrnew(err, trace, rethrow_type)
+	rethrow_type = rethrow_type or "rethrow";
+
+	local err, old_trace = errors.serrunpack(err);
+	if old_trace and trace then
+		trace = old_trace .. "\n" .. rethrow_type .. " " .. trace;
+	end
+
+	return setmetatable({ err = err, trace = trace or old_trace }, serror_meta);
+end
 --- Throws a stackful error. Must be handled by stackful error-aware code (with spcall or serrunpack)
 --- @param err any
 --- @param trace? string
 function errors.serror(err, trace)
-	errors.error { err = errors.serrunpack(err), trace = trace, [sptag] = true };
+	errors.error(errors.serrnew(err, trace), 0);
 end
 local function spcall_catch(err)
 	if err == "stack overflow" then return err end
-
-	local err, trace = errors.serrunpack(err);
-
-	if trace then
-		trace = trace .. "\nrethrow " .. debug.traceback(nil, 2);
-	else
-		trace = debug.traceback(nil, 2);
-	end
-
-	return { [sptag] = true, err = err, trace = trace };
+	return errors.serrnew(err, debug.traceback(nil, 2));
 end
 local function spcall_fin(ok, ...)
 	if not ok then

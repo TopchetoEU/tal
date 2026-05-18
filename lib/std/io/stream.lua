@@ -23,13 +23,22 @@ local libc = require "nat.libc";
 --- @field buffr string.buffer
 --- @field buffw string.buffer
 --- @field _mngd boolean | string? If managed (aka not closed by the owner), this is set to true or a stack trace
-local stream_index = {};
+local stream = {};
+stream.__index = stream;
+stream.__metatable = "std.io.stream";
+
+--- @param self std.io.stream
+function stream:__gc()
+	if self._mngd then
+		self:close();
+	end
+end
 
 --- Reads raw data into the given buffers. Reads no more than buff_n
 --- @param full boolean If true, fills the buffer, even if that requires multiple reads. If false, performs at most one read
 --- @param buff ffi.cdata*
 --- @param buff_n integer
-function stream_index:ptrread(full, buff, buff_n)
+function stream:ptrread(full, buff, buff_n)
 	local acc_n = 0;
 
 	if #self.buffr > buff_n then
@@ -59,7 +68,7 @@ end
 --- @param full boolean If true, calls write until all bytes are written. Else, calls just once. On almost all cases, you want 'true' here
 --- @param buff ffi.cdata*
 --- @param buff_n integer
-function stream_index:ptrwrite(full, buff, buff_n)
+function stream:ptrwrite(full, buff, buff_n)
 	if not full then
 		return self._backend:write(buff, buff_n);
 	else
@@ -80,7 +89,7 @@ end
 
 --- @param fmt std.io.readmode | string | integer?
 --- @return string? data
-function stream_index:read(fmt)
+function stream:read(fmt)
 	fmt = fmt or "l";
 
 	local function seek_remainder(res)
@@ -169,7 +178,7 @@ function stream_index:read(fmt)
 	return read_first();
 end
 --- @param ... string | integer | string.buffer
-function stream_index:write(...)
+function stream:write(...)
 	local function flush_buff()
 		if #self.buffw > 0 then
 			self:ptrwrite(true, self.buffw:ref());
@@ -194,7 +203,7 @@ end
 
 --- Writes the given stream, string or string generator to the stream
 --- @param other std.io.stream | string | (fun(): string)
-function stream_index:pipe(other)
+function stream:pipe(other)
 	if type(other) == "string" then
 		self:write(other);
 	elseif type(other) == "function" then
@@ -220,26 +229,26 @@ end
 
 --- @param whence "set" | "cur" | "end"
 --- @param pos integer
-function stream_index:seek(whence, pos)
+function stream:seek(whence, pos)
 	if not self._backend.seek then
 		return nil, "seeking not supported";
 	end
 
 	return self._backend:seek(pos, whence);
 end
-function stream_index:flush()
+function stream:flush()
 	if self._backend.flush then
 		self._backend:flush();
 	end
 end
 
 --- @return std.io.stat
-function stream_index:stat()
+function stream:stat()
 	if not self._backend.stat then ierror "not supported" end
 	return iassert(self._backend:stat());
 end
 --- @param mode integer | string
-function stream_index:chmod(mode)
+function stream:chmod(mode)
 	if type(mode) == "string" then mode = assert(tonumber(mode, 8), "bad mode") end
 	if not self._backend.chmod then ierror "not supported" end
 	iassert(self._backend:chmod(mode));
@@ -247,7 +256,7 @@ function stream_index:chmod(mode)
 end
 --- @param uid integer
 --- @param gid integer
-function stream_index:chown(uid, gid)
+function stream:chown(uid, gid)
 	if not self._backend.chown then ierror "not supported" end
 	iassert(self._backend:chown(uid, gid));
 	return self;
@@ -255,7 +264,7 @@ end
 
 --- @param fmt? std.io.readmode
 --- @param close? boolean
-function stream_index:lines(fmt, close)
+function stream:lines(fmt, close)
 	return function ()
 		local res = self:read(fmt);
 		if close and not res then self:close() end
@@ -264,7 +273,7 @@ function stream_index:lines(fmt, close)
 	end
 end
 
-function stream_index:close()
+function stream:close()
 	if self._mngd then
 		self._mngd = nil;
 		self._backend:close();
@@ -274,39 +283,27 @@ function stream_index:close()
 	return true;
 end
 
-local stream_meta = {
-	__index = stream_index,
-	__close = stream_index.close,
-};
-
---- @param self std.io.stream
-function stream_meta:__gc()
-	if self._mngd then
-		self:close();
-	end
-end
-
 --- @param backend? std.io.stream.backend
 --- @param mngd? string | true
 --- @return std.io.stream
-local function new(backend, mngd)
+function stream.new(backend, mngd)
 	return collected(setmetatable({
 		buffr = buffer.new(),
 		buffw = buffer.new(),
 		_backend = backend,
 		_mngd = mngd or true,
-	}, stream_meta));
+	}, stream));
 end
 --- NOTE: doesn't support seeking
 --- @param read std.io.stream
 --- @param write std.io.stream
-local function combine(read, write)
+function stream.combine(read, write)
 	local mngd = read._mngd or write._mngd;
 	if mngd == true and write._mngd then
 		mngd = write._mngd;
 	end
 
-	return new({
+	return stream.new({
 		read_str = read,
 		write_str = write,
 
@@ -337,9 +334,8 @@ local function combine(read, write)
 		end,
 	}, mngd);
 end
-
 --- @param file _impl.file
-local function from_file(file)
+function stream.from_file(file)
 	local self = {
 		fd = file,
 		ptr = 0,
@@ -400,11 +396,10 @@ local function from_file(file)
 		return true;
 	end
 
-	return new(self, true);
+	return stream.new(self, true);
 end
-
 --- @param str _impl.stream
-local function from_stream(str, mngd)
+function stream.from_stream(str, mngd)
 	local self = { fd = str };
 
 	function self:read(ptr, n)
@@ -432,12 +427,7 @@ local function from_stream(str, mngd)
 		return true;
 	end
 
-	return new(self, mngd);
+	return stream.new(self, mngd);
 end
 
-return {
-	new = new,
-	combine = combine,
-	from_file = from_file,
-	from_stream = from_stream
-};
+return stream;

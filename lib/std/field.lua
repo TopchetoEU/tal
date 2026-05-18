@@ -1,6 +1,7 @@
 --- @class std.field
 local field = {};
 field.__index = field;
+field.__metatable = "std.field";
 field.__mode = "k";
 
 function field:get(obj)

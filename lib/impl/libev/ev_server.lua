@@ -2,43 +2,39 @@ local ev_handle = require "impl.libev.ev_handle";
 local process_args = require "impl.libev.process_args";
 
 --- @class _impl.server_data
+
+--- @class impl.ev_server: _impl.server
 --- @field ev ev
 --- @field fd ev.server
 --- @field closed boolean
+local ev_server = {};
+ev_server.__index = ev_server;
+ev_server.__metatable = "impl.ev_server";
 
---- @type _impl.server
-local server_index = {};
-function server_index:next(udata)
-	local self_data = debug.getuservalue(self) --[[@as _impl.server_data]];
+function ev_server:next(udata)
+	if self.closed then return true, nil, "closed" end
 
-	if self_data.closed then return true, nil, "closed" end
-
-	return self_data.ev:server_accept(process_args.wrap_udata(udata, function (f, err)
+	return self.ev:server_accept(process_args.wrap_udata(udata, function (f, err)
 		if f then
-			f.client = ev_handle(self_data.ev, f.client);
+			f.client = ev_handle(self.ev, f.client --[[@as ev.handle]]);
 			return f;
 		end
 		return f, err;
-	end), self_data.fd);
+	end), self.fd);
 end
-function server_index:close()
-	local self_data = debug.getuservalue(self) --[[@as _impl.server_data]];
-
-	if self_data.closed then return end
-	self_data.ev:server_close(self_data.fd);
-	self_data.closed = true;
+function ev_server:close()
+	if self.closed then return end
+	self.ev:server_close(self.fd);
+	self.closed = true;
 end
 
-local server_identity = newproxy(true);
-local server_meta = getmetatable(server_identity);
-server_meta.__index = server_index;
-server_meta.__gc = server_index.close;
-
+--- @param ev ev
+--- @param fd ev.server
 --- @return _impl.server
-return function (ev, server)
-	return debug.setuservalue(newproxy(server_identity), {
+return function (ev, fd)
+	return setmetatable({
 		ev = ev,
-		fd = server,
+		fd = fd,
 		closed = false,
-	});
+	}, ev_server);
 end

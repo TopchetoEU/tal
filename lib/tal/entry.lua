@@ -14,7 +14,7 @@ return function (entry_mod, ...)
 
 	local stderr = io.stderr;
 
-	local env = setmetatable({}, { __index = _G });
+	local env = setmetatable({}, { __index = _G, __metatable = "_G" });
 	env._G = env;
 	env._ENV = env;
 	setfenv(0, env);
