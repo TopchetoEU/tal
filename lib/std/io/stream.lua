@@ -202,10 +202,12 @@ function stream:write(...)
 end
 
 --- Writes the given stream, string or string generator to the stream
---- @param other std.io.stream | string | (fun(): string)
+--- @param other std.io.stream | string | (fun(): string) | nil
 function stream:pipe(other)
-	if type(other) == "string" or getmetatable(other) == "buffer" then
-		self:write(other);
+	if other == nil then
+		return;
+	elseif type(other) == "string" or getmetatable(other) == "buffer" then
+		self:write(other --[[@as string | string.buffer]]);
 	elseif type(other) == "function" then
 		for part in other do
 			self:write(part);
