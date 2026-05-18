@@ -1,7 +1,7 @@
 --- @diagnostic disable: duplicate-set-field
 
 require "std.string";
-local load = require "std.compiler.loading".load;
+local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
 local roots = require "std.package.roots";
 
@@ -15,6 +15,7 @@ local package = {
 	pathrep = pkgpath.rep,
 	roots = roots.new(debug.getregistry()._LUA_ROOTS),
 	croots = roots.new(debug.getregistry()._C_ROOTS),
+	env = getfenv(0),
 };
 
 package.overridepath = pkgpath.override;
@@ -37,7 +38,7 @@ function package.searchlua(name)
 	local src = f:read "a";
 	f:close();
 
-	local res, err = load(src, "@" .. file, "t");
+	local res, err = load(src, "@" .. file, "t", package.env);
 	if not res then error(err, 0) end
 	return res, file;
 end
