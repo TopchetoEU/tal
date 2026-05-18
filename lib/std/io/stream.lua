@@ -195,7 +195,7 @@ end
 --- Writes the given stream, string or string generator to the stream
 --- @param other std.io.stream | string | (fun(): string)
 function stream_index:pipe(other)
-	if type(other) == "string" then
+	if type(other) == "string" or getmetatable(other) == "buffer" then
 		self:write(other);
 	elseif type(other) == "function" then
 		for part in other do

@@ -32,6 +32,7 @@ end
 --- @param name string
 --- @return string ...
 function headers_index:set(name, ...)
+	if not ... then return end
 	self._map[name:lower()] = { ... };
 	return ...;
 end
