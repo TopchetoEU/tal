@@ -1,6 +1,6 @@
 -- Since our compiler supports columns, we need to patch lua's debug library to use our mappings
 
-local loading = require "std.compiler.loading";
+local mapping = require "std.debug.mapping";
 local buffer = require "string.buffer";
 local sig = require "std.sig";
 
@@ -51,7 +51,7 @@ function debug.sethook(...)
 		function f(...)
 			if ... == "line" then
 				local info = old_getinfo(2, "Sl");
-				local loc = loading.map(info.source, info.currentline);
+				local loc = mapping.map(info.source, info.currentline);
 				-- print(info.source, loc and loc.row or info.currentline);
 				return old_f(..., loc and loc.row or info.currentline, loc and loc.col);
 			else
@@ -89,7 +89,7 @@ function debug.getinfo(...)
 
 	if not info then return nil end
 
-	local def_loc = loading.map(info.source, info.linedefined);
+	local def_loc = mapping.map(info.source, info.linedefined);
 	if def_loc then
 		info.linedefined = def_loc.row;
 		info.coldefined = def_loc.col;
@@ -99,7 +99,7 @@ function debug.getinfo(...)
 		local cols = {};
 
 		for i = 1, info.activelines do
-			local loc = loading.map(info.source, info.activelines[i]);
+			local loc = mapping.map(info.source, info.activelines[i]);
 			if loc then
 				info.activelines[i] = loc.col;
 			else
@@ -111,13 +111,13 @@ function debug.getinfo(...)
 	end
 
 	if not bogus_s then
-		local lastdef_loc = loading.map(info.source, info.lastlinedefined);
+		local lastdef_loc = mapping.map(info.source, info.lastlinedefined);
 		if lastdef_loc then
 			info.lastlinedefined = lastdef_loc.row;
 			info.lastcoldefined = lastdef_loc.col;
 		end
 
-		local curr_loc = loading.map(info.source, info.currentline);
+		local curr_loc = mapping.map(info.source, info.currentline);
 		if curr_loc then
 			info.currentline = curr_loc.row;
 			info.currentcol = curr_loc.col;
@@ -139,10 +139,12 @@ function debug.traceback(...)
 
 	local res = buffer.new();
 
-	if msg ~= nil then
-		res:put(tostring(msg), "\nstack traceback:");
-	else
+	if type(msg) == "string" then
+		res:put(msg, "\nstack traceback:");
+	elseif msg == nil then
 		res:put "stack traceback:";
+	else
+		return msg;
 	end
 
 	while true do
@@ -179,10 +181,17 @@ function debug.traceback(...)
 		else
 			res:put("\n\t", curr);
 		end
+
+		if info.istailcall then
+			res:put("\n\t(...tail calls)");
+		end
+
 		lvl = lvl + 1;
 	end
 
 	return tostring(res);
 end
+
+
 
 return debug;
