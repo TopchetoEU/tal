@@ -1,7 +1,7 @@
 local argp = require "std.fmt.argp";
 local ffi = require "ffi";
-local loading = require "std.compiler.loading"
-local lex     = require "std.compiler.lex"
+local loading = require "std.compiler.load";
+local lex = require "std.compiler.lex";
 
 --- @class tal.mklua.ctx
 --- @field entries string[]
@@ -280,7 +280,7 @@ local function emit_map_emitter(name, map)
 		end
 	end
 
-	return "loading.emit_map(" .. ("@" .. name):quote() .. ", {" .. table.concat(res, ", ") .. "});";
+	return "mapping.emit_map(" .. ("@" .. name):quote() .. ", {" .. table.concat(res, ", ") .. "});";
 end
 
 --- @param ctx tal.mklua.ctx
@@ -422,7 +422,7 @@ local function gen(ctx, out)
 
 		if #map_parts > 0 then
 			local map_src = [[
-				local loading = require "std.compiler.loading";
+				local mapping = require "std.debug.mapping";
 				local node = require "std.compiler.node";
 			]] .. table.concat(map_parts, "\n");
 			-- TODO: fix when less asleep
