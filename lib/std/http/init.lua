@@ -86,7 +86,8 @@ local codes_msgs = {
 
 local http = {};
 
-local function http_read_headers(conn)
+--- @param conn std.io.stream
+function http.read_headers(conn)
 	local res = headers.new();
 
 	while true do
@@ -111,7 +112,10 @@ local function http_read_headers(conn)
 		-- end
 	end
 end
-local function http_read_body(conn, hdr)
+--- @param conn std.io.stream
+--- @param hdr std.http.headers
+--- @return std.io.stream?
+function http.read_body(conn, hdr)
 	local len = tonumber((hdr:get "content-length"));
 	local chunked = false;
 
@@ -206,7 +210,6 @@ local function http_read_body(conn, hdr)
 		return nil;
 	end
 end
-
 --- @param conn std.io.stream
 --- @return std.http.req? head
 function http.read_req(conn)
@@ -217,8 +220,8 @@ function http.read_req(conn)
 	if not type then error "bad HTTP request" end
 	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
-	local hdr = assert(http_read_headers(conn), "bad HTTP headers");
-	local body = http_read_body(conn, hdr);
+	local hdr = assert(http.read_headers(conn), "bad HTTP headers");
+	local body = http.read_body(conn, hdr);
 
 	return { method = type, path = path, headers = hdr, body = body };
 end
@@ -232,8 +235,8 @@ function http.read_res(conn)
 	if not version then return error "bad HTTP response" end
 	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
-	local hdr = assert(http_read_headers(conn), "bad HTTP headers");
-	local body = http_read_body(conn, hdr);
+	local hdr = assert(http.read_headers(conn), "bad HTTP headers");
+	local body = http.read_body(conn, hdr);
 
 	return {
 		code = tonumber(code),
@@ -242,7 +245,9 @@ function http.read_res(conn)
 	};
 end
 
-local function http_write_headers(conn, hdr)
+--- @param conn std.io.stream
+--- @param hdr std.http.headers
+function http.write_headers(conn, hdr)
 	for key in hdr:keys() do
 		for _, val in ipairs { hdr:get(key) } do
 			conn:write(("%s: %s\r\n"):format(key, val));
@@ -251,7 +256,12 @@ local function http_write_headers(conn, hdr)
 
 	conn:write "\r\n";
 end
-local function http_write_body(conn, body, hdr)
+--- @param conn std.io.stream
+--- @param hdr std.http.headers
+--- @param body? false
+--- @return std.io.stream?
+--- @overload fun(conn: std.io.stream, hdr: std.http.headers, body: true): std.io.stream
+function http.write_body(conn, hdr, body)
 	if not body then return nil end
 
 	local len = hdr:get "content-length";
@@ -287,17 +297,16 @@ local function http_write_body(conn, body, hdr)
 		end
 	}, true);
 end
-
 --- @param conn std.io.stream
 --- @param req std.http.req
 --- @param body? boolean
 --- @return std.io.stream?
 --- @overload fun(conn: std.io.stream, req: std.http.req, body: true): std.io.stream
 function http.write_req(conn, req, body)
-	req.body = http_write_body(conn, body, req.headers);
+	req.body = http.write_body(conn, req.headers, body);
 
 	conn:write(("%s %s HTTP/1.1\r\n"):format(req.method, req.path));
-	http_write_headers(conn, req.headers);
+	http.write_headers(conn, req.headers);
 
 	return req.body;
 end
@@ -307,10 +316,10 @@ end
 --- @return std.io.stream?
 --- @overload fun(conn: std.io.stream, res: std.http.res, body: true): std.io.stream
 function http.write_res(conn, res, body)
-	res.body = http_write_body(conn, body, res.headers);
+	res.body = http.write_body(conn, res.headers, body);
 
 	conn:write(("HTTP/1.1 %d %s\r\n"):format(res.code, codes_msgs[res.code] or "Unknown"));
-	http_write_headers(conn, res.headers);
+	http.write_headers(conn, res.headers);
 
 	return res.body;
 end
