@@ -7,6 +7,7 @@
 --- @field [integer] string
 local argp = {};
 argp.__index = argp;
+argp.__metatable = "std.fmt.argp";
 
 function argp:has()
 	return self.i <= #self;

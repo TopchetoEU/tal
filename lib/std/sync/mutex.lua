@@ -3,9 +3,11 @@ local loop = require "std.loop";
 --- @class std.sync.mutex
 --- @field _locked boolean
 --- @field _waiters thread[]
-local mutex_index = {};
+local mutex = {};
+mutex.__index = mutex;
+mutex.__metatable = "std.sync.mutex";
 
-function mutex_index:lock()
+function mutex:lock()
 	while self._locked do
 		table.insert(self._waiters, (coroutine.running()));
 		loop.await();
@@ -13,7 +15,7 @@ function mutex_index:lock()
 
 	self._locked = true;
 end
-function mutex_index:unlock()
+function mutex:unlock()
 	assert(self._locked, "mutex not locked, cannot be unlocked");
 
 	self._locked = false;
@@ -21,8 +23,6 @@ function mutex_index:unlock()
 	if next then loop.push(next) end
 end
 
-local mutex_meta = { __index = mutex_index };
-
 return function ()
-	return setmetatable({ _locked = false, _waiters = {} }, mutex_meta);
+	return setmetatable({ _locked = false, _waiters = {} }, mutex);
 end

@@ -7,6 +7,7 @@
 --- @field [integer] xml_element
 local xml_node = {};
 xml_node.__index = xml_node;
+xml_node.__metatable = "std.fmt.xml_node";
 
 --- @param name string?
 function xml_node:get_all(name)

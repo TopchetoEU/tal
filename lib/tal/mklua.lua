@@ -1,7 +1,7 @@
 local argp = require "std.fmt.argp";
 local ffi = require "ffi";
-local loading = require "std.compiler.load";
 local lex = require "std.compiler.lex";
+local mapping = require "std.debug.mapping";
 
 --- @class tal.mklua.ctx
 --- @field entries string[]
@@ -333,8 +333,8 @@ local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_pa
 		end
 	);
 
-	local func = assert(load(src, chunkname, "t"));
-	map = loading.get_map(chunkname);
+	local func = assert(load(src, chunkname, "t", nil, not ctx.debug));
+	map = mapping.get_map(chunkname);
 	map_name = filename;
 
 	if chunkname:match "^@" and map_name and map then

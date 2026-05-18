@@ -20,6 +20,7 @@ loop.name(th, "Collector");
 
 local meta_proxy = newproxy(true);
 local meta = getmetatable(meta_proxy);
+meta.__metatable = "std.collected.tag";
 --- @param self userdata
 function meta.__gc(self)
 	local obj = debug.getuservalue(self);

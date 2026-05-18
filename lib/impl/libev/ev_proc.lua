@@ -3,13 +3,17 @@
 --- @field fd ev.proc
 --- @field closed boolean
 
---- @type _impl.process
-local proc_index = {};
-function proc_index:wait(udata)
-	local self_data = debug.getuservalue(self) --[[@as _impl.proc_data]];
+--- @class impl.process: _impl.process
+--- @field ev ev
+--- @field fd ev.proc
+--- @field closed boolean
+local ev_proc = {};
+ev_proc.__index = ev_proc;
+ev_proc.__metatable = "impl.ev_proc";
 
-	if self_data.closed then return "closed" end
-	return self_data.ev:proc_wait(udata, self_data.fd);
+function ev_proc:wait(udata)
+	if self.closed then return "closed" end
+	return self.ev:proc_wait(udata, self.fd);
 end
 -- function proc_index:close()
 -- 	local self_data = debug.getuservalue(self) --[[@as _impl.proc_data]];
@@ -18,16 +22,13 @@ end
 -- 	self_data.ev:proc_close(self_data.fd);
 -- 	self_data.closed = true;
 -- end
-
-local proc_identity = newproxy(true);
-local proc_meta = getmetatable(proc_identity);
-proc_meta.__index = proc_index;
-
+--- @param ev ev
+--- @param fd ev.proc
 --- @return _impl.process
-return function (ev, proc)
-	return debug.setuservalue(newproxy(proc_identity), {
+return function (ev, fd)
+	return setmetatable({
 		ev = ev,
-		fd = proc,
+		fd = fd,
 		closed = false,
-	});
+	}, ev_proc);
 end

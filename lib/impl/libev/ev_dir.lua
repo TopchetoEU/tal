@@ -3,32 +3,30 @@
 --- @field fd ev.dir
 --- @field closed boolean
 
---- @type _impl.dir
-local dir_index = {};
-function dir_index:next(udata)
-	local self_data = debug.getuservalue(self) --[[@as _impl.dir_data]];
+--- @class impl.ev_dir: _impl.dir
+--- @field closed boolean
+--- @field ev ev
+--- @field fd ev.dir
+local ev_dir = {};
+ev_dir.__index = ev_dir;
+ev_dir.__metatable = "impl.ev_dir";
 
-	if self_data.closed then return "closed" end
-	return self_data.ev:dir_next(udata, self_data.fd);
+function ev_dir:next(udata)
+	if self.closed then return "closed" end
+	return self.ev:dir_next(udata, self.fd);
 end
-function dir_index:close()
-	local self_data = debug.getuservalue(self) --[[@as _impl.dir_data]];
-
-	if self_data.closed then return end
-	self_data.ev:dir_close(self_data.fd);
-	self_data.closed = true;
+function ev_dir:close()
+	if self.closed then return end
+	self.ev:dir_close(self.fd);
+	self.closed = true;
 end
 
-local dir_identity = newproxy(true);
-local dir_meta = getmetatable(dir_identity);
-dir_meta.__index = dir_index;
-dir_meta.__gc = dir_index.close;
-
---- @return _impl.dir
-return function (ev, dir)
-	return debug.setuservalue(newproxy(dir_identity), {
+--- @param ev ev
+--- @param fd ev.dir
+return function (ev, fd)
+	return setmetatable({
 		ev = ev,
-		fd = dir,
+		fd = fd,
 		closed = false,
-	});
+	}, ev_dir);
 end

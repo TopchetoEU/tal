@@ -5,16 +5,18 @@ local loop = require "std.loop";
 --- @field _writers thread[]
 --- @field _data? table
 --- @field _closed? boolean
-local pipe_index = {};
+local pipe = {};
+pipe.__index = pipe;
+pipe.__metatable = "std.sync.pipe";
 
-function pipe_index:read()
+function pipe:read()
 	local writer = table.remove(self._writers, 1);
 	if writer then loop.push(writer) end
 
 	table.insert(self._readers, (coroutine.running()));
 	return loop.await();
 end
-function pipe_index:write(...)
+function pipe:write(...)
 	while true do
 		local reader = table.remove(self._readers, 1);
 		if reader then
@@ -27,8 +29,6 @@ function pipe_index:write(...)
 	end
 end
 
-local pipe_meta = { __index = pipe_index };
-
 return function ()
-	return setmetatable({ _readers = {}, _writers = {} }, pipe_meta);
+	return setmetatable({ _readers = {}, _writers = {} }, pipe);
 end

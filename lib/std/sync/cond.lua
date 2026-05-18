@@ -3,9 +3,11 @@ local loop = require "std.loop";
 --- @class std.sync.cond
 --- @field _waiters thread[]
 --- @field _pending boolean
-local cond_index = {};
+local cond = {};
+cond.__index = cond;
+cond.__metatable = "std.sync.cond";
 
-function cond_index:wait()
+function cond:wait()
 	if self._pending then
 		self._pending = false;
 	else
@@ -14,7 +16,7 @@ function cond_index:wait()
 	end
 end
 --- @param all? boolean
-function cond_index:signal(all)
+function cond:signal(all)
 	if #self._waiters == 0 then
 		self._pending = true;
 		return;
@@ -31,8 +33,6 @@ function cond_index:signal(all)
 	end
 end
 
-local mutex_meta = { __index = cond_index };
-
 return function ()
-	return setmetatable({ _waiters = {}, _pending = false, _owner = nil, _n = 0 }, mutex_meta);
+	return setmetatable({ _waiters = {}, _pending = false, _owner = nil, _n = 0 }, cond);
 end
