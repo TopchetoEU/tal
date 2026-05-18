@@ -98,7 +98,7 @@ function roots:with(cb, path)
 		self:del(path);
 		if not ok then error(..., 0) end
 		return ...;
-	end)(spcall(cb));
+	end)(require "std.errors".spcall(cb));
 end
 
 function roots.new(...)

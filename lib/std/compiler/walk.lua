@@ -150,14 +150,14 @@ return function (exp_cb, stm_cb)
 	--- @param self compiler.walk.ctx
 	--- @param node node.call
 	function exp_walkers.call(self, node, target, ...)
-		self:walk_multiexp(node, nil, ...);
+		self:walk_multiexp(node.args, nil, ...);
 		node.func = self:walk_exp(node.func, "multi", ...);
 		return node;
 	end
 	--- @param self compiler.walk.ctx
 	--- @param node node.method
 	function exp_walkers.method(self, node, target, ...)
-		self:walk_multiexp(node, nil, ...);
+		self:walk_multiexp(node.args, nil, ...);
 		node.obj = self:walk_exp(node.obj, "multi", ...);
 		return node;
 	end
@@ -234,7 +234,7 @@ return function (exp_cb, stm_cb)
 
 	--- @param node node.return
 	stm_walkers["return"] = function (self, node, ...)
-		self:walk_multiexp(node, nil, ...);
+		self:walk_multiexp(node.vals, nil, ...);
 		return node;
 	end
 	--- @param node node.break
