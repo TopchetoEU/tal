@@ -49,11 +49,14 @@ return function (entry_mod, ...)
 			entry(...);
 		end
 
-		assert(loop.run());
+		local ok, err, trace = loop.run();
+		if not ok then serror(err, trace) end
 
 		-- Run one more time to collect __gc tables
 		collectgarbage();
-		assert(loop.run());
+
+		local ok, err, trace = loop.run();
+		if not ok then serror(err, trace) end
 	end, ...);
 
 	if not ok then printing.eprint(err, trace, nil, function (...)
