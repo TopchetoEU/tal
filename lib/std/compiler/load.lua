@@ -38,7 +38,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 	if #errs > 0 then
 		local parts = {};
 		for i = 1, #errs do
-			table.insert(parts, loading.err_stringify(name, errs[i].loc, errs[i].msg));
+			table.insert(parts, mapping.err_stringify(name, errs[i].loc, errs[i].msg));
 		end
 		return nil, table.concat(parts, "\n");
 	end
@@ -48,7 +48,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 	local str, map = stringify.all(ast);
 
 	local fun, err = load_raw(str, name, "t", env or getfenv(2));
-	if not fun then return nil, loading.err_map(err --[[@as string]], map) end
+	if not fun then return nil, mapping.err_map(err --[[@as string]], map) end
 
 	if not no_map then
 		mapping.emit_map(name, map);
