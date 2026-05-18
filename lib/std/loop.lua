@@ -1,4 +1,5 @@
 local impl = require "impl";
+local errors = require "std.errors"
 
 local loop = {};
 
@@ -32,9 +33,8 @@ local function process_handle(next, timeout, cb, ...)
 		loop_th = coroutine.running();
 		local ok, err = coroutine.resume(cb, ...);
 		loop_th = nil;
-		if not ok then
-			return nil, err;
-		end
+
+		if not ok then return nil, errors.serrunpack(err) end
 	end
 
 	return next();
@@ -123,13 +123,23 @@ function loop.sync_ret(sync, res, ...)
 end
 
 function loop.fork(main, ...)
+	local fork_trace = debug.traceback(nil, 2);
+
 	local th = coroutine.create(function (...)
-		local ok, err = xpcall(...);
-		if not ok then return error(err, 0) end
+		local ok, err, trace = errors.spcall(...);
+		if not ok then
+			if trace then
+				trace = trace .. "\nfork " .. fork_trace;
+			else
+				trace = "fork " .. fork_trace;
+			end
+
+			return errors.serror(err, trace);
+		end
 	end);
 
 	loop.name(th, "Fork " .. fork_i);
-	loop.push(th, main, debug.traceback, ...);
+	loop.push(th, main, ...);
 	loop.rest();
 
 	fork_i = fork_i + 1;

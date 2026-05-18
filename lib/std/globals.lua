@@ -3,27 +3,19 @@ _G._ENV = _G;
 
 -- First, we import package to load all further packages using our require functions
 package = require "std.package";
+package.env = _G;
+require = package.require;
+
 -- Then, we import our ffi, to add our custom load function (without it, everything breaks)
 require "nat.ffi";
 
 local printing = require "std.printing";
-local err = require "std.error";
+local err = require "std.errors";
 
-debug = require "std.debug";
-io = require "std.io";
-jit = require "jit";
-string = require "std.string";
-
-table.clear = require "table.clear";
-table.new = require "table.new";
-table.unpack = unpack or table.unpack;
-
-load = require "std.compiler.loading".load;
-function loadfile(filename, mode, env)
-	return load(io.lines(filename, "c"), "@" .. filename, mode, env);
-end
+load = require "std.compiler.load";
 
 pprint = printing.pprint;
+eprint = printing.eprint;
 
 exit = os.exit;
 require = package.require;
@@ -37,5 +29,21 @@ ierror = err.ierror;
 iassert = err.iassert;
 
 spcall = err.spcall;
+sxpcall = err.sxpcall;
+serror = err.serror;
+serrunpack = err.serrunpack;
+
+debug = require "std.debug";
+io = require "std.io";
+jit = require "jit";
+string = require "std.string";
+
+table.clear = require "table.clear";
+table.new = require "table.new";
+table.unpack = unpack or table.unpack;
+
+function loadfile(filename, mode, env)
+	return load(io.lines(filename, "c"), "@" .. filename, mode, env);
+end
 
 return _G;
