@@ -267,5 +267,23 @@ function printing.pprint(...)
 
 	print(fix(...));
 end
+function printing.eprint(err, trace, reason, write)
+	if not write then
+		function write(...)
+			io.stderr:write(...);
+		end
+	end
+	write "Unhandled error ";
+	if reason then write("(" .. reason .. ") ") end
+	if type(err) == "string" then
+		write(err, "\n");
+	else
+		write(printing.stringify(err), "\n");
+	end
+
+	if trace then
+		write(trace, "\n");
+	end
+end
 
 return printing;

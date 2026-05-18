@@ -1,34 +1,11 @@
 local readline = require "nat.libreadline";
-local printing = require "std.printing";
 local path = require "std.path";
 local argp = require "std.fmt.argp";
 local cli = {};
 
-local function stacktrace_fin(ok, ...)
-	if ok then return true, ... end
-
-	if ... == "stack overflow" then
-		io.stderr:write("Unhandled error: STACK OVERFLOW!\n");
-		return;
-	end
-
-	local err = (...).err;
-	local trace = (...).trace;
-
-	if type(err) == "string" then
-		io.stderr:write("Unhandled error: ", err, "\n", trace, "\n");
-	else
-		io.stderr:write("Unhandled error: ", printing.stringify(err), "\n", trace, "\n");
-	end
-
-	return false, err;
-end
-
 function cli.stacktrace_call(func, ...)
-	return stacktrace_fin(xpcall(func, function (err)
-		local trace = debug.traceback(nil, 2);
-		return { err = err, trace = trace };
-	end, ...));
+	local ok, err, trace = spcall(func, ...);
+	if not ok then eprint(err, trace) end
 end
 
 function cli.load_eval(src, name, env)

@@ -8,10 +8,8 @@ local th = loop.fork(function ()
 	while not kys do
 		while #queue > 0 do
 			local func, obj = table.unpack(table.remove(queue));
-			local ok, err = xpcall(func, debug.traceback, obj);
-			if not ok then
-				io.stderr:write("error in finalizer: ", err);
-			end
+			local ok, err, trace = spcall(func, obj);
+			if not ok then eprint(err, trace, "in finalizer") end
 		end
 		queue_cond:wait();
 	end

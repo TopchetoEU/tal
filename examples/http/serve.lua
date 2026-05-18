@@ -45,7 +45,7 @@ return function (serve_path)
 
 	for conn in server:iter() do
 		loop.fork(function ()
-			local ok, err = xpcall(function ()
+			local ok, err, trace = spcall(function ()
 				local req = http.read_req(conn);
 				if not req then return end
 
@@ -69,10 +69,10 @@ return function (serve_path)
 				else
 					return send_not_found(conn);
 				end
-			end, debug.traceback);
+			end);
 
 			if not ok then
-				print("Unhandled error: " .. tostring(err));
+				eprint(err, trace, "in HTTP request handler");
 				return respond(conn, 500, nil, "Internal server error\n")
 			end
 		end);

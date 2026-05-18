@@ -1,24 +1,31 @@
-#!/bin/env luajit
 local has_dbg, dbg = pcall(require, "lldebugger");
 
 return function (entry_mod, ...)
+	require "ffi";
 	-- Breaks stuff if called twice
 	package.preload.ffi = nil;
 
-	local old_env = _G;
+	if has_dbg then
+		_G.debug = require "std.debug";
+		local old_tb = debug.traceback;
+		dbg.start();
+		_G.debug.traceback = old_tb;
+	end
+
+	local stderr = io.stderr;
+
 	local env = setmetatable({}, { __index = _G });
 	env._G = env;
 	env._ENV = env;
 	setfenv(0, env);
 	setfenv(1, env);
 
-	local ok, err = xpcall(function (...)
-		local require = require "std.package".require;
+	local printing = require "std.printing";
 
-		if has_dbg then
-			old_env.debug = require "std.debug";
-			dbg.start();
-		end
+	local ok, err, trace = require "std.errors".spcall(function (...)
+		local package = require "std.package";
+		require = package.require;
+		package.env = _G;
 
 		require "std.globals";
 		local loop = require "std.loop";
@@ -47,7 +54,9 @@ return function (entry_mod, ...)
 		-- Run one more time to collect __gc tables
 		collectgarbage();
 		assert(loop.run());
-	end, require "std.debug".traceback, ...);
+	end, ...);
 
-	if not ok then print("Uncaught error: " .. err) end
+	if not ok then printing.eprint(err, trace, nil, function (...)
+		return stderr:write(...);
+	end) end
 end

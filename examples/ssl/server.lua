@@ -73,7 +73,7 @@ return function (...)
 
 			local username;
 
-			local ok, err = xpcall(function ()
+			local ok, err, trace = spcall(function ()
 				username = assert(utils.read_string(sconn), "expected username");
 				i = i + 1;
 
@@ -111,9 +111,7 @@ return function (...)
 				end
 			end, debug.traceback);
 
-			if not ok then
-				print(err);
-			end
+			if not ok then eprint(err, trace, "in client handler") end
 
 			sconn:close();
 			conns[sconn] = nil;

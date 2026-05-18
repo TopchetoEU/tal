@@ -1,6 +1,7 @@
 local buffer = require "string.buffer";
 local ffi = require "ffi";
 local libc = require "nat.libc";
+local errors = require "std.errors"
 local lexer = {};
 
 lexer.operators = {
@@ -277,8 +278,6 @@ local op_map = {
 };
 local tag = {};
 
-local pprint = require "std.printing".pprint;
-
 --- @param loc node.loc
 --- @param msg string
 local function lex_error(loc, msg)
@@ -286,17 +285,13 @@ local function lex_error(loc, msg)
 end
 local function lex_pcall_fin(ok, ...)
 	if ok then return true, ... end
-	local err = ...;
+	local err, trace = ...;
 	if type(err) == "table" and err[tag] then return false, err end
-	error(err, 0);
+	errors.serror(err, trace);
 end
 local function lex_pcall(f, ...)
-	return lex_pcall_fin(xpcall(f, function (err)
-		if type(err) == "string" then
-			return debug.traceback(err, 2);
-		else
-			return err;
-		end
+	return lex_pcall_fin(errors.sxpcall(f, function (err, traceback)
+		return err, type(err) == "table" and err[tag] and true or traceback;
 	end, ...));
 end
 
