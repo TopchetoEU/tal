@@ -162,7 +162,7 @@ local function http_read_body(conn, hdr)
 			return n;
 		end
 		function self:write()
-			return ierror "readonly";
+			ierror "readonly";
 		end
 		function self:close()
 			if self.str then
@@ -179,7 +179,7 @@ local function http_read_body(conn, hdr)
 		};
 
 		function self:read(ptr, n)
-			if not self.str then return ierror "closed" end
+			if not self.str then ierror "closed" end
 			if self.n == 0 then return 0 end
 
 			n = n or 8192;
@@ -277,11 +277,12 @@ local function http_write_body(conn, body, hdr)
 		end,
 		close = function (self)
 			if self.str then
-				self.str:write "0\r\n\r\n";
-				self.str:close();
-			end
+				local str = self.str;
+				self.str = nil;
 
-			self.str = nil;
+				str:write "0\r\n\r\n";
+				str:close();
+			end
 		end
 	}, true);
 end
