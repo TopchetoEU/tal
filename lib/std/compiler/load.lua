@@ -12,7 +12,7 @@ local load_raw = load;
 --- @param env? table
 --- @param no_map? boolean
 return function (chunk, name, mode, env, no_map, force_no_raw)
-	if not force_no_raw then return load_raw(chunk, name, mode, env, no_map) end
+	-- if not force_no_raw then return load_raw(chunk, name, mode, env, no_map) end
 
 	if type(chunk) == "function" then
 		local res = {};
