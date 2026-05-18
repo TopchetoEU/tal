@@ -81,7 +81,7 @@ end
 
 local function await_fin(status, ...)
 	if status == nil then
-		error(..., 0);
+		serror(...);
 	elseif status == false then
 		error("loop ended before main thread got invoked")
 	else

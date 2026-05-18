@@ -280,7 +280,8 @@ local function http_write_body(conn, body, hdr)
 				local str = self.str;
 				self.str = nil;
 
-				str:write "0\r\n\r\n";
+				-- The finalizer of the underlying stream might've been called before us, so we silence the error
+				pcall(str.write, str, "0\r\n\r\n");
 				str:close();
 			end
 		end
