@@ -5,63 +5,54 @@ local sig = require "std.sig";
 --- @field ev ev
 --- @field closed boolean
 
---- @type _impl.file
-local file_index = {};
-function file_index:read(udata, offset, buff, n)
+--- @class impl.ev_file: _impl.file
+--- @field ev ev
+--- @field fd ev.file
+--- @field closed boolean
+local ev_file = {};
+ev_file.__index = ev_file;
+ev_file.__metatable = "impl.ev_file";
+
+function ev_file:read(udata, offset, buff, n)
 	n = sig.optnum(n, "n");
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
+	if self.closed then return true, nil, "file is closed" end
 
-	if self_data.closed then return true, nil, "file is closed" end
-
-	return self_data.ev:file_read(udata, self_data.fd, offset, n, buff);
+	return self.ev:file_read(udata, self.fd, offset, n, buff);
 end
-function file_index:write(udata, offset, buff, n)
+function ev_file:write(udata, offset, buff, n)
 	n = sig.optnum(n, "n");
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
+	if self.closed then return true, nil, "file is closed" end
 
-	if self_data.closed then return true, nil, "file is closed" end
-
-	return self_data.ev:file_write(udata, self_data.fd, offset, n, buff);
+	return self.ev:file_write(udata, self.fd, offset, n, buff);
 end
-function file_index:flush(udata)
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
-	return self_data.ev:sync(udata, self_data.fd);
+function ev_file:flush(udata)
+	return self.ev:sync(udata, self.fd);
 end
-function file_index:stat(udata)
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
-	if self_data.closed then return true, nil, "file is closed" end
-
-	return self_data.ev:stat(udata, self_data.fd);
+function ev_file:stat(udata)
+	if self.closed then return true, nil, "file is closed" end
+	return self.ev:stat(udata, self.fd);
 end
-function file_index:chmod(udata, mode)
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
-	if self_data.closed then return true, nil, "file is closed" end
-
-	return self_data.ev:file_chmod(udata, self_data.fd, mode);
+function ev_file:chmod(udata, mode)
+	if self.closed then return true, nil, "file is closed" end
+	return self.ev:file_chmod(udata, self.fd, mode);
 end
-function file_index:chown(udata, uid, gid)
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
-	if self_data.closed then return true, nil, "file is closed" end
-
-	return self_data.ev:file_chown(udata, self_data.fd, uid, gid);
+function ev_file:chown(udata, uid, gid)
+	if self.closed then return true, nil, "file is closed" end
+	return self.ev:file_chown(udata, self.fd, uid, gid);
 end
-function file_index:close()
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.file_data]];
-	if self_data.closed then return end
-	self_data.ev:close(self_data.fd);
-	self_data.closed = true;
+function ev_file:close()
+	if self.closed then return end
+	self.ev:close(self.fd);
+	self.closed = true;
 end
 
-local file_identity = newproxy(true);
-local file_meta = getmetatable(file_identity);
-file_meta.__index = file_index;
-
---- @return _impl.file
+--- @param ev ev
+--- @param fd ev.file
 return function (ev, fd)
-	return debug.setuservalue(newproxy(file_identity), {
-		fd = fd,
+	return setmetatable({
 		ev = ev,
+		fd = fd,
 		closed = false,
 		offset = 0,
-	});
+	}, ev_file);
 end

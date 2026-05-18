@@ -74,4 +74,4 @@ If you do find other incompatibilities, they are most likely bugs, so please do 
 
 ## Documentation
 
-Currently, documentation is virtually inexistent, except for some LuaLS documentation, whereever I felt the code didn't speak for itself. Use `--help` where applicable, otherwise, go spelunking trough the code (as I said in the warnings, the library is very spartan).
+[Here](./doc/index.md)

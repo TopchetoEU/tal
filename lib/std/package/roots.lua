@@ -5,9 +5,9 @@
 --- @class std.package.roots
 --- @field [string] integer Reference count of each path
 --- @field [integer] string Ordered list of all paths
-local roots_index = {};
-roots_index.__index = roots_index;
-roots_index.__metatable = "std.package.roots";
+local roots = {};
+roots.__index = roots;
+roots.__metatable = "std.package.roots";
 
 local function add_one(self, path)
 	if self[path] then
@@ -57,16 +57,16 @@ end
 
 --- Adds all arguments as root paths, only if they aren't already present in the roots list
 --- @param ... string | string[]
-function roots_index:addif(...)
+function roots:addif(...)
 	return foreach(self, addif_one, ...);
 end
 --- Adds all arguments as root paths
 --- @param ... string | string[]
-function roots_index:add(...)
+function roots:add(...)
 	return foreach(self, add_one, ...);
 end
 --- @param env? string
-function roots_index:addenv(env)
+function roots:addenv(env)
 	if not env then return self end
 	for el in env:gmatch "[^;]+" do
 		self:add(el);
@@ -75,12 +75,12 @@ function roots_index:addenv(env)
 end
 --- Deletes all arguments from the root paths. If duplicates exist, removes one of them
 --- @param ... string | string[]
-function roots_index:del(...)
+function roots:del(...)
 	return foreach(self, del_one, ...);
 end
 --- Iterates all roots. Duplicates are skipped
 --- @return fun(): string?
-function roots_index:iter()
+function roots:iter()
 	local i = 0;
 	return function ()
 		if i >= #self then return nil end
@@ -92,7 +92,7 @@ end
 --- Upon the function exiting (with either a return or an error), the path is removed from the set
 --- @param path string
 --- @param cb fun()
-function roots_index:with(cb, path)
+function roots:with(cb, path)
 	self:add(path);
 	return (function (ok, ...)
 		self:del(path);
@@ -101,9 +101,9 @@ function roots_index:with(cb, path)
 	end)(spcall(cb));
 end
 
-function roots_index.new(...)
-	local self = setmetatable({}, roots_index);
+function roots.new(...)
+	local self = setmetatable({}, roots);
 	return self:add(...);
 end
 
-return roots_index;
+return roots;

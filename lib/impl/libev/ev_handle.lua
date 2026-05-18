@@ -5,52 +5,45 @@ local sig = require "std.sig";
 --- @field ev ev
 --- @field closed boolean
 
---- @type _impl.stream
---- @diagnostic disable-next-line: missing-fields
-local stream_index = {};
-function stream_index:read(udata, buff, n)
+--- @class impl.ev_handle: _impl.stream
+--- @field ev ev
+--- @field fd ev.file
+--- @field closed boolean
+local ev_handle = {};
+ev_handle.__index = ev_handle;
+ev_handle.__metatable = "impl.ev_handle";
+
+function ev_handle:read(udata, buff, n)
 	n = sig.optnum(n, "n");
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.handle_data]];
+	if self.closed then return true, nil, "handle is closed" end
 
-	if self_data.closed then return true, nil, "handle is closed" end
-
-	return self_data.ev:read(udata, self_data.fd, n, buff);
+	return self.ev:read(udata, self.fd, n, buff);
 end
-function stream_index:write(udata, buff, n)
+function ev_handle:write(udata, buff, n)
 	n = sig.optnum(n, "n");
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.handle_data]];
+	if self.closed then return true, nil, "handle is closed" end
 
-	if self_data.closed then return true, nil, "handle is closed" end
-
-	return self_data.ev:write(udata, self_data.fd, n, buff);
+	return self.ev:write(udata, self.fd, n, buff);
 end
-function stream_index:flush(udata)
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.handle_data]];
-	return self_data.ev:sync(udata, self_data.fd);
+function ev_handle:flush(udata)
+	return self.ev:sync(udata, self.fd);
 end
-function stream_index:stat(udata)
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.handle_data]];
-	if self_data.closed then return true, nil, "handle is closed" end
-
-	return self_data.ev:stat(udata, self_data.fd);
+function ev_handle:stat(udata)
+	if self.closed then return true, nil, "handle is closed" end
+	return self.ev:stat(udata, self.fd);
 end
-function stream_index:close()
-	local self_data = debug.getuservalue(self) --[[@as _impl.ev.handle_data]];
-	if self_data.closed then return end
-	self_data.ev:close(self_data.fd);
-	self_data.closed = true;
+function ev_handle:close()
+	if self.closed then return end
+	self.ev:close(self.fd);
+	self.closed = true;
 end
 
-local handle_identity = newproxy(true);
-local handle_meta = getmetatable(handle_identity);
-handle_meta.__index = stream_index;
-
---- @return _impl.stream
+--- @param ev ev
+--- @param fd ev.handle
 return function (ev, fd)
-	return debug.setuservalue(newproxy(handle_identity), {
+	return setmetatable({
 		fd = fd,
 		ev = ev,
 		closed = false,
-		offset = 0,
-	});
+	}, ev_handle);
 end

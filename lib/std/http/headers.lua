@@ -1,8 +1,11 @@
 --- @class std.http.headers
 --- @field _map table<string, string[]>
-local headers_index = {};
+local headers = {};
+headers.__index = headers;
+headers.__metatable = "std.http.headers";
+
 --- @return (fun(self: std.http.headers, prev?: string): string?, ...: string?), std.http.headers
-function headers_index:keys()
+function headers:keys()
 	--- @param prev string?
 	--- @param self std.http.headers
 	return function (self, prev)
@@ -10,14 +13,14 @@ function headers_index:keys()
 	end, self;
 end
 --- @param name string
-function headers_index:get(name)
+function headers:get(name)
 	local val = self._map[name:lower()];
 	if not val then return end
 	return table.unpack(val);
 end
 --- @param name string
 --- @return string ...
-function headers_index:add(name, ...)
+function headers:add(name, ...)
 	name = name:lower();
 	if not self._map[name] then self._map[name] = {} end
 	local val = self._map[name];
@@ -31,27 +34,22 @@ function headers_index:add(name, ...)
 end
 --- @param name string
 --- @return string ...
-function headers_index:set(name, ...)
+function headers:set(name, ...)
 	if not ... then return end
 	self._map[name:lower()] = { ... };
 	return ...;
 end
 --- @param name string
 --- @return string ...
-function headers_index:del(name, ...)
+function headers:del(name, ...)
 	name = name:lower();
 	local val = self._map[name];
 	self._map[name] = nil;
 	if val then return table.unpack(val) end
 end
 
-local headers_meta = { __index = headers_index };
-
---- @class http_headers_lib
-local headers = {};
---- @return std.http.headers
 function headers.new()
-	return setmetatable({ _map = {} }, headers_meta);
+	return setmetatable({ _map = {} }, headers);
 end
 --- @param init table<string, string | string[]>
 function headers.of(init)
