@@ -136,13 +136,6 @@ return function (...)
 
 			template_lib(lib_cmd, lj_lib);
 
-			local ldeps = {};
-			mklua.gen(mklua_ctx, { ldeps = ldeps });
-
-			for _, path in pairs(ldeps) do
-				template_lib(lib_cmd, path);
-			end
-
 			local comp_proc = spawn {
 				argv = compiler_cmd,
 				stdin = "pipe",
