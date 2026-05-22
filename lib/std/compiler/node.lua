@@ -98,6 +98,7 @@ local node = {};
 
 --- @class node.func: node.base
 --- @field type "func"
+--- @field def_end? node.loc
 --- @field args node.name[]
 --- @field var boolean
 --- @field body node.body
@@ -355,11 +356,12 @@ function node.paren(line, val)
 	return { type = "paren", loc = line, val = val } --[[@as node.paren]];
 end
 --- @param line? node.loc
+--- @param def_end? node.loc
 --- @param args node.name[]
 --- @param var boolean
 --- @param body node.body
-function node.func(line, args, var, body)
-	return { type = "func", loc = line, args = args, var = var, body = body } --[[@as node.func]];
+function node.func(line, def_end, args, var, body)
+	return { type = "func", loc = line, def_end = def_end, args = args, var = var, body = body } --[[@as node.func]];
 end
 
 --- @param line? node.loc
