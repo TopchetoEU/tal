@@ -29,6 +29,8 @@ function pipe:write(...)
 	end
 end
 
-return function ()
+function pipe.new()
 	return setmetatable({ _readers = {}, _writers = {} }, pipe);
 end
+
+return pipe;

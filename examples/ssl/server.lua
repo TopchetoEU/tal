@@ -1,7 +1,7 @@
 local ssl = require "std.io.ssl";
 local io = require "std.io";
 local loop = require "std.loop";
-local pipe = require "std.sync.pipe"
+local pipe = require "std.sync.pipe";
 local utils = require "examples.ssl.utils";
 local net = require "std.io.net";
 local json = require "std.fmt.json";
@@ -49,7 +49,7 @@ return function (...)
 
 	local server = net.bind(ip or "127.0.0.1", port or 4312);
 
-	local broadcast_pipe = pipe();
+	local broadcast_pipe = pipe.new();
 	--- @type table<std.io.stream, true>
 	local conns = {};
 	local i = 1;

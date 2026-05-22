@@ -5,8 +5,8 @@ local loop = require "std.loop";
 
 return function()
 	loop.fork(function()
-		local pin = pipe();
-		local pout = pipe();
+		local pin = pipe.new();
+		local pout = pipe.new();
 
 		loop.fork(function()
 			while true do
