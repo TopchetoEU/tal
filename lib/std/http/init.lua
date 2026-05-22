@@ -135,7 +135,7 @@ function http.read_body(conn, hdr)
 
 		function self:read(ptr, n)
 			if not self.str then ierror "closed" end
-			if self.done then return nil end
+			if self.done then return 0 end
 
 			if #self.buff == 0 then
 				local line = self.str:read "L";
@@ -147,7 +147,7 @@ function http.read_body(conn, hdr)
 
 				if len == 0 then
 					self.done = true;
-					return nil;
+					return 0;
 				end
 
 				local line = iassert(self.str:read(len), "broken pipe");
@@ -177,35 +177,30 @@ function http.read_body(conn, hdr)
 
 		return stream.new(self, true);
 	elseif len then
-		local self = {
+		return stream.new({
 			str = conn,
-			n = len,
-		};
+			n = tonumber(len),
+			read = function (self, ptr, n)
+				if not self.str then ierror "closed" end
+				if n > self.n then n = self.n end
+				if self.n == 0 then return 0 end
 
-		function self:read(ptr, n)
-			if not self.str then ierror "closed" end
-			if self.n == 0 then return 0 end
-
-			n = n or 8192;
-			if n > self.n then
-				n = self.n;
-			end
-
-			local n = self.str:ptrread(false, ptr, n);
-			self.n = self.n - n;
-			return n;
-		end
-		function self:write(n, ptr)
-			ierror "readonly";
-		end
-		function self:close()
-			if self.str then
-				self.str:close();
+				local n = self.str:ptrread(false, ptr, n);
+				self.n = self.n - n;
+				return n;
+			end,
+			write = function (self, ptr, n)
+				if not self.str then ierror "closed" end
+				ierror "readonly";
+			end,
+			flush = function (self)
+				if not self.str then ierror "closed" end
+				return self.str:flush();
+			end,
+			close = function (self)
 				self.str = nil;
-			end
-		end
-
-		return stream.new(self, true);
+			end,
+		});
 	else
 		return nil;
 	end
@@ -265,7 +260,32 @@ function http.write_body(conn, hdr, body)
 	if not body then return nil end
 
 	local len = hdr:get "content-length";
-	if len and tonumber(len) then return conn end
+	if len and tonumber(len) then
+		return stream.new({
+			str = conn,
+			n = tonumber(len),
+			read = function (self, ptr, n)
+				if not self.str then ierror "closed" end
+				ierror "writeonly";
+			end,
+			write = function (self, ptr, n)
+				if not self.str then ierror "closed" end
+				if n > self.n then n = self.n end
+				if n == 0 then return 0 end
+
+				local n = self.str:ptrwrite(false, ptr, n);
+				self.n = self.n - n;
+				return n;
+			end,
+			flush = function (self)
+				if not self.str then ierror "closed" end
+				return self.str:flush();
+			end,
+			close = function (self)
+				self.str = nil;
+			end,
+		});
+	end
 
 	hdr:set("transfer-encoding", "chunked");
 
@@ -292,7 +312,6 @@ function http.write_body(conn, hdr, body)
 
 				-- The finalizer of the underlying stream might've been called before us, so we silence the error
 				pcall(str.write, str, "0\r\n\r\n");
-				str:close();
 			end
 		end
 	}, true);

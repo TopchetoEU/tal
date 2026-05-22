@@ -20,6 +20,7 @@ local function ssl_flush(self)
 	while true do
 		local n = self.bout:read(8192, buff);
 		if not n or n == 0 then return end
+		if not self.stream then ierror "closed" end
 		self.stream:ptrwrite(true, buff, n);
 	end
 end
@@ -45,6 +46,8 @@ local function ssl_handle_err(self, code)
 			end
 
 			local ptr = ffi.new "char[8192]";
+
+			if not self.stream then ierror "closed" end
 
 			self.reading = true;
 			local n = self.stream:ptrread(false, ptr, 8192);
@@ -101,7 +104,7 @@ return function (opts)
 		stream = backend,
 
 		reading = false,
-		read_cond = cond(),
+		read_cond = cond.new(),
 
 		bin = bin,
 		bout = bout,

@@ -53,6 +53,7 @@ return function (arg)
 	if arg.body then
 		--- @cast body_out std.io.stream
 		body_out:pipe(arg.body);
+		body_out:close();
 	end
 
 	local res = assert(http.read_res(conn), "no response");
