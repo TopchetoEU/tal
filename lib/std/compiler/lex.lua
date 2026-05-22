@@ -287,7 +287,7 @@ local function lex_pcall_fin(ok, ...)
 	if ok then return true, ... end
 	local err, trace = ...;
 	if type(err) == "table" and err[tag] then return false, err end
-	errors.serror(err, trace);
+	errors.srethrow(err, trace);
 end
 local function lex_pcall(f, ...)
 	return lex_pcall_fin(errors.sxpcall(f, function (err, traceback)
