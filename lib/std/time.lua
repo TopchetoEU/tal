@@ -10,29 +10,13 @@ function timing.monotime()
 	return libev.monotime();
 end
 
---- @generic CtxT
---- @param time number
---- @param ctx CtxT
---- @param cb fun(ctx: CtxT, ...)
-function timing.sleep_until_async(time, ctx, cb, ...)
-	return loop.wait_until(time, cb, ctx, ...);
+--- @param timestamp number
+function timing.sleep_until(timestamp)
+	return iassert(loop.await(loop.wait_until(timestamp, coroutine.running(), loop.awake), true));
 end
---- @generic CtxT
---- @param secs number
---- @param ctx CtxT
---- @param cb fun(ctx: CtxT, ...)
-function timing.sleep_async(secs, ctx, cb, ...)
-	return timing.sleep_until_async(timing.monotime() + secs, ctx, cb, ...);
-end
---- @generic CtxT
---- @param time number
-function timing.sleep_until(time)
-	return loop.await(timing.sleep_until_async(time, coroutine.running(), loop.awake));
-end
---- @generic CtxT
 --- @param secs number
 function timing.sleep(secs)
-	return loop.await(timing.sleep_async(secs, coroutine.running(), loop.awake));
+	return timing.sleep_until(timing.monotime() + secs);
 end
 
 function timing.timer(delay)

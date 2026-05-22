@@ -14,12 +14,6 @@ local sleeps = {};
 --- @type thread?
 local loop_th;
 
-debug.setmetatable(coroutine.running(), {
-	__tostring = function (self)
-		return loop.name(self);
-	end
-})
-
 local run_loop;
 
 local function process_handle(next, timeout, cb, ...)
@@ -52,7 +46,7 @@ local function task_next()
 		return process_handle(run_loop, timeout, impl:next(timeout));
 	end
 
-	return process_handle(task_next, task.cb, table.unpack(task, 1, task.n));
+	return process_handle(task_next, nil, task.cb, table.unpack(task, 1, task.n));
 end
 function run_loop()
 	local now = impl:monotime();
@@ -79,9 +73,10 @@ function run_loop()
 	return task_next();
 end
 
+--- @return ...
 local function await_fin(status, ...)
 	if status == nil then
-		serror(...);
+		srethrow(...);
 	elseif status == false then
 		error("loop ended before main thread got invoked")
 	else
@@ -91,17 +86,14 @@ end
 
 --- @param task thread
 function loop.push(task, ...)
-	if type(task) == "thread" then
-		loop.push(loop.awake, task, ...);
-	else
-		table.insert(tasks, { cb = task, n = select("#", ...), ... });
-	end
+	table.insert(tasks, { cb = task, n = select("#", ...), ... });
 end
 function loop.rest()
 	loop.push((coroutine.running()));
 	return loop.await();
 end
 --- If no loop is running, runs the loop in the call. Otherwise, yields
+--- @return ...
 function loop.await()
 	if not loop_th then
 		return await_fin(run_loop());
@@ -134,7 +126,7 @@ function loop.fork(main, ...)
 				trace = "fork " .. fork_trace;
 			end
 
-			return errors.serror(err, trace);
+			return errors.srethrow(err, trace);
 		end
 	end);
 
@@ -188,5 +180,11 @@ end
 function loop.dbg_print()
 	print(#tasks);
 end
+
+debug.setmetatable(coroutine.running(), {
+	__tostring = function (self)
+		return loop.name(self);
+	end
+});
 
 return loop;
