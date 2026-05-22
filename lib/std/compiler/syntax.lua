@@ -220,18 +220,12 @@ local function finish_labels(ctx)
 end
 
 --- @param init_args? string[]
-local function parse_func_body(ctx, i, init_args)
+local function parse_func_body(ctx, i, def_start, init_args, no_args)
 	local j = i;
 	local args = {};
 	local first = false;
 	local var = false;
 	local body;
-
-	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_PAREN_OPEN) then
-		syntax_error(ctx, j, "expected open paren");
-	else
-		j = j + 1;
-	end
 
 	scope_begin(ctx);
 	ctx.scope.gotos = {};
@@ -243,53 +237,63 @@ local function parse_func_body(ctx, i, init_args)
 		end
 	end
 
-	if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
-		j = j + 1;
-	else
-		while true do
-			if ctx.toks[j] and ctx.toks[j]:is_id() then
-				table.insert(args, scope_declare(ctx, syntax_loc(ctx, j), ctx.toks[j].val --[[@as string]]));
-				first = true;
-				j = j + 1;
+	if not no_args then
+		if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_PAREN_OPEN) then
+			syntax_error(ctx, j, "expected open paren");
+		else
+			j = j + 1;
+		end
 
-				if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
+		if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
+			j = j + 1;
+		else
+			while true do
+				if ctx.toks[j] and ctx.toks[j]:is_id() then
+					table.insert(args, scope_declare(ctx, syntax_loc(ctx, j), ctx.toks[j].val --[[@as string]]));
+					first = true;
 					j = j + 1;
-					break;
-				elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
-					j = j + 1;
-				else
-					syntax_error(ctx, j, "expected ',' or ')'");
-				end
-			elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_SPREAD) then
-				var = true;
-				first = true;
-				j = j + 1;
 
-				if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
+					if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
+						j = j + 1;
+						break;
+					elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
+						j = j + 1;
+					else
+						syntax_error(ctx, j, "expected ',' or ')'");
+					end
+				elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_SPREAD) then
+					var = true;
+					first = true;
 					j = j + 1;
+
+					if ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_CLOSE) then
+						j = j + 1;
+						break;
+					elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
+						j = j + 1;
+						syntax_error(ctx, j, "no arguments allowed after '...'");
+					else
+						syntax_error(ctx, j, "expected ',' or ')'");
+					end
+				elseif first then
+					syntax_error(ctx, j, "expected identifier, '...' or ')'");
 					break;
-				elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_COMMA) then
-					j = j + 1;
-					syntax_error(ctx, j, "no arguments allowed after '...'");
 				else
-					syntax_error(ctx, j, "expected ',' or ')'");
+					syntax_error(ctx, j, "expected identifier or '...'");
+					break;
 				end
-			elseif first then
-				syntax_error(ctx, j, "expected identifier, '...' or ')'");
-				break;
-			else
-				syntax_error(ctx, j, "expected identifier or '...'");
-				break;
 			end
 		end
+	else
+		var = true;
 	end
 
 	j, body = parse_stm_list(ctx, j, "'end'", { OP_END });
 
 	finish_labels(ctx);
-
 	scope_end(ctx);
-	return j, node.func(syntax_loc(ctx, i), args, var, body);
+
+	return j, node.func(def_start, syntax_loc(ctx, j - 1), args, var, body);
 end
 
 ------------ EXPRESSIONS ------------
@@ -298,13 +302,21 @@ local function parse_exp_func(ctx, i)
 	local j = i;
 	local res;
 
-	if not ctx.toks[j] or not ctx.toks[j]:is_op(OP_FUNCTION) then return i end
-	j = j + 1;
+	if ctx.toks[j] and ctx.toks[j]:is_op(OP_FUNCTION) then
+		j = j + 1;
+		j, res = parse_func_body(ctx, j, syntax_loc(ctx, j));
+		if not res then syntax_error(ctx, j, "expected function body") end
+		return j, res;
+	end
 
-	j, res = parse_func_body(ctx, j);
-	if not res then syntax_error(ctx, j, "expected function body") end
+	if ctx.toks[j] and ctx.toks[j]:is_op(OP_BEGIN) then
+		j = j + 1;
+		j, res = parse_func_body(ctx, j, syntax_loc(ctx, j), nil, true);
+		if not res then syntax_error(ctx, j, "expected statement list") end
+		return j, res;
+	end
 
-	return j, res;
+	return i;
 end
 local function parse_exp_table(ctx, i)
 	local j = i;
@@ -428,6 +440,10 @@ local function parse_exp_call_suffix(ctx, i, prev)
 	elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_BRACE_OPEN) then
 		local arg;
 		j, arg = parse_exp_table(ctx, j);
+		table.insert(args, arg);
+	elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_BEGIN) then
+		local arg;
+		j, arg = parse_exp_func(ctx, j);
 		table.insert(args, arg);
 	elseif ctx.toks[j] and ctx.toks[j]:is_op(OP_PAREN_OPEN) then
 		j = j + 1;
@@ -575,6 +591,8 @@ local function parse_exp_single(ctx, i)
 		elseif ctx.toks[j]:is_op(OP_SPREAD) then
 			return j + 1, node.args(syntax_loc(ctx, i));
 		elseif ctx.toks[j]:is_op(OP_FUNCTION) then
+			return parse_exp_func(ctx, j);
+		elseif ctx.toks[j]:is_op(OP_BEGIN) then
 			return parse_exp_func(ctx, j);
 		elseif ctx.toks[j]:is_op(OP_BRACE_OPEN) then
 			return parse_exp_table(ctx, j);
@@ -735,7 +753,7 @@ local map_stm_parsers = {
 			end
 		end
 
-		return j, node._if(syntax_loc(ctx, i), conds, bodies, default);
+		return j, node._if(syntax_loc(ctx, i - 1), conds, bodies, default);
 	end,
 	[OP_WHILE] = function (ctx, i)
 		local j = i;
@@ -757,7 +775,7 @@ local map_stm_parsers = {
 		j, body = parse_stm_list(ctx, j, "'end'", { OP_END });
 		scope_end(ctx);
 
-		return j, node._while(syntax_loc(ctx, i), cond, body);
+		return j, node._while(syntax_loc(ctx, i - 1), cond, body);
 	end,
 	[OP_REPEAT] = function (ctx, i)
 		local j = i;
@@ -774,7 +792,7 @@ local map_stm_parsers = {
 		end
 		scope_end(ctx);
 
-		return j, node._repeat(syntax_loc(ctx, i), cond, body);
+		return j, node._repeat(syntax_loc(ctx, i - 1), cond, body);
 	end,
 	[OP_FOR] = function (ctx, i)
 		local j = i;
@@ -846,9 +864,9 @@ local map_stm_parsers = {
 		scope_end(ctx);
 
 		if values then
-			return j, node.for_in(syntax_loc(ctx, i), names, values, body);
+			return j, node.for_in(syntax_loc(ctx, i - 1), names, values, body);
 		else
-			return j, node._for(syntax_loc(ctx, i), names[1], init, last, step, body);
+			return j, node._for(syntax_loc(ctx, i - 1), names[1], init, last, step, body);
 		end
 	end,
 	[OP_DO] = function (ctx, i)
@@ -859,7 +877,7 @@ local map_stm_parsers = {
 		j, body = parse_stm_list(ctx, j, "'end'", { OP_END });
 		scope_end(ctx);
 
-		return j, node.scope(syntax_loc(ctx, i), body);
+		return j, node.scope(syntax_loc(ctx, i - 1), body);
 	end,
 	[OP_RETURN] = function (ctx, i)
 		local j = i;
@@ -868,13 +886,13 @@ local map_stm_parsers = {
 		j, vals = parse_exp_list(ctx, j);
 		vals = vals or {};
 
-		return j, node._return(syntax_loc(ctx, i), vals);
+		return j, node._return(syntax_loc(ctx, i - 1), vals);
 	end,
 	[OP_BREAK] = function (ctx, i)
-		return i, node._break(syntax_loc(ctx, i));
+		return i, node._break(syntax_loc(ctx, i - 1));
 	end,
 	-- [OP_CONTINUE] = function (ctx, i)
-	-- 	return i, node._continue(syntax_loc(ctx, i));
+	-- 	return i, node._continue(syntax_loc(ctx, i - 1));
 	-- end,
 	[OP_LOCAL] = function (ctx, i)
 		local j = i;
@@ -882,6 +900,7 @@ local map_stm_parsers = {
 		if ctx.toks[j]:is_op(OP_FUNCTION) then
 			local name, func;
 
+			local def_start = syntax_loc(ctx, i);
 			j = j + 1;
 
 			if not ctx.toks[j] or not ctx.toks[j]:is_id() then
@@ -892,9 +911,9 @@ local map_stm_parsers = {
 			name = scope_declare(ctx, syntax_loc(ctx, j), ctx.toks[j].val --[[@as string]]);
 			j = j + 1;
 
-			j, func = parse_func_body(ctx, j);
+			j, func = parse_func_body(ctx, j, def_start);
 
-			return j, node.decl(syntax_loc(ctx, i), true, { name }, { func });
+			return j, node.decl(syntax_loc(ctx, i - 1), true, { name }, { func });
 		end
 
 		local names, values;
@@ -915,7 +934,7 @@ local map_stm_parsers = {
 			end
 		end
 
-		return j, node.decl(syntax_loc(ctx, i), false, names, values);
+		return j, node.decl(syntax_loc(ctx, i - 1), false, names, values);
 	end,
 	[OP_FUNCTION] = function (ctx, i)
 		local j = i;
@@ -947,9 +966,9 @@ local map_stm_parsers = {
 		end
 
 		--- @cast target node.assign_target
-		j, func = parse_func_body(ctx, j, args);
+		j, func = parse_func_body(ctx, j, syntax_loc(ctx, i - 1), args);
 
-		return j, node.assign(syntax_loc(ctx, i), { target }, { func });
+		return j, node.assign(syntax_loc(ctx, i - 1), { target }, { func });
 	end,
 
 	[OP_LABEL] = function (ctx, i)

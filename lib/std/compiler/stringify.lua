@@ -161,7 +161,7 @@ function walkers.table(self, node)
 end
 --- @param node node.func
 function walkers.func(self, node)
-	emit(self, node, "function (");
+	emit(self, node.loc, "function (");
 	for i = 1, #node.args do
 		if i > 1 then suffix(self, ",") end
 		suffix(self, node.args[i].name);
@@ -176,7 +176,7 @@ function walkers.func(self, node)
 
 	walk_all(self, node.body, ";");
 
-	suffix(self, " end");
+	emit(self, node.def_end, "end");
 end
 --- @param node node.op
 function walkers.op(self, node)
