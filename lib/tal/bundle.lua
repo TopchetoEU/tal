@@ -142,7 +142,7 @@ return function (...)
 				env = { PATH = os.getenv "PATH" or "" }
 			};
 
-			mklua.gen(mklua_ctx, { f = comp_proc.stdin --[[@as file*]], ldeps = ldeps });
+			mklua.gen(mklua_ctx, { f = comp_proc.stdin --[[@as file*]] });
 
 			comp_proc.stdin:close();
 			local code = comp_proc:wait();
