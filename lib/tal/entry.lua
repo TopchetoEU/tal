@@ -4,20 +4,21 @@ return function (entry_mod, ...)
 	require "ffi";
 	-- Breaks stuff if called twice
 	package.preload.ffi = nil;
+	local oldenv = getfenv();
 
 	if has_dbg then
-		_G.debug = require "std.debug";
+		oldenv.debug = require "std.debug";
 		local old_tb = debug.traceback;
 		dbg.start();
-		_G.debug.traceback = old_tb;
+		oldenv.debug.traceback = old_tb;
 	end
 
 	local stderr = io.stderr;
 
-	local env = setmetatable({}, { __index = _G, __metatable = "_G" });
+	local env = setmetatable({}, { __index = oldenv, __metatable = "_G" });
 	env._G = env;
 	env._ENV = env;
-	setfenv(0, env);
+	-- setfenv(0, _G);
 	setfenv(1, env);
 
 	local printing = require "std.printing";
