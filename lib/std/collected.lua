@@ -2,7 +2,7 @@ local loop = require "std.loop";
 local cond = require "std.sync.cond";
 
 local queue = {};
-local queue_cond = cond();
+local queue_cond = cond.new();
 local kys = false;
 local th = loop.fork(function ()
 	while not kys do

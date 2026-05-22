@@ -23,6 +23,8 @@ function mutex:unlock()
 	if next then loop.push(next) end
 end
 
-return function ()
+function mutex.new()
 	return setmetatable({ _locked = false, _waiters = {} }, mutex);
 end
+
+return mutex;

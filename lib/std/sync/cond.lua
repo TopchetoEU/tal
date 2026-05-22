@@ -33,6 +33,9 @@ function cond:signal(all)
 	end
 end
 
-return function ()
+function cond.new()
 	return setmetatable({ _waiters = {}, _pending = false, _owner = nil, _n = 0 }, cond);
+
 end
+
+return cond;
