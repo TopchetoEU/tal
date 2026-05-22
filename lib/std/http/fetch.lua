@@ -16,8 +16,6 @@ return function (arg)
 	if not parsed.host then sig.error("arg.url", "host must be specified") end
 	if parsed.username or parsed.password then sig.error("arg.url", "username and password not supported") end
 
-	local dns_res = net.getaddrinfo(parsed.host, "");
-
 	if not arg.headers then
 		arg.headers = headers.new();
 	end
@@ -31,14 +29,7 @@ return function (arg)
 		default_port = 443;
 	end
 
-	local ok, conn;
-	for i = 1, #dns_res do
-		ok, conn = pcall(net.connect, dns_res[i], parsed.port or default_port);
-		if ok then break end
-	end
-
-	if not ok then error(conn) end
-	if not conn then error("unknown host") end
+	local conn = net.nameconnect(parsed.host, parsed.port or default_port, "tcp");
 
 	if parsed.scheme == "https" then
 		conn = ssl { backend = conn, owned = true, host = parsed.host };

@@ -117,9 +117,7 @@ return function (opts)
 
 		while true do
 			local curr_n, code = self.hnd:read(n, ptr);
-			if curr_n and not code then
-				return curr_n;
-			end
+			if curr_n and not code then return curr_n end
 
 			if self.hnd:get_error(0) == 6 then
 				ierror "pipe broken";

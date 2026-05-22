@@ -53,6 +53,26 @@ function net.connect(addr, port, protocol)
 	return stream.from_stream(f, true);
 end
 --- @param name string
+--- @param port integer
+--- @param protocol? "tcp" | "udp" = "tcp"
+--- @param flags? std.io.net.addrinfo_flags
+--- @return std.io.stream
+function net.nameconnect(name, port, protocol, flags)
+	local ips = net.getaddrinfo(name, flags or "");
+
+	local ok, res, err, trace;
+	for _, ip in ipairs(ips) do
+		ok, res, err, trace = spcall(net.connect, ip, port, protocol);
+		if ok then return res end
+	end
+
+	if err then
+		serror(err, trace);
+	else
+		ierror "couldn't resolve host";
+	end
+end
+--- @param name string
 --- @param flags std.io.net.addrinfo_flags
 --- @return string[]
 function net.getaddrinfo(name, flags)
