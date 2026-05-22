@@ -30,8 +30,7 @@ iassert = err.iassert;
 
 spcall = err.spcall;
 sxpcall = err.sxpcall;
-serror = err.serror;
-serrunpack = err.serrunpack;
+srethrow = err.srethrow;
 
 debug = require "std.debug";
 io = require "std.io";

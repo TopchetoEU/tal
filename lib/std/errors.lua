@@ -88,10 +88,10 @@ function errors.serrnew(err, trace, rethrow_type)
 
 	return setmetatable({ err = err, trace = trace or old_trace }, serror_meta);
 end
---- Throws a stackful error. Must be handled by stackful error-aware code (with spcall or serrunpack)
+--- Rethrows an already caught stackful error. `spcall` will add a "rethrown at" section with a new stack trace
 --- @param err any
 --- @param trace? string
-function errors.serror(err, trace)
+function errors.srethrow(err, trace)
 	errors.error(errors.serrnew(err, trace), 0);
 end
 local function spcall_catch(err)

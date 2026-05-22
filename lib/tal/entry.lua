@@ -25,7 +25,7 @@ return function (entry_mod, ...)
 	local ok, err, trace = require "std.errors".spcall(function (...)
 		local package = require "std.package";
 		require = package.require;
-		package.env = _G;
+		package.env = env;
 
 		require "std.globals";
 		local loop = require "std.loop";
@@ -50,13 +50,13 @@ return function (entry_mod, ...)
 		end
 
 		local ok, err, trace = loop.run();
-		if not ok then serror(err, trace) end
+		if not ok then srethrow(err, trace) end
 
 		-- Run one more time to collect __gc tables
 		collectgarbage();
 
 		local ok, err, trace = loop.run();
-		if not ok then serror(err, trace) end
+		if not ok then srethrow(err, trace) end
 	end, ...);
 
 	if not ok then printing.eprint(err, trace, nil, function (...)
