@@ -43,11 +43,9 @@ Here are some of the features that it adds on top luajit's syntax:
 
 Future plans for extending the syntax:
 - `if local` and `while local` constructs (go-style condition declarations)
-- `begin end` as a parameterless function literal, which can be passed as a parenless argument (like strings and tables)
 - `if condition return` and `if condition break`
 
 Currently unsupported:
-- `goto` statements
 - `continue`
 - `<close>` and `<const>` variable tags
 - lua 5.5's `global` directive

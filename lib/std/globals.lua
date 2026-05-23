@@ -44,5 +44,12 @@ table.unpack = unpack or table.unpack;
 function loadfile(filename, mode, env)
 	return load(io.lines(filename, "c"), "@" .. filename, mode, env);
 end
+function loadstring(str, mode, env)
+	return load(str, str, mode, env);
+end
+function dofile(filename, mode, env)
+	local res = assert(loadfile(filename, mode, env));
+	return res();
+end
 
 return _G;
