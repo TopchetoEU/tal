@@ -11,7 +11,7 @@ Additionally, `load`, `loadfile`, `loadstring`, `dofile`, `debug.traceback`, `de
 ## Syntax extensions
 
 - Bitwise operators: &, |, ~, <<, >>
-- Assignment operators: +=, -=, *=. /=, //=, %=, &=, |=, ^=, <<=, >>=
+- Assignment operators: +=, -=, \*=. /=, //=, %=, &=, |=, ^=, <<=, >>=
 - C-like boolean operators: &&, ||, !, !=
 - Parenless parameterless function literal: `my_func begin stm1; stm2; stm3; end` <=> `my_func(function(...) stm1; stm2; stm3; end)`
 - `_ENV` to `getfenv` and `setfenv` translations
