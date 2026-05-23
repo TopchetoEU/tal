@@ -21,8 +21,6 @@ return function (entry_mod, ...)
 	-- setfenv(0, _G);
 	setfenv(1, env);
 
-	local printing = require "std.printing";
-
 	local ok, err, trace = require "std.errors".spcall(function (...)
 		local package = require "std.package";
 		require = package.require;
@@ -60,7 +58,7 @@ return function (entry_mod, ...)
 		if not ok then srethrow(err, trace) end
 	end, ...);
 
-	if not ok then printing.eprint(err, trace, nil, function (...)
+	if not ok then env.eprint(err, trace, nil, function (...)
 		return stderr:write(...);
 	end) end
 end
