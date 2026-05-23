@@ -58,12 +58,14 @@ Of course, wildcards work with any other prefixes in the path (so `my/path/prefi
 
 Some people might want to organize packages like this:
 
-- `lib/lua`
-	- `pkg1`
-		- ...lua files
-	- `pkg2`
-		- ...lua files
-	- `pkg3`
-		- ...lua files
+```
+lib/lua
++- pkg1
+|  +- ...lua files
++- pkg2
+|  +- ...lua files
++- pkg3
+   +- ...lua files
+```
 
 And this tool lets you do that. Note that having two or more segments with wildcards will hit your performance.
