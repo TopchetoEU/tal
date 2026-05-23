@@ -17,7 +17,8 @@ function cli.load_eval(src, name, env)
 	return f, err;
 end
 
-function cli.repl()
+function cli.repl(prefix, eot)
+	prefix = prefix or "";
 	-- TODO: uncomment when libreadline is made concurrent
 	-- assert(signal.on "INT");
 	-- loop.fork(function ()
@@ -40,7 +41,11 @@ function cli.repl()
 				local done = false;
 				local f;
 
-				local line = readline(src == "" and "> " or "... ");
+				local line = readline(src == "" and (prefix .. "> ") or "... ");
+				if line == eot then
+					cont = false;
+					return;
+				end
 				if line == nil or src == "" and line == ".exit" then
 					cont = false;
 					return;
