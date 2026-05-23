@@ -191,7 +191,8 @@ function debug.traceback(...)
 
 	return tostring(res);
 end
-
-
+function debug.debug()
+	return require "tal.cli".repl("debug", "cont");
+end
 
 return debug;
