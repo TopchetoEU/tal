@@ -1,4 +1,3 @@
-local readline = require "nat.libreadline";
 local path = require "std.path";
 local argp = require "std.fmt.argp";
 local cli = {};
@@ -41,7 +40,7 @@ function cli.repl(prefix, eot)
 				local done = false;
 				local f;
 
-				local line = readline(src == "" and (prefix .. "> ") or "... ");
+				local line = require "nat.libreadline"(src == "" and (prefix .. "> ") or "... ");
 				if line == eot then
 					cont = false;
 					return;
