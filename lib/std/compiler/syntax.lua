@@ -891,9 +891,9 @@ local map_stm_parsers = {
 	[OP_BREAK] = function (ctx, i)
 		return i, node._break(syntax_loc(ctx, i - 1));
 	end,
-	-- [OP_CONTINUE] = function (ctx, i)
-	-- 	return i, node._continue(syntax_loc(ctx, i - 1));
-	-- end,
+	[OP_CONTINUE] = function (ctx, i)
+		return i, node._continue(syntax_loc(ctx, i - 1));
+	end,
 	[OP_LOCAL] = function (ctx, i)
 		local j = i;
 
