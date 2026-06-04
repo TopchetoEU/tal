@@ -47,4 +47,6 @@ function string:quotesh()
 	return "'" .. self:gsub("[*?~$&|;<>%(%)%[%]%{%}\\\'\"`%z\x01-\x1F]", "\\%1") .. "'";
 end
 
+string.__metatable = "string";
+
 return string;

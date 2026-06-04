@@ -105,7 +105,7 @@ end
 
 --- @generic ResT
 --- @param sync boolean
---- @param res ResT
+--- @param res? ResT
 --- @param ... any
 --- @return ResT
 --- @return any ...
@@ -152,6 +152,8 @@ function loop.wait_until(ts, cb, ...)
 	end
 
 	table.insert(sleeps, f, { time = ts, cb = cb, n = select("#", ...), ... });
+
+	return false;
 end
 function loop.run()
 	if loop_th then return true end

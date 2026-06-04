@@ -12,7 +12,7 @@ end
 
 --- @param timestamp number
 function timing.sleep_until(timestamp)
-	return iassert(loop.await(loop.wait_until(timestamp, coroutine.running(), loop.awake), true));
+	return iassert(loop.sync_ret(loop.wait_until(timestamp, coroutine.running(), loop.awake)));
 end
 --- @param secs number
 function timing.sleep(secs)

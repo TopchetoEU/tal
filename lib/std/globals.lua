@@ -14,6 +14,10 @@ local err = require "std.errors";
 
 load = require "std.compiler.load";
 
+newproxy = newproxy;
+getfenv = getfenv;
+setfenv = setfenv;
+
 pprint = printing.pprint;
 eprint = printing.eprint;
 
@@ -35,6 +39,7 @@ srethrow = err.srethrow;
 debug = require "std.debug";
 io = require "std.io";
 jit = require "jit";
+bit = require "bit";
 string = require "std.string";
 
 table.clear = require "table.clear";
