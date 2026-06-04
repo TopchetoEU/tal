@@ -8,8 +8,12 @@ local th = loop.fork(function ()
 	while not kys do
 		while #queue > 0 do
 			local func, obj = table.unpack(table.remove(queue));
-			local ok, err, trace = spcall(func, obj);
-			if not ok then eprint(err, trace, "in finalizer") end
+			local th = loop.fork(function (func, obj)
+				local ok, err, trace = spcall(func, obj);
+				if not ok then eprint(err, trace, "in finalizer") end
+			end, func, obj);
+
+			loop.name(th, "Collector " .. tostring(obj));
 		end
 		queue_cond:wait();
 	end
@@ -28,7 +32,8 @@ function meta.__gc(self)
 
 	obj[meta_proxy] = nil;
 
-	local obj_meta = getmetatable(obj);
+	local obj_meta = debug.getmetatable(obj);
+
 	if obj_meta == meta then
 		table.insert(queue, { obj.func, obj.tab });
 		queue_cond:signal(true);
