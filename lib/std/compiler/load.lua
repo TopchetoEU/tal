@@ -43,7 +43,10 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 		return nil, table.concat(parts, "\n");
 	end
 
-	ast = downgrade.walk_body(ast);
+	local downgrade_res, err, loc = downgrade.walk_body(ast);
+	if not downgrade_res then return nil, mapping.err_stringify(name, loc --[[@as node.loc]], err --[[@as string]]) end
+
+	ast = downgrade_res;
 
 	local str, map = stringify.all(ast);
 
