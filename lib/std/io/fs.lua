@@ -86,7 +86,7 @@ end
 --- @param mode? integer | string
 function fs.mkdirs(path, mode)
 	path = sig.str(path, "path");
-	local segs, root = p.split(p.cwd("/", path));
+	local segs, root = p.split(p.cwd(fs.path "cwd", path));
 
 	local res = {};
 
