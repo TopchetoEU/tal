@@ -268,21 +268,22 @@ function printing.pprint(...)
 	print(fix(...));
 end
 function printing.eprint(err, trace, reason, write)
-	if not write then
-		function write(...)
-			io.stderr:write(...);
-		end
-	end
-	write "Unhandled error ";
-	if reason then write("(" .. reason .. ") ") end
+	local res = {};
+
+	table.insert(res, "Unhandled error ");
+	if reason then table.insert(res, ("(" .. reason .. ") ")) end
 	if type(err) == "string" then
-		write(err, "\n");
+		table.insert(res, err);
 	else
-		write(printing.stringify(err), "\n");
+		table.insert(res, (printing.stringify(err)));
 	end
 
 	if trace then
-		write(trace, "\n");
+		table.insert(res, "\n" .. trace);
+	end
+
+	if not write then
+		(write or print)(table.concat(res));
 	end
 end
 
