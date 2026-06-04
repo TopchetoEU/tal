@@ -1,3 +1,5 @@
+local buffer = require "string.buffer";
+
 ---@diagnostic disable: cast-local-type
 
 local ack_codes = {
@@ -96,7 +98,7 @@ local function raw_packet_reader(next_chunk)
 			reader = nil;
 			return nil;
 		end
-		local type, flags = byte * 16, bit.band(byte, 0xF);
+		local type, flags = byte << 4, byte & 0x0F;
 
 		local len, n = 0, 0;
 
@@ -104,8 +106,8 @@ local function raw_packet_reader(next_chunk)
 			local curr = read_byte();
 			if not curr then error "unexpected EOF" end
 
-			len = len | bit.rshift(bit.band(curr, 0x7F), n);
-			n = n + 7
+			len |= (curr & 0x7F) << n;
+			n += 7;
 		until bit.band(curr, 0x80) == 0;
 
 		local body = reader(len);
@@ -125,12 +127,12 @@ local function read_pk_connect(buff)
 
 	i, flags = read_uint8(buff, i);
 
-	local clean_session = bit.band(flags, 2) ~= 0;
-	local will = bit.band(flags, 4) ~= 0;
-	local will_qos = bit.lshift(bit.band(flags, 24), 3);
-	local will_retain = bit.band(flags, 32) ~= 0;
-	local has_password = bit.band(flags, 64) ~= 0;
-	local has_username = bit.band(flags, 128) ~= 0;
+	local clean_session = (flags & 2) ~= 0;
+	local will = (flags & 4) ~= 0;
+	local will_qos = (flags & 24) >> 3;
+	local will_retain = (flags & 32) ~= 0;
+	local has_password = (flags & 64) ~= 0;
+	local has_username = (flags & 128) ~= 0;
 
 	i, keepalive_max = read_uint16(buff, i);
 
@@ -179,10 +181,9 @@ local function read_pk_conack(buff)
 	};
 end
 local function read_pk_publish(buff, flags)
-	local retain = bit.band(flags, 1) ~= 0;
-	local qos = bit.band(bit.lshift(flags, 1), 3);
-	local dup = bit.band(flags, 8) ~= 0;
-
+	local retain = (flags & 1) ~= 0;
+	local qos = (flags >> 1) & 3;
+	local dup = (flags & 8) ~= 0;
 
 	local i = 1;
 	local topic, msg_id;
@@ -349,30 +350,26 @@ local function packet_reader(next_chunk)
 end
 
 local function pk_wrap(type, flags, parts)
-	local res = { string.char(type * 16 + flags) };
+	local res = buffer.new();
+	res:put(string.char(type * 16 + flags));
 
-	local len = 0;
-
-	for i = 1, #parts do
-		len = len + #parts[i];
-	end
+	local len = #parts;
 
 	repeat
-		local byte = len % 128;
-		len = math.floor(len / 128);
+		local byte = len & 0x7F;
+		len >>= 7;
 		if len ~= 0 then
 			byte = byte | 0x80;
 		end
 
-		table.insert(res, string.char(byte));
+		res:put(string.char(byte));
 	until len == 0;
 
-	table.move(parts, 1, #parts, 1, res);
-	return table.concat(res);
+	res:put(parts);
+	return tostring(res);
 end
 
 local writers = {};
-
 function writers.connect(pk)
 	local flags = 0;
 
@@ -386,82 +383,95 @@ function writers.connect(pk)
 		flags = flags + bit.band(pk.will.qos, 3) * 8;
 	end
 
-	local parts = {
-		string.pack("!1> s2 I1 I1 I2 s2", "MQIsdp", 3, flags, pk.keepalive_max, pk.client_id),
-	};
+	local parts = buffer.new();
+	parts:put "\x06\x00MQIsdp";
+	parts:put(string.char(
+		3, flags,
+		pk.keepalive_max >> 8, pk.keepalive_max & 0xFF,
+		#pk.client_id >> 8, #pk.client_id & 0xFF
+	));
+	parts:put(pk.client_id);
 
 	if pk.will then
-		parts[#parts + 1] = string.pack("!1> s2 s2", pk.will.topic, pk.will.msg);
+		parts:put(string.char(#pk.will.topic >> 8, #pk.will.topic), pk.will.topic);
+		parts:put(string.char(#pk.will.msg >> 8, #pk.will.msg), pk.will.msg);
 	end
 	if pk.username then
-		parts[#parts + 1] = string.pack("!1> s2", pk.username);
+		parts:put(string.char(#pk.username >> 8, #pk.username), pk.username);
 	end
 	if pk.password then
-		parts[#parts + 1] = string.pack("!1> s2", pk.password);
+		parts:put(string.char(#pk.password >> 8, #pk.password), pk.password);
 	end
 
 	return pk_wrap(1, 0, parts);
 end
 function writers.ack(pk)
-	return pk_wrap(2, 0, { string.pack("!1> I1 I1", 0, pk.code or 0) });
+	return pk_wrap(2, 0, string.char(0, pk.code or 0));
 end
 function writers.publish(pk)
 	local flags = ((pk.qos or 0) & 3) << 1;
 	if pk.retain then flags = flags | 1 end
 	if pk.dup then flags = flags | 8 end
 
-	return pk_wrap(3, flags, { string.pack("!1> s2 I2", pk.topic, pk.id), pk.data });
+	return pk_wrap(3, flags,
+		string.char(#pk.topic >> 8, #pk.topic & 0xFF) .. pk.topic ..
+		string.char(pk.id >> 8, pk.id & 0xFF) ..
+		pk.data
+	);
 end
 function writers.puback(pk)
-	return pk_wrap(4, 2, { string.pack("!1> I2", pk.id) });
+	return pk_wrap(4, 2, string.char(pk.id >> 8, pk.id & 0xFF));
 end
 function writers.pubrec(pk)
-	return pk_wrap(5, 0, { string.pack("!1> I2", pk.id) });
+	return pk_wrap(5, 0, string.char(pk.id >> 8, pk.id & 0xFF));
 end
 function writers.pubrel(pk)
-	return pk_wrap(6, 0, { string.pack("!1> I2", pk.id) });
+	return pk_wrap(6, 0, string.char(pk.id >> 8, pk.id & 0xFF));
 end
 function writers.pubcomp(pk)
-	return pk_wrap(7, 0, { string.pack("!1> I2", pk.id) });
+	return pk_wrap(7, 0, string.char(pk.id >> 8, pk.id & 0xFF));
 end
 function writers.subscribe(pk)
-	local parts = { string.pack("!1> I2", pk.id) };
+	local parts = buffer.new();
+	parts:put(string.char(pk.id >> 8, pk.id & 0xFF));
 
 	for i = 1, #pk.topics do
-		parts[i + 1] = string.pack("!1> s2 I1", pk.topics[i].name, pk.topics[i].qos);
+		parts:put(string.char(#pk.topics[i].name >> 8, #pk.topics[i].name & 0xFF), pk.topics[i].name, string.char(pk.topics[i].qos));
 	end
 
 	return pk_wrap(8, 2, parts);
 end
 function writers.suback(pk)
-	local parts = { string.pack("!1> I2", pk.id) };
+	local parts = buffer.new();
+	parts:put(string.char(pk.id >> 8, pk.id & 0xFF));
 
 	for i = 1, #pk.topics do
-		parts[i + 1] = string.pack("!1> I1", pk.granted_qos[i]);
+		parts:put(string.char(pk.granted_qos[i]));
 	end
 
 	return pk_wrap(9, 0, parts);
 end
 function writers.unsubscribe(pk)
-	local parts = { string.pack("!1> I2", pk.id) };
+	local parts = buffer.new();
+	parts:put(string.char(pk.id >> 8, pk.id & 0xFF));
 
 	for i = 1, #pk.topics do
-		parts[i + 1] = string.pack("!1> s2", pk.topics[i]);
+		parts:put(string.char(#pk.topics[i] >> 8, #pk.topics[i] & 0xFF), pk.topics[i]);
 	end
 
 	return pk_wrap(10, 2, parts);
 end
 function writers.unsuback(pk)
-	return pk_wrap(11, 0, { string.pack("!1> I2", pk.id) });
+	return pk_wrap(11, 0, string.char(pk.id >> 8, pk.id & 0xFF));
 end
 function writers.pingreq()
-	return pk_wrap(12, 0, {});
+	return pk_wrap(12, 0, "");
 end
 function writers.pingresp()
-	return pk_wrap(13, 0, {});
+	return pk_wrap(13, 0, "");
 end
 function writers.disconnect()
-	return pk_wrap(14, 0, {});
+	return pk_wrap(14, 0, "");
 end
 
 local function write_packet(pk)

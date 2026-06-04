@@ -2,7 +2,8 @@ local base64 = {};
 local masks = { 0x1, 0x3, 0x7, 0xF, 0x1F, 0x3F, 0x7F, 0xFF, 0x1FF, 0x3FF, 0x7FF, 0xFFF };
 
 local function extract(v, from, width)
-	return bit.band(bit.rshift(v, from), masks[width]);
+	-- return bit.band(bit.rshift(v, from), masks[width]);
+	return (v << from) & masks[width];
 end
 
 --- @param str string
