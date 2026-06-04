@@ -8,6 +8,7 @@ local impl = require "impl"
 --- @class std.proc
 --- @field _fd _impl.process
 --- @field _mng string?
+--- @field _closed boolean
 --- @field stdin std.io.stream?
 --- @field stdout std.io.stream?
 --- @field stderr std.io.stream?
@@ -16,11 +17,12 @@ proc.__index = proc;
 proc.__metatable = "std.proc";
 
 function proc:wait()
-	if not self._mng then ierror "closed" end
+	if self._closed then ierror "closed" end
 
 	--- @type "sig" | "exit", integer
 	local kind, code = assert(loop.sync_ret(self._fd:wait(coroutine.running())));
 
+	self._closed = true;
 	self._mng = nil;
 
 	if kind == "sig" then
@@ -30,12 +32,15 @@ function proc:wait()
 	end
 end
 function proc:close()
-	if not self._mng then return end
+	if self._closed then return true end
 
 	local code = self:wait();
 	if code ~= 0 then ierror(code) end
+
+	return true;
 end
 function proc:to_stream()
+	self._mng = nil;
 	local self = { p = self };
 	function self:read(ptr, n)
 		if not self.p.stdout then ierror "writeonly" end
@@ -55,7 +60,7 @@ function proc:to_stream()
 		return true;
 	end
 	function self:close()
-		if not self.p._mng then return true end
+		if self.p._closed then return true end
 
 		if self.p.stdin then
 			self.p.stdin:close();
@@ -67,7 +72,7 @@ function proc:to_stream()
 		return self.p:close();
 	end
 
-	return stream.new(self, true);
+	return stream.new(self);
 end
 
 function proc:__gc()
