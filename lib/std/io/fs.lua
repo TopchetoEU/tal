@@ -28,7 +28,11 @@ function dir:read()
 	return iassert(loop.sync_ret(self.hnd:next(coroutine.running())));
 end
 function dir:iter()
-	return self.read, self;
+	return function (self)
+		local res = self:read();
+		if not res then self:close() end
+		return res;
+	end, self;
 end
 function dir:close()
 	if self.closed or self.hnd == nil then return end
