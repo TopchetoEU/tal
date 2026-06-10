@@ -8,12 +8,10 @@ local th = loop.fork(function ()
 	while not kys do
 		while #queue > 0 do
 			local func, obj = table.unpack(table.remove(queue));
-			local th = loop.fork(function (func, obj)
+			loop.fork(function (func, obj)
 				local ok, err, trace = spcall(func, obj);
 				if not ok then eprint(err, trace, "in finalizer") end
 			end, func, obj);
-
-			loop.name(th, "Collector " .. tostring(obj));
 		end
 		queue_cond:wait();
 	end

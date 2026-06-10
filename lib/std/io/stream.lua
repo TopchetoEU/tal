@@ -29,9 +29,7 @@ stream.__metatable = "std.io.stream";
 
 --- @param self std.io.stream
 function stream:__gc()
-	if self._mngd then
-		self:close();
-	end
+	return self:close();
 end
 
 --- Reads raw data into the given buffers. Reads no more than buff_n
@@ -398,7 +396,7 @@ function stream.from_file(file)
 		return true;
 	end
 
-	return stream.new(self, true);
+	return stream.new(self);
 end
 --- @param str _impl.stream
 function stream.from_stream(str, mngd)
