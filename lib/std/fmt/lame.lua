@@ -242,7 +242,7 @@ return function (src)
 	local ok, j, res = spcall(parse_table, src, 1, nil);
 	if not ok then
 		if getmetatable(j) == "laml.error" then
-			return nil, j.msg, j.i;
+			ierror("lame error at " .. j.i .. ": " .. j.msg);
 		else
 			srethrow(j, res);
 		end
