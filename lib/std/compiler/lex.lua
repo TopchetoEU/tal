@@ -276,23 +276,21 @@ local op_map = {
 	[chars.brace_open] = lexer.operators.BRACE_OPEN,
 	[chars.brace_close] = lexer.operators.BRACE_CLOSE,
 };
-local tag = {};
+local err_meta = { __metatable = "lex.error" };
 
 --- @param loc node.loc
 --- @param msg string
 local function lex_error(loc, msg)
-	error({ [tag] = true, msg = msg, loc = loc }, 0);
+	error(setmetatable({ msg = msg, loc = loc }, err_meta), 0);
 end
 local function lex_pcall_fin(ok, ...)
 	if ok then return true, ... end
 	local err, trace = ...;
-	if type(err) == "table" and err[tag] then return false, err end
+	if getmetatable(err) == "lex.error" then return false, err end
 	errors.srethrow(err, trace);
 end
 local function lex_pcall(f, ...)
-	return lex_pcall_fin(errors.sxpcall(f, function (err, traceback)
-		return err, type(err) == "table" and err[tag] and true or traceback;
-	end, ...));
+	return lex_pcall_fin(errors.spcall(f, ...));
 end
 
 --- @class lex.str: lex.tok_base
@@ -481,11 +479,13 @@ local function parse_fract(ctx, i)
 	local j = i;
 	local res = 0.;
 	local any = false;
+	local exp = 1;
 
 	while true do
 		local c = ctx.src[j];
 		if c >= chars.zero and c <= chars.nine then
-			res = (res + c - chars.zero) / 10;
+			res = res * 10 + c - chars.zero;
+			exp = exp * 10;
 			any = true;
 		elseif c ~= chars.underscore then
 			break;
@@ -495,7 +495,7 @@ local function parse_fract(ctx, i)
 	end
 
 	if not any then return i end
-	return j, res;
+	return j, res / exp;
 end
 --- @param i integer
 local function parse_bin(ctx, i)
@@ -686,6 +686,7 @@ local function parse_number(ctx, i)
 				exp = exp * a;
 			end
 			a = a * 10;
+			e = math.floor(e / 2);
 		end
 	end
 
@@ -839,5 +840,8 @@ function lexer.parse(src, strip)
 	if not ok then return nil, res.msg, res.loc end
 	return res;
 end
+
+lexer.parse_number = parse_number;
+lexer.parse_string = parse_string;
 
 return lexer;
