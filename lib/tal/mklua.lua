@@ -1,4 +1,4 @@
-local argp = require "std.fmt.argp";
+local argp = require "std.argp";
 local ffi = require "ffi";
 local lex = require "std.compiler.lex";
 local mapping = require "std.debug.mapping";

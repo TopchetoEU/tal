@@ -1,6 +1,5 @@
 local loop = require "std.loop";
 local stream = require "std.io.stream";
-local field = require "std.field";
 local collected = require "std.collected";
 local path = require "std.path";
 local impl = require "impl"
@@ -122,7 +121,7 @@ return function (opts)
 		end
 	end
 
-	local res = iassert(loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr)));
+	local res = iassert(loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks)));
 
 	local self = setmetatable(collected({
 		_fd = res.proc,

@@ -1,5 +1,4 @@
 local ffi = require "nat.ffi";
-local prop = require "std.field";
 local objects = require "nat.utils.objects";
 local libc = require "nat.libc";
 
@@ -249,7 +248,8 @@ ev_code_t ev_proc_spawn(
 	const char *cwd,
 	ev_spawn_stdio_flags_t in_flags, ev_handle_t *pin,
 	ev_spawn_stdio_flags_t out_flags, ev_handle_t *pout,
-	ev_spawn_stdio_flags_t err_flags, ev_handle_t *perr
+	ev_spawn_stdio_flags_t err_flags, ev_handle_t *perr,
+	int windowssucks // see ev.h for real name, fuck microslop
 );
 // Equivalent to posix's waitpid
 // psig is set to the signal that terminated the child, or -1 if not terminated by a signal
@@ -348,8 +348,6 @@ void evs_sleep(ev_time_t time);
 ev_code_t evs_sig_wait(ev_signo_t *pres);
 ]];
 
-local ev_cbs = prop();
-
 --- @class ev.handle: ffi.cdata*
 --- @class ev.file: ev.handle
 --- @class ev.server: ffi.cdata*
@@ -361,10 +359,8 @@ local ev_cbs = prop();
 --- @class ev: ffi.cdata*
 local ev = {};
 ev.__index = ev;
-function ev:__gc()
-	libev.ev_free(self);
-end
-ev._ctype = ffi.metatype("struct ev", ev);
+ev.__metatable = "libev.ev";
+local ev_type = ffi.metatype("struct ev", ev);
 
 --- @param func function
 --- @param self ev
@@ -394,6 +390,10 @@ end
 
 local function ev_numify_time(time)
 	return assert(tonumber(time.sec)) + assert(tonumber(time.sec)) / 1000000000;
+end
+
+function ev:__gc()
+	libev.ev_free(self);
 end
 
 function ev:busy()
@@ -858,10 +858,11 @@ end
 --- @param stdin? "pipe" | "inherit"
 --- @param stdout? "pipe" | "inherit"
 --- @param stderr? "pipe" | "inherit"
+--- @param windowssucks? boolean Usually always true, but set this only when spawning a cmd /c command process
 --- @return boolean sync
 --- @return { proc: ev.proc, stdin?: ev.handle, stdout?: ev.handle, stderr?: ev.handle }?
 --- @return string? err
-function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
+function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr, windowssucks)
 	local in_flag, out_flag, err_flag;
 
 	local ctx = {
@@ -921,7 +922,7 @@ function ev:proc_spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 	out_flag, ctx.pout = proc_fix_stdarg(stdout);
 	err_flag, ctx.perr = proc_fix_stdarg(stderr);
 
-	return ev_sync_call(libev.ev_proc_spawn, self, ctx, ctx.pres, ctx.argv, ctx.envp, cwd, in_flag, ctx.pin, out_flag, ctx.pout, err_flag, ctx.perr);
+	return ev_sync_call(libev.ev_proc_spawn, self, ctx, ctx.pres, ctx.argv, ctx.envp, cwd, in_flag, ctx.pin, out_flag, ctx.pout, err_flag, ctx.perr, windowssucks and 1 or 0);
 end
 --- @param proc ev.proc
 --- @return boolean sync
@@ -1018,7 +1019,6 @@ end
 --- @return ev
 function ev.new()
 	local self = libev.ev_init();
-	ev_cbs:set(self, {});
 	return self;
 end
 
@@ -1077,6 +1077,10 @@ function ev.getenv(name)
 	local code = libev.evs_getenv(name, pres);
 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
 
+	if pres[0] == ffi.cast("void*", 0) then
+		return nil;
+	end
+
 	local res = ffi.string(pres[0]);
 	libc.free(pres[0]);
 	return res;
@@ -1093,13 +1097,16 @@ end
 --- @return string? pair
 --- @return string? err
 function ev.nextenv(pit)
-	local pres = ffi.new "char *[1]";
+	local pres = ffi.new "const char *[1]";
 
 	local code = libev.evs_nextenv(pit, pres);
 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)) end
 
+	if pres[0] == ffi.cast("void*", 0) then
+		return nil;
+	end
+
 	local res = ffi.string(pres[0]);
-	libc.free(pres[0]);
 	return res;
 end
 function ev.iterenv()

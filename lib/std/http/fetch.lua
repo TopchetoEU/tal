@@ -1,4 +1,4 @@
-local url = require "std.fmt.url";
+local url = require "std.http.url";
 local net = require "std.io.net";
 local headers = require "std.http.headers";
 local http = require "std.http";

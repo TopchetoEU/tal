@@ -1,5 +1,5 @@
 local path = require "std.path";
-local argp = require "std.fmt.argp";
+local argp = require "std.argp";
 local cli = {};
 
 function cli.stacktrace_call(func, ...)
