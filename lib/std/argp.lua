@@ -1,4 +1,4 @@
---- @class argp
+--- @class std.argp
 --- @field noopt boolean If true, treats all arguments as plain arguments, even if prefixed by a dash. false by default
 --- @field ddash boolean If true, when -- is encountered sets noopt to true. true by default
 --- @field pending string[] A list of single-dash arguments that are yet to be taken by :next()
@@ -7,7 +7,7 @@
 --- @field [integer] string
 local argp = {};
 argp.__index = argp;
-argp.__metatable = "std.fmt.argp";
+argp.__metatable = "std.argp";
 
 function argp:has()
 	return self.i <= #self;

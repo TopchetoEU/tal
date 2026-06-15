@@ -1,4 +1,5 @@
 local has_dbg, dbg = pcall(require, "lldebugger");
+local printing = require "std.printing";
 
 return function (entry_mod, ...)
 	require "ffi";
@@ -26,7 +27,7 @@ return function (entry_mod, ...)
 		require = package.require;
 		package.env = env;
 
-		require "std.globals";
+		require "std.basic.globals";
 		local loop = require "std.loop";
 		local fs = require "std.io.fs";
 		local ffi = require "nat.ffi";
@@ -58,7 +59,7 @@ return function (entry_mod, ...)
 		if not ok then srethrow(err, trace) end
 	end, ...);
 
-	if not ok then env.eprint(err, trace, nil, function (...)
+	if not ok then printing.eprint(err, trace, nil, function (...)
 		return stderr:write(...);
 	end) end
 end

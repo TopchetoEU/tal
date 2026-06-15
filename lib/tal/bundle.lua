@@ -1,6 +1,6 @@
-local argp = require "std.fmt.argp";
+local argp = require "std.argp";
 local mklua = require "tal.mklua";
-local spawn = require "std.proc";
+local spawn = require "std.os.proc";
 local ffi = require "ffi";
 
 local help_msg = [[tal bundle by TopchetoEU

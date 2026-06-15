@@ -1,8 +1,6 @@
 local ffi = require "ffi";
 local field = require "std.field";
-local libev = require "nat.libev";
 local objects = require "nat.utils.objects";
-local callbacks = require "nat.utils.callbacks";
 
 local libssl = ffi.load "ssl";
 ffi.cdef [[
@@ -61,15 +59,14 @@ local ssl_field = field();
 local ssl = {};
 
 --- @class nat.libssl.ssl_ctx: ffi.cdata*
-local ssl_ctx_index = {};
-local ssl_ctx_meta = { __index = ssl_ctx_index };
+local ssl_ctx = {};
+ssl_ctx. __index = ssl_ctx;
+ssl_ctx. __metatable = "libssl.ssl_ctx";
+local ssl_ctx_type = ffi.metatype("SSL_CTX", ssl_ctx);
 
-function ssl_ctx_meta:__gc()
+function ssl_ctx:__gc()
 	libssl.SSL_CTX_free(self);
 end
-
-local ssl_ctx_type = ffi.metatype("SSL_CTX", ssl_ctx_meta);
-
 
 --- @return nat.libssl.ssl_ctx
 function ssl.new_ctx()
@@ -78,14 +75,14 @@ end
 
 --- @class nat.libssl.bio: ffi.cdata*
 local bio_index = {};
-local bio_meta = { __index = bio_index };
+bio_index. __index = bio_index;
+bio_index. __metatable = "libssl.bio";
+local bio_type = ffi.metatype("BIO", bio_index);
 
-function bio_meta:__gc()
+function bio_index:__gc()
 	print("FREE BIO META");
 	return libssl.BIO_free(self);
 end
-
-local bio_type = ffi.metatype("BIO", bio_meta);
 
 --- @param n integer
 --- @param ptr ffi.cdata*
@@ -119,37 +116,36 @@ end
 
 --- @class nat.libssl.x509: ffi.cdata*
 local x509_index = {};
+x509_index.__index = x509_index;
+x509_index.__metatable = "libssl.x509";
+local x509_type = ffi.metatype("X509", x509_index);
 
-local x509_meta = { __index = x509_index };
-
-function x509_meta:__gc()
+function x509_index:__gc()
 	print("FREE X509");
 	return libssl.X509_free(self);
 end
 
-local x509_type = ffi.metatype("X509", x509_meta);
-
 --- @class nat.libssl.pkey: ffi.cdata*
 local pkey_index = {};
-local pkey_meta = { __index = pkey_index };
+pkey_index.__index = pkey_index;
+pkey_index.__metatable = "libssl.pkey";
+local pkey_type = ffi.metatype("EVP_PKEY", pkey_index);
 
-function pkey_meta:__gc()
+function pkey_index:__gc()
 	print("FREE PKEY");
 	return libssl.EVP_PKEY_free(self);
 end
 
-local pkey_type = ffi.metatype("EVP_PKEY", pkey_meta);
-
 --- @class nat.libssl.ssl: ffi.cdata*
 local ssl_index = {};
-local ssl_meta = { __index = ssl_index };
+ssl_index.__index = ssl_index;
+ssl_index.__metatable = "libssl.ssl";
+local ssl_type = ffi.metatype("SSL", ssl_index);
 
-function ssl_meta:__gc()
+function ssl_index:__gc()
 	print("FREE SSL");
 	return libssl.SSL_free(self);
 end
-
-local ssl_type = ffi.metatype("SSL", ssl_meta);
 
 function ssl_index:get_error(code)
 	return tonumber(libssl.SSL_get_error(self, code));
@@ -184,19 +180,6 @@ end
 --- @param key nat.libssl.pkey
 function ssl_index:use_key(key)
 	return libssl.SSL_use_PrivateKey(self, key);
-end
-
---- @param ev ev
---- @param pn ffi.cdata*
---- @param ptr ffi.cdata*
-function ssl_index:async_read(ev, cb, pn, ptr)
-	return ev:exec(cb, libssl.SSL_read_ex, "i****", ffi.typeof "int", self, ptr, ffi.cast("void*", pn[0]), ffi.cast("void*", pn));
-end
---- @param ev ev
---- @param pn ffi.cdata*
---- @param ptr ffi.cdata*
-function ssl_index:async_write(ev, cb, pn, ptr)
-	return ev:exec(cb, libssl.SSL_write_ex, "i****", ffi.typeof "int", self, ptr, ffi.cast("size_t", pn[0]), ffi.cast("size_t*", pn));
 end
 
 --- @param n integer
