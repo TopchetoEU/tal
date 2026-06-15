@@ -1,6 +1,4 @@
-local lex = require "std.compiler.lex"
-local ffi = require "nat.ffi"
--- Parses a stripped down, lua-adopted YAML variant
+-- Parses a stripped down, lua-adopted YAML variant (thusly named, lame)
 -- Syntax differences with YAML:
 -- - no {} and [] literals
 -- - only string, number, bool and nil literals allowed
@@ -10,6 +8,10 @@ local ffi = require "nat.ffi"
 -- - numeric and boolean keys may be used, also allowed in lua
 -- - comments are a '#', which ignores itself and everything after it until the end of the line
 -- - relaxed, python-like indentation rules
+
+
+local lex = require "std.compiler.lex";
+local ffi = require "nat.ffi";
 
 local err_meta = { __metatable = "laml.error" };
 local function throw(i, msg)
