@@ -86,7 +86,9 @@ end
 
 --- @param task thread
 function loop.push(task, ...)
-	table.insert(tasks, { cb = task, n = select("#", ...), ... });
+	local pack = table.pack(...);
+	pack.cb = task;
+	table.insert(tasks, pack);
 end
 function loop.rest()
 	loop.push((coroutine.running()));
@@ -151,7 +153,10 @@ function loop.wait_until(ts, cb, ...)
 		end
 	end
 
-	table.insert(sleeps, f, { time = ts, cb = cb, n = select("#", ...), ... });
+	local pack = table.pack(...);
+	pack.cb = cb;
+	pack.time = ts;
+	table.insert(sleeps, f, pack);
 
 	return false;
 end
