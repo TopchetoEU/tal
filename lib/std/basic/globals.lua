@@ -38,13 +38,29 @@ srethrow = err.srethrow;
 
 debug = require "std.debug";
 io = require "std.io";
+os = require "std.os";
 jit = require "jit";
 bit = require "bit";
 string = require "std.string";
+number = require "std.basic.number";
+boolean = require "std.basic.boolean";
+coroutine = require "std.basic.coroutine";
+require "std.basic.nil";
+require "std.basic.function";
+
+package.loaded.io = io;
+package.loaded.os = os;
+package.loaded.debug = debug;
+package.loaded.string = string;
+package.loaded.coroutine = coroutine;
 
 table.clear = require "table.clear";
 table.new = require "table.new";
 table.unpack = unpack or table.unpack;
+
+function table.pack(...)
+	return { n = select("#", ...), ... };
+end
 
 function loadfile(filename, mode, env)
 	return load(io.lines(filename, "c"), "@" .. filename, mode, env);
@@ -53,8 +69,7 @@ function loadstring(str, mode, env)
 	return load(str, str, mode, env);
 end
 function dofile(filename, mode, env)
-	local res = assert(loadfile(filename, mode, env));
-	return res();
+	return iassert(loadfile(filename, mode, env))();
 end
 
 return _G;
