@@ -5,8 +5,9 @@ local ev_dir = require "impl.libev.ev_dir";
 local ev_server = require "impl.libev.ev_server";
 local ev_handle = require "impl.libev.ev_handle";
 local ev_iterenv = require "impl.libev.ev_iterenv";
-local process_args = require "impl.libev.process_args"
-local ev_proc = require "impl.libev.ev_proc"
+local process_args = require "impl.libev.process_args";
+local ev_proc = require "impl.libev.ev_proc";
+local errors = require "std.errors";
 
 --- @class impl.ev_impl: _impl
 --- @field ev ev
@@ -107,17 +108,18 @@ end
 function ev_impl:getpath(type)
 	return assert(self.ev.getpath(type));
 end
+--- @return string?
 function ev_impl:getenv(name)
-	return assert(self.ev.getenv(name));
+	return errors.iassert(self.ev.getenv(name));
 end
 function ev_impl:setenv(name, val)
-	return assert(self.ev.setenv(name, val));
+	return errors.iassert(self.ev.setenv(name, val));
 end
 function ev_impl:iterenv()
 	return ev_iterenv(self.ev);
 end
 
-function ev_impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr)
+function ev_impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr, windowssucks)
 	return self.ev:proc_spawn(process_args.wrap_udata(udata, function (res, err)
 		if res then
 			res.proc = ev_proc(self.ev, res.proc --[[@as ev.proc]]);
@@ -127,7 +129,7 @@ function ev_impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr)
 		end
 
 		return res, err;
-	end), argv, env, cwd, stdin, stdout, stderr);
+	end), argv, env, cwd, stdin, stdout, stderr, windowssucks);
 end
 
 function ev_impl:sig_on(sig)
