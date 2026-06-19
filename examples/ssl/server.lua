@@ -5,7 +5,7 @@ local pipe = require "std.sync.pipe";
 local utils = require "examples.ssl.utils";
 local net = require "std.io.net";
 local json = require "std.fmt.json";
-local argp = require "std.fmt.argp";
+local argp = require "std.argp";
 
 return function (...)
 	local argv = argp.new(...);

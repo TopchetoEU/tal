@@ -3,7 +3,7 @@ local loop = require "std.loop";
 local utils = require "examples.ssl.utils";
 local json = require "std.fmt.json";
 local net = require "std.io.net";
-local argp = require "std.fmt.argp";
+local argp = require "std.argp";
 
 return function (...)
 	local argv = argp.new(...);

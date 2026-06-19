@@ -1,7 +1,7 @@
 -- Demonstrates tal's concurrent capabilities
 
 local loop = require "std.loop";
-local time = require "std.time";
+local time = require "std.os.time";
 
 return function ()
 	loop.fork(function ()

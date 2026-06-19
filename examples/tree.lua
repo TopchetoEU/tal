@@ -3,7 +3,7 @@
 
 local fs = require "std.io.fs";
 local path = require "std.path";
-local time = require "std.time";
+local time = require "std.os.time";
 local buffer = require "string.buffer";
 
 -- local f = assert(io.open("test.txt", "w"));
