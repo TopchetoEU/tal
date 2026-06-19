@@ -1,7 +1,7 @@
 local headers = require "std.http.headers";
 local fetch = require "std.http.fetch";
 local io = require "std.io";
-local argp = require "std.fmt.argp"
+local argp = require "std.argp";
 
 return function (...)
 	local url;
