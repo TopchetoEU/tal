@@ -20,18 +20,13 @@ function errors.error(msg, level)
 	end
 
 	local info = debug.getinfo(level + 1, "Sl");
+	local loc = debug.readableloc(info);
 
-	if info and info.what == "Lua" then
-		if info.currentcol and info.currentcol > 0 then
-			return real_error(info.short_src .. ":" .. info.currentline .. ":" .. info.currentcol .. ": " .. msg, 0);
-		elseif info.currentline and info.currentline > 0 then
-			return real_error(info.short_src .. ":" .. info.currentline .. ": " .. msg, 0);
-		else
-			return real_error(info.short_src .. ": " .. msg, 0);
-		end
+	if loc then
+		return real_error(loc .. ": " .. msg, 0);
+	else
+		return real_error(msg, 0);
 	end
-
-	return real_error(msg, 0);
 end
 --- @generic T
 --- @param val T | nil | false

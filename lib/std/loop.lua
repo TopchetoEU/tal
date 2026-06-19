@@ -1,5 +1,6 @@
 local impl = require "impl";
-local errors = require "std.errors"
+local errors = require "std.errors";
+local debug = require "std.debug";
 
 local loop = {};
 
