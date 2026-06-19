@@ -132,6 +132,51 @@ function debug.getinfo(...)
 
 	return info;
 end
+--- @param info debuginfo
+function debug.readableloc(info)
+	if info.short_src and info.what ~= "C" then
+		local curr;
+
+		if info.source:find "^[@=]" then
+			curr = info.source:sub(2);
+		else
+			curr = info.short_src;
+		end
+
+		if info.currentline >= 0 then
+			curr = curr .. ":" .. info.currentline;
+
+			if info.currentcol then
+				curr = curr .. ":" .. info.currentcol;
+			end
+		end
+
+		return curr;
+	end
+
+	return nil;
+end
+--- @param info debuginfo
+function debug.readabletrace(info)
+	local res = {};
+
+	local loc = debug.readableloc(info);
+	if loc then
+		table.insert(res, "at " .. loc)
+	end
+
+	if info.what == "main" then
+		table.insert(res, "in main chunk");
+	elseif info.name then
+		table.insert(res, "in " .. info.name);
+	end
+
+	if #res == 0 then
+		return nil;
+	else
+		return table.concat(res, " ");
+	end
+end
 function debug.traceback(...)
 	local th, msg, lvl = fix_args(...);
 
@@ -151,36 +196,7 @@ function debug.traceback(...)
 		local info = debug.getinfo(th or coroutine.running(), lvl, "Snl");
 		if not info then break end
 
-		local curr = "";
-
-		if info.short_src and (info.what == "Lua" or info.what == "main") then
-			if info.source:find "^[@=]" then
-				curr = curr .. "in " .. info.source:sub(2);
-			else
-				curr = curr .. "in " .. info.short_src;
-			end
-		end
-
-		if info.currentline >= 0 then
-			curr = curr .. ":" .. info.currentline;
-			if info.currentcol then
-				curr = curr .. ":" .. info.currentcol;
-			end
-		end
-
-		if info.name and info.name ~= "main" then
-			if curr == "" then
-				curr = "at " .. info.name;
-			else
-				curr = curr .. " at " .. info.name;
-			end
-		end
-
-		if curr == "" then
-			res:put("\n\t<internal>");
-		else
-			res:put("\n\t", curr);
-		end
+		res:put("\n\t", debug.readabletrace(info) or "<internal>");
 
 		if info.istailcall then
 			res:put("\n\t(...tail calls)");

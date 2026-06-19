@@ -4,6 +4,7 @@ require "std.string";
 local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
 local roots = require "std.package.roots";
+local errors = require "std.errors";
 
 --- @class packagelib
 local package = {
@@ -95,7 +96,7 @@ function package.require(name)
 		package.loaded[name] = res;
 		return res, data;
 	else
-		return error(data, 1);
+		return errors.error(data);
 	end
 end
 
