@@ -19,6 +19,7 @@ local int_libs = {
 	table = true,
 	ffi = true,
 	jit = true,
+	bit = true,
 	["table.clear"] = true,
 	["table.new"] = true,
 	["string.buffer"] = true,
