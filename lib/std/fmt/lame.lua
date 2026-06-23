@@ -25,7 +25,7 @@ local parse_table;
 local function skip_white(src, i)
 	local j = i;
 
-	j = src:match("^[ \t]*()", j) --[[@as integer]];
+	j = src:match("^[ \r\t]*()", j) --[[@as integer]];
 
 	if src:sub(j, j) == "#" then
 		j = j + 1;
@@ -36,6 +36,19 @@ local function skip_white(src, i)
 end
 --- @param src string
 --- @param i integer
+local function parse_eol(src, i)
+	local j = i;
+
+	j = skip_white(src, j);
+
+	if src:sub(j, j) == "\n" or j > #src then
+		return j, true;
+	else
+		return i;
+	end
+end
+--- @param src string
+--- @param i integer
 --- @param prefix? string
 local function parse_indent(src, i, prefix, forced)
 	local j = i;
@@ -43,7 +56,7 @@ local function parse_indent(src, i, prefix, forced)
 	local bad_i = j;
 
 	while true do
-		curr_indent = src:match("^[ \t]*", j) or "";
+		curr_indent = src:match("^[ \r\t]*", j) or "";
 		bad_i = j;
 		j = j + #curr_indent;
 
@@ -80,7 +93,9 @@ end
 
 --- @param src string
 --- @param i integer
-local function parse_str(src, i)
+--- @param eol boolean
+--- @return integer, string?
+local function parse_str(src, i, eol)
 	local j = i;
 
 	-- Avoid parsing lua-style [[...]] literals
@@ -96,11 +111,22 @@ local function parse_str(src, i)
 		end
 	end
 
-	return j + 1, res;
+	j = j + 1;
+	if not res then return i end
+
+	if eol then
+		local eol;
+		j, eol = parse_eol(src, j);
+		if not eol then return i end
+	end
+
+	return j, res;
 end
 --- @param src string
 --- @param i integer
-local function parse_num(src, i)
+--- @param eol boolean
+--- @return integer, number?
+local function parse_num(src, i, eol)
 	local j = i;
 
 	local mul = 1;
@@ -119,9 +145,16 @@ local function parse_num(src, i)
 		end
 	end
 
+	j = j + 1;
 	if not val then return i end
 
-	return j + 1, val * mul;
+	if eol then
+		local eol;
+		j, eol = parse_eol(src, j);
+		if not eol then return i end
+	end
+
+	return j , val * mul;
 end
 --- @param src string
 --- @param i integer
@@ -155,10 +188,10 @@ local function parse_words(src, i, badwords)
 	return j, true, res;
 end
 local function parse_key(src, i)
-	local j, str = parse_str(src, i);
+	local j, str = parse_str(src, i, false);
 	if str then return j, true, str end
 
-	local j, num = parse_num(src, i);
+	local j, num = parse_num(src, i, false);
 	if num then return j, true, num end
 
 	local j, ok, word = parse_words(src, i, ":");
@@ -167,10 +200,10 @@ local function parse_key(src, i)
 	return i;
 end
 local function parse_val(src, i, indent)
-	local j, str = parse_str(src, i);
+	local j, str = parse_str(src, i, true);
 	if str then return j, true, str end
 
-	local j, num = parse_num(src, i);
+	local j, num = parse_num(src, i, true);
 	if num then return j, true, num end
 
 	local j, ok, word = parse_words(src, i, "");
@@ -202,7 +235,7 @@ function parse_table(src, i, indent)
 		local ok, key, val;
 
 		if src:sub(j, j) == "-" then
-			j, key = parse_num(src, j);
+			j, key = parse_num(src, j, false);
 			if key then
 				j = skip_white(src, j);
 
