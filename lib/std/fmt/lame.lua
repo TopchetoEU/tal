@@ -139,7 +139,7 @@ local function parse_num(src, i, eol)
 	local ok, j, kind, val = spcall(lex.parse_number, { lines = { 1 }, n = i, src = ffi.cast("char*", src) }, j - 1);
 	if not ok then
 		if getmetatable(j) == "lex.error" then
-			throw(i, j.msg);
+			return i, nil;
 		else
 			srethrow(j, kind);
 		end
@@ -275,7 +275,7 @@ return function (src)
 	local ok, j, res = spcall(parse_table, src, 1, nil);
 	if not ok then
 		if getmetatable(j) == "laml.error" then
-			ierror("lame error at " .. j.i .. ": " .. j.msg);
+			ierror("lame error at " .. j.i .. " (around " .. src:sub(j.i, j.i + 25) .. "): " .. j.msg);
 		else
 			srethrow(j, res);
 		end
