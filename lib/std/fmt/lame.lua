@@ -1,14 +1,15 @@
--- Parses a stripped down, lua-adopted YAML variant (thusly named, lame)
+-- Parses a stripped down, lua-adopted YAML variant (thusly named, lame, as lame is quite lame)
 -- Syntax differences with YAML:
 -- - no {} and [] literals
 -- - only string, number, bool and nil literals allowed
 -- - string literals may be of the form "text", 'text', text (if not a keyword)
--- - multiline literals may be prefixed with > (removes indentation parts, DOES NOT INSERT SPACES BETWEEN LINES) or | (emits all indentation)
+-- - two multiline literals exist: > and |
+--    - > treats every line like a word, replaces lines with spaces
+--    - | takes the next block as raw data, only removes indentation prefix
 -- - an object may be a mix of list and key entries, which is also allowed in lua
 -- - numeric and boolean keys may be used, also allowed in lua
 -- - comments are a '#', which ignores itself and everything after it until the end of the line
 -- - relaxed, python-like indentation rules
-
 
 local lex = require "std.compiler.lex";
 local ffi = require "nat.ffi";
@@ -34,6 +35,41 @@ local function skip_white(src, i)
 
 	return j;
 end
+local function skip_blanks(src, i)
+	local j = i;
+
+	while true do
+		local next_j = skip_white(src, j);
+
+		if next_j > #src then return next_j end
+		if src:sub(next_j, next_j) ~= "\n" then break end
+		j = next_j + 1;
+	end
+
+	return j;
+end
+--- @param src string
+--- @param i integer
+--- @param indent string
+local function skip_indent(src, i, indent)
+	local j = skip_blanks(src, i);
+	local curr = src:match("^[ \t]*", j);
+
+	if #curr >= #indent then
+		if curr:sub(1, #indent) ~= indent then
+			throw(j - #curr, "inconsistent indentation");
+		end
+
+		return j + #indent, indent;
+	else
+		if curr ~= indent:sub(1, #curr) then
+			throw(j - #curr, "inconsistent indentation");
+		end
+
+		return j, nil;
+	end
+end
+
 --- @param src string
 --- @param i integer
 local function parse_eol(src, i)
@@ -50,45 +86,27 @@ end
 --- @param src string
 --- @param i integer
 --- @param prefix? string
-local function parse_indent(src, i, prefix, forced)
-	local j = i;
-	local curr_indent;
-	local bad_i = j;
-
-	while true do
-		curr_indent = src:match("^[ \r\t]*", j) or "";
-		bad_i = j;
-		j = j + #curr_indent;
-
-		if src:sub(j, j) == "#" then
-			j = j + 1;
-			j = src:match("^[^\n]*()", j) --[[@as integer]];
-		end
-
-		if src:sub(j, j) ~= "\n" then break end
-		j = j + 1;
-	end
+local function parse_indent(src, i, prefix)
+	local j = skip_blanks(src, i);
+	local curr = src:match("^[ \t]*", j);
 
 	if prefix then
-		if #curr_indent > #prefix then
-			if curr_indent:sub(1, #prefix) ~= prefix then
-				throw(j - #curr_indent, "inconsistent indentation");
-			end
-		else
-			if curr_indent ~= prefix:sub(1, #curr_indent) then
-				throw(j - #curr_indent, "inconsistent indentation");
+		if #curr > #prefix then
+			if curr:sub(1, #prefix) ~= prefix then
+				throw(j - #curr, "inconsistent indentation");
 			end
 
-			-- We exit with a failure, as we have read a conforming, yet shorter indentation
-			return bad_i, nil;
+			return j + #curr, curr;
+		else
+			if curr ~= prefix:sub(1, #curr) then
+				throw(j - #curr, "inconsistent indentation");
+			end
+
+			return j, nil;
 		end
 	end
 
-	if forced and curr_indent ~= forced then
-		return bad_i;
-	end
-
-	return j, curr_indent;
+	return j + #curr, curr;
 end
 
 --- @param src string
@@ -158,6 +176,61 @@ local function parse_num(src, i, eol)
 end
 --- @param src string
 --- @param i integer
+local function parse_multiline(src, i, prefix)
+	local j = i;
+	local parts = {};
+
+	local c = src:match("^[|>]", j);
+	if not c then return i end
+	j = j + 1;
+
+	local indent;
+	j, indent = parse_indent(src, j, prefix);
+	if not indent then return j, "" end
+
+	while true do
+		if j > #src then break end
+		local line = src:match("^[^\n]*", j);
+		j = j + #line;
+
+		if c == ">" then
+			line = line:match "^[ \t\r]*([^\n]-)[ \t\r]*$";
+
+			if #line > 0 then
+				table.insert(parts, line);
+			end
+		else
+			table.insert(parts, line);
+		end
+
+		if src:sub(j, j) ~= "\n" then break end
+		j = j + 1;
+
+		local ok = false;
+		while true do
+			local curr_indent = src:match("^[ \t\r]*", j);
+			if curr_indent:sub(1, #indent) == indent then
+				j = j + #indent;
+				ok = true;
+				break;
+			elseif src:sub(j + #curr_indent, j + #curr_indent) == "\n" then
+				j = j + #curr_indent + 1;
+				if c == "|" then
+					table.insert(parts, "");
+				end
+			else
+				ok = false;
+				break;
+			end
+		end
+
+		if not ok then break end
+	end
+
+	return j, table.concat(parts, c == "|" and "\n" or " ");
+end
+--- @param src string
+--- @param i integer
 local function parse_words(src, i, badwords)
 	local j = i;
 	local words = {};
@@ -188,6 +261,10 @@ local function parse_words(src, i, badwords)
 	return j, true, res;
 end
 local function parse_key(src, i)
+	if src:find("^%s", i) then
+		throw(i, "unexpected indentation");
+	end
+
 	local j, str = parse_str(src, i, false);
 	if str then return j, true, str end
 
@@ -206,6 +283,9 @@ local function parse_val(src, i, indent)
 	local j, num = parse_num(src, i, true);
 	if num then return j, true, num end
 
+	local j, ml_str = parse_multiline(src, i, indent);
+	if ml_str then return j, true, ml_str end
+
 	local j, ok, word = parse_words(src, i, "");
 	if ok then return j, true, word end
 
@@ -217,21 +297,20 @@ end
 
 --- @param src string
 --- @param i integer
---- @param indent? string
+--- @param prefix? string
 --- @return integer i
 --- @return table
-function parse_table(src, i, indent)
+function parse_table(src, i, prefix)
 	local j = i;
 
-	local enforced;
+	local indent;
 	local obj = {};
 	local n = 0;
 
-	while true do
-		j, enforced = parse_indent(src, j, indent, enforced);
-		if not enforced then break end
-		if j > #src then break end
+	j, indent = parse_indent(src, j, prefix);
+	if not indent then return i, obj end
 
+	while j <= #src do
 		local ok, key, val;
 
 		if src:sub(j, j) == "-" then
@@ -260,11 +339,14 @@ function parse_table(src, i, indent)
 
 		j = skip_white(src, j);
 
-		j, ok, val = parse_val(src, j, enforced);
+		j, ok, val = parse_val(src, j, indent);
 		if not ok then throw(j, "expected value") end
 
 		--- @diagnostic disable-next-line: need-check-nil
 		obj[key] = val;
+
+		j, ok = skip_indent(src, j, indent);
+		if not ok then break end
 	end
 
 	return j, obj;
@@ -275,7 +357,8 @@ return function (src)
 	local ok, j, res = spcall(parse_table, src, 1, nil);
 	if not ok then
 		if getmetatable(j) == "laml.error" then
-			ierror("lame error at " .. j.i .. " (around " .. src:sub(j.i, j.i + 25) .. "): " .. j.msg);
+			local around = src:sub(j.i, j.i + 25):gsub("[\r\t\n\"\\]", { ["\r"] = [[\r]], ["\t"] =[[\t]], ["\n"] = [[\n]], ["\""] = [[\"]], ["\\"] = [[\\]] });
+			ierror("lame error at " .. j.i .. " (around \"" .. around .. "\"): " .. j.msg);
 		else
 			srethrow(j, res);
 		end
