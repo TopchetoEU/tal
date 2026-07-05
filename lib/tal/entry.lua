@@ -59,7 +59,10 @@ return function (entry_mod, ...)
 		if not ok then srethrow(err, trace) end
 	end, ...);
 
-	if not ok then printing.eprint(err, trace, nil, function (...)
-		return stderr:write(...);
-	end) end
+	if not ok then
+		printing.eprint(err, trace, nil, function (...)
+			stderr:write(...);
+			stderr:write "\n";
+		end);
+	end
 end
