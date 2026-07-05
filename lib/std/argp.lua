@@ -36,6 +36,7 @@ function argp:pop()
 end
 
 --- Returns the remainder of the arguments
+--- @return string ...
 function argp:rest()
 	return table.unpack(self, self.i);
 end

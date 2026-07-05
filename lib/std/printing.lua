@@ -282,9 +282,7 @@ function printing.eprint(err, trace, reason, write)
 		table.insert(res, "\n" .. trace);
 	end
 
-	if not write then
-		(write or print)(table.concat(res));
-	end
+	(write or print)(table.concat(res));
 end
 
 return printing;
