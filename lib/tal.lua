@@ -23,26 +23,26 @@ require = package.require;
 local path = require "std.path";
 
 local function mkroots(root)
-	return { (path.join(root, "..")) }, { root };
+	return path.join(root, ".."), root;
 end
 
 local ffi = require "nat.ffi";
 
-local ffi_roots, lua_roots = mkroots(root);
-package.roots:add(lua_roots);
-ffi.roots:add(ffi_roots);
+local ffi_root, lua_root = mkroots(root);
+package.roots:insert(lua_root);
+ffi.roots:insert(ffi_root);
 
 -- Using new modules, use impl to get abs variants of root
 
 local cwd = assert(require "impl":getpath "cwd");
 root = path.cwd(cwd, root);
 
-package.roots:del(lua_roots);
-ffi.roots:del(ffi_roots);
+package.roots:delete(lua_root);
+ffi.roots:delete(ffi_root);
 
-ffi_roots, lua_roots = mkroots(root);
-package.roots:add(lua_roots);
-ffi.roots:add(ffi_roots);
+ffi_root, lua_root = mkroots(root);
+package.roots:insert(lua_root);
+ffi.roots:insert(ffi_root);
 
 package.path = package.overridepath(old_path, "@" .. sep .. "?.lua;@" .. sep .. "?" .. sep .."init.lua;;")
 

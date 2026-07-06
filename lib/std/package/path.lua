@@ -51,7 +51,7 @@ end
 --- @param path string
 --- @param sep? string
 --- @param rep? string
---- @param roots? std.package.roots
+--- @param roots? string[]
 --- @param func? fun(path: string): T?, string?
 --- @return T? filename
 --- @return string? errmsg
@@ -75,8 +75,8 @@ function package.search(name, path, sep, rep, roots, func)
 
 		if real_path:find "@" then
 			if roots then
-				for root in roots:iter() do
-					local res, err = func(real_path:gsub("@", root));
+				for i = 1, #roots do
+					local res, err = func(real_path:gsub("@", roots[i]));
 					if res then return res end
 					if err then table.insert(lines, err) end
 				end
