@@ -16,9 +16,24 @@ Additionally, `load`, `loadfile`, `loadstring`, `dofile`, `debug.traceback`, `de
 - Parenless parameterless function literal: `my_func begin stm1; stm2; stm3; end` <=> `my_func(function(...) stm1; stm2; stm3; end)`
 - `_ENV` to `getfenv` and `setfenv` translations
 
+## `table` methods
+
+Some much needed methods have been written into the global table lib:
+
+- `table.absindex(tab, i, def)` - Converts `i` to a bounded index inside `tab`. `def` is the default value, if `i` is `nil`. Works on strings as well.
+- `table.insertall(tab, other)` - Appends all entries of `other` to `tab`. Overload with index not yet implemented
+- `table.delete(tab, val, maxn, rev)` - Deletes at most `maxn` (by default 1, negatives are interpreted like `#tab - maxn`) elements in `tab`, equal to `val`. If `rev` is specified, searches from the opposite side
+- `table.deleteall(tab, other, maxn, rev)` - Executes `table.delete` on `tab` for each element of `other`. All semantics from `table.delete` apply
+- `table.find(tab, val, rev, first, last)` - Returns the index of `val` in `tab` between `first` (by default 1) and `last` (by default -1). If element is not found, returns `nil`.
+- `table.mk(tab)` - Equivalent to `setmetatable(tab, table)`
+
+NOTE: please use these only for small tables, as they get quite inefficient for more elements (hundreds and thousands). Eventually, a more efficient, but unordered `set` util, mirroring the `table` functions will be implemented.
+
+Also, `__index` and `__metatable` fields have been added to the table lib, so that it can serve as a metatable.
+
 ## Package roots
 
-The `package.searchpath` algorithm has been extended to interpret `@` as a replace spot for a set of "roots". When a package path segment contains `@`, it is replaced with every entry from `package.roots`, and for each resultant path, it is being tried as a file path.
+The `package.searchpath` algorithm has been extended to interpret `@` as a replace spot for a set of "roots". When a package path segment contains `@`, it is replaced with every element from `package.roots`, and for each resultant path, it is being tried as a file path.
 
 For example, for a path `@/?.lua;@/?/init.lua` and a root set of `test1` and `test2`, and a name of `module`, the list of tested files will be:
 
@@ -33,11 +48,7 @@ The same goes for the C module path resolution, as well as the FFI path resoluti
 - LUA_CROOTS - `package.croots`
 - FFI_ROOTS - `ffi.roots`
 
-Each of the abovementioned roots are an instance of `std.package.roots`, of which you can call the `add` and `del` functions, which respectively add or remove a root.
-
-*Why not `table.insert(package.roots, "my-root")`?*
-
-Because we want to gracefully handle the same root being added twice. The `std.package.roots` instance will keep each root at most once, and keeps a count of each root.
+Each of the above-mentioned roots are arrays of strings. They are created with `table.mk`, so you can use all `table.*` methods on them. In most cases, you probably want to use `roots:insert[all]` and `roots:delete[all]`.
 
 ## Package wildcards (TBD)
 

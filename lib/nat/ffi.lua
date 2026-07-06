@@ -62,7 +62,7 @@ ffi.apath = pkgpath.override(
 ffi.static = reg._FFI_STATIC or {};
 
 --- @type array<string>
-ffi.roots = table.newlist(reg._FFI_ROOTS or {});
+ffi.roots = table.mk(reg._FFI_ROOTS or {});
 for part in (os.getenv "FFI_ROOTS" or ""):gmatch "[^;]+" do
 	ffi.roots:insert(part);
 end

@@ -27,7 +27,7 @@ end
 --- @param maxn? integer
 --- @param rev? boolean
 function tablelib.delete(self, val, maxn, rev)
-	maxn = maxn or #self;
+	maxn = tablelib.absindex(self, maxn, 1);
 	local n = 0;
 
 	if rev then
@@ -42,7 +42,7 @@ function tablelib.delete(self, val, maxn, rev)
 		end
 	else
 		local i = 1;
-		while n < maxn and i < #self do
+		while n < maxn and i <= #self do
 			if self[i] == val then
 				table.remove(self, i);
 				n = n + 1;
@@ -50,6 +50,19 @@ function tablelib.delete(self, val, maxn, rev)
 				i = i + 1;
 			end
 		end
+	end
+
+	return n;
+end
+--- @param self table
+--- @param other table
+--- @param maxn? integer
+--- @param rev? boolean
+function tablelib.deleteall(self, other, maxn, rev)
+	local n = 0;
+
+	for i = 1, #other do
+		n = n + table.delete(self, other[i], tablelib.absindex(self, maxn, 1), rev);
 	end
 
 	return n;
@@ -84,7 +97,7 @@ end
 --- @generic T
 --- @param val T[]
 --- @return array<T>
-function tablelib.newlist(val)
+function tablelib.mk(val)
 	return setmetatable(val, tablelib)
 end
 
