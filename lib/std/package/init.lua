@@ -19,9 +19,9 @@ local package = {
 	searchpath = pkgpath.search,
 
 	--- @type array<string>
-	roots = table.newlist {},
+	roots = table.mk {},
 	--- @type array<string>
-	croots = table.newlist {},
+	croots = table.mk {},
 	env = getfenv(0),
 };
 
