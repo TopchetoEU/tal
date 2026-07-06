@@ -32,8 +32,8 @@ return function (entry_mod, ...)
 		local fs = require "std.io.fs";
 		local ffi = require "nat.ffi";
 
-		package.roots:add(fs.path "cwd");
-		ffi.roots:add(fs.path "cwd");
+		package.roots:insert(fs.path "cwd");
+		ffi.roots:insert(fs.path "cwd");
 
 		local entry = require(entry_mod);
 

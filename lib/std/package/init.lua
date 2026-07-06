@@ -3,7 +3,7 @@
 require "std.string";
 local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
-local roots = require "std.package.roots";
+local table = require "std.table";
 local errors = require "std.errors";
 
 --- @class packagelib
@@ -14,13 +14,16 @@ local package = {
 	preload = package.preload,
 	pathsep = pkgpath.sep,
 	pathrep = pkgpath.rep,
-	roots = roots.new(debug.getregistry()._LUA_ROOTS),
-	croots = roots.new(debug.getregistry()._C_ROOTS),
+
+	overridepath = pkgpath.override,
+	searchpath = pkgpath.search,
+
+	--- @type array<string>
+	roots = table.newlist {},
+	--- @type array<string>
+	croots = table.newlist {},
 	env = getfenv(0),
 };
-
-package.overridepath = pkgpath.override;
-package.searchpath = pkgpath.search;
 
 --- @param name string
 function package.searchpreload(name)
@@ -100,6 +103,16 @@ function package.require(name)
 	end
 end
 
+package.roots:insertall(debug.getregistry()._LUA_ROOTS or {});
+for part in (os.getenv "LUA_ROOTS" or ""):gmatch "[^;]+" do
+	package.roots:insert(part);
+end
+
+package.croots:insertall(debug.getregistry()._C_ROOTS or {});
+for part in (os.getenv "LUA_CROOTS" or ""):gmatch "[^;]+" do
+	package.croots:insert(part);
+end
+
 package.loaders = { package.searchpreload, package.searchlua, package.searchc };
 package.searchers = package.loaders;
 package.path = package.overridepath(package.path, ";;@" .. pkgpath.rep .. "?.lua;@" .. pkgpath.rep .. "?" .. pkgpath.rep .. "init.lua");
@@ -110,7 +123,5 @@ else
 	package.cpath = package.overridepath(package.cpath, ";;@/lib?.so");
 end
 
-package.roots:addenv(os.getenv "LUA_ROOTS");
-package.croots:addenv(os.getenv "LUA_CROOTS");
 
 return package;

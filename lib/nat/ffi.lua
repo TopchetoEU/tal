@@ -2,7 +2,7 @@
 local ffi = require "ffi";
 local pkgpath = require "std.package.path";
 local path = require "std.path";
-local roots = require "std.package.roots";
+local table = require "std.table";
 local reg = debug.getregistry();
 
 local ffi_over = ffi;
@@ -61,15 +61,26 @@ ffi.apath = pkgpath.override(
 --- @type string[]
 ffi.static = reg._FFI_STATIC or {};
 
-ffi.roots = roots.new(reg._FFI_ROOTS):addenv(os.getenv "FFI_ROOTS");
+--- @type array<string>
+ffi.roots = table.newlist(reg._FFI_ROOTS or {});
+for part in (os.getenv "FFI_ROOTS" or ""):gmatch "[^;]+" do
+	ffi.roots:insert(part);
+end
 
 if jit.os == "Windows" then
-	ffi.roots:addif("C:\\Windows\\System32");
--- Very shitty way of detecting system 'width'
-elseif ffi.sizeof "void*" ~= 8 then
-	ffi.roots:addif("/lib", "/usr/lib", "/usr/local/lib");
+	if not ffi.roots:find "C:\\Windows\\System32" then
+		ffi.roots:insert "C:\\Windows\\System32";
+	end
 else
-	ffi.roots:addif("/lib", "/usr/lib", "/usr/local/lib");
+	if not ffi.roots:find "/lib" then
+		ffi.roots:insert "/lib";
+	end
+	if not ffi.roots:find "/usr/lib" then
+		ffi.roots:insert "/usr/lib";
+	end
+	if not ffi.roots:find "/usr/local/lib" then
+		ffi.roots:insert "/usr/local/lib";
+	end
 end
 
 reg._FFI_STATIC = ffi.static;

@@ -37,6 +37,7 @@ sxpcall = err.sxpcall;
 srethrow = err.srethrow;
 
 debug = require "std.debug";
+table = require "std.table";
 io = require "std.io";
 os = require "std.os";
 jit = require "jit";
@@ -53,14 +54,7 @@ package.loaded.os = os;
 package.loaded.debug = debug;
 package.loaded.string = string;
 package.loaded.coroutine = coroutine;
-
-table.clear = require "table.clear";
-table.new = require "table.new";
-table.unpack = unpack or table.unpack;
-
-function table.pack(...)
-	return { n = select("#", ...), ... };
-end
+package.loaded.table = table;
 
 function loadfile(filename, mode, env)
 	return load(io.lines(filename, "c"), "@" .. filename, mode, env);
