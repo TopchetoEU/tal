@@ -1,11 +1,10 @@
 local impl = require "impl";
 local errors = require "std.errors";
 local debug = require "std.debug";
+require "std.basic.coroutine";
 
 local loop = {};
 
---- @type table<thread, string>
-local names = {};
 local fork_i = 1;
 
 --- @type { cb: thread, n: integer, [integer]: ... }[]
@@ -133,7 +132,7 @@ function loop.fork(main, ...)
 		end
 	end);
 
-	loop.name(th, "Fork " .. fork_i);
+	th:name("Fork " .. fork_i);
 	loop.push(th, main, ...);
 	loop.rest();
 
@@ -174,25 +173,9 @@ function loop.run()
 	end
 end
 
---- @param th thread
---- @param name? string
-function loop.name(th, name)
-	if name then
-		names[th] = name;
-		return th;
-	else
-		return names[th] or "Unnamed thread";
-	end
-end
 
 function loop.dbg_print()
 	print(#tasks);
 end
-
-debug.setmetatable(coroutine.running(), {
-	__tostring = function (self)
-		return loop.name(self);
-	end
-});
 
 return loop;

@@ -17,6 +17,6 @@ return function (fun)
 		return yield(fun(yield));
 	end);
 	i += 1;
-	loop.name(th, "Generator #" .. i);
+	th:name("Generator #" .. i);
 	return function () return p:read() end
 end
