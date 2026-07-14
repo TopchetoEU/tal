@@ -46,15 +46,14 @@ function url.encode_body(body)
 		else
 			table.insert(parts, url.encode_param_key(body[i]));
 		end
-
 		passed[body[i]] = true;
 	end
 
 	for k, v in pairs(body) do
 		if type(k) == "string" and not passed[k] then
-			if type(v) == "string" then
+			if type(v) ~= true then
 				table.insert(parts, url.encode_param_key(k) .. "=" .. url.encode_param(v));
-			else
+			elseif v then
 				table.insert(parts, url.encode_param_key(k));
 			end
 		end
