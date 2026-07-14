@@ -37,7 +37,7 @@ return function (entry_mod, ...)
 
 		local entry = require(entry_mod);
 
-		loop.name(coroutine.running(), "Main thread");
+		coroutine.running():name "Main thread";
 
 		if type(entry) == "table" then
 			if type(entry.__main) == "function" then

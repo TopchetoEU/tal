@@ -1,5 +1,6 @@
 local loop = require "std.loop";
 local cond = require "std.sync.cond";
+require "std.basic.coroutine";
 
 local queue = {};
 local queue_cond = cond.new();
@@ -16,7 +17,7 @@ local th = loop.fork(function ()
 		queue_cond:wait();
 	end
 end);
-loop.name(th, "Collector");
+th:name "Collector";
 
 -- TODO: this seems to work by pure magic
 
