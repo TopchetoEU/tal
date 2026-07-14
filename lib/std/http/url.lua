@@ -41,9 +41,9 @@ function url.encode_body(body)
 	local passed = {};
 
 	for i = 1, #body do
-		if type(body[body[i]]) == "string" then
+		if body[body[i]] ~= true then
 			table.insert(parts, url.encode_param_key(body[i]) .. "=" .. url.encode_param(body[body[i]]));
-		else
+		elseif body[body[i]] ~= false then
 			table.insert(parts, url.encode_param_key(body[i]));
 		end
 		passed[body[i]] = true;
