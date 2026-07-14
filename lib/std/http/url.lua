@@ -41,20 +41,26 @@ function url.encode_body(body)
 	local passed = {};
 
 	for i = 1, #body do
-		if body[body[i]] ~= true then
-			table.insert(parts, url.encode_param_key(body[i]) .. "=" .. url.encode_param(body[body[i]]));
-		elseif body[body[i]] ~= false then
-			table.insert(parts, url.encode_param_key(body[i]));
+		local k, v = body[i], body[body[i]];
+		if v == nil then v = true end
+
+		if v then
+			if v == true then
+				table.insert(parts, url.encode_param_key(k));
+			elseif v then
+				table.insert(parts, url.encode_param_key(k) .. "=" .. url.encode_param(v));
+			end
 		end
+
 		passed[body[i]] = true;
 	end
 
 	for k, v in pairs(body) do
-		if type(k) == "string" and not passed[k] then
-			if type(v) ~= true then
-				table.insert(parts, url.encode_param_key(k) .. "=" .. url.encode_param(v));
-			elseif v then
+		if type(k) == "string" and v and not passed[k] then
+			if v == true then
 				table.insert(parts, url.encode_param_key(k));
+			elseif v then
+				table.insert(parts, url.encode_param_key(k) .. "=" .. url.encode_param(v));
 			end
 		end
 	end
