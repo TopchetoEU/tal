@@ -71,7 +71,7 @@ function package.search(name, path, sep, rep, roots, func)
 	local lines = {};
 
 	for _, part in path:split ";" do
-		local real_path = part:gsub("%?", (name:gsub("%" .. (sep or package.sep), rep or package.rep)));
+		local real_path = part:gsub("%?", function () return (name:gsub("%" .. (sep or package.sep), rep or package.rep)) end);
 
 		if real_path:find "@" then
 			if roots then
