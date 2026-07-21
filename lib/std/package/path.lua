@@ -81,10 +81,6 @@ function package.search(name, path, sep, rep, roots, func)
 					if err then table.insert(lines, err) end
 				end
 			end
-
-			local res, err = func(real_path:gsub("@", "."));
-			if res then return res end
-			if err then table.insert(lines, err) end
 		else
 			local res, err = func(real_path);
 			if res then return res end
