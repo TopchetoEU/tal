@@ -6,7 +6,7 @@ coroutine.__index = coroutine;
 coroutine.__metatable = "thread";
 
 --- @type table<thread, string>
-local names = {};
+local names = setmetatable({}, { __mode = "k" });
 
 --- @param th thread
 --- @param name? string
