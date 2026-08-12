@@ -3,7 +3,11 @@ local ffi = require "ffi";
 local pkgpath = require "std.package.path";
 local path = require "std.path";
 local table = require "std.table";
-local reg = debug.getregistry();
+local debug = require "std.debug";
+--- @class debug.registry
+--- @field _FFI_PATH? string
+--- @field _FFI_APATH? string
+local reg = debug.registry;
 
 local ffi_over = ffi;
 
@@ -59,7 +63,7 @@ ffi.apath = pkgpath.override(
 );
 --- A list of all libraries that are statically-linked against the current executable
 --- @type string[]
-ffi.static = reg._FFI_STATIC or {};
+ffi.static = table.mk(reg._FFI_STATIC or {});
 
 --- @type array<string>
 ffi.roots = table.mk(reg._FFI_ROOTS or {});

@@ -35,6 +35,10 @@ local debug = {
 	upvaluejoin = debug.upvaluejoin,
 };
 
+--- @class debug.registry
+debug.registry = debug.getregistry();
+
+--- @return thread?, ...
 local function fix_args(...)
 	if type((...)) == "thread" then
 		return ...;
