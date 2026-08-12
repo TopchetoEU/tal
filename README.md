@@ -1,6 +1,6 @@
 # TAL - TopchetoEU's Atrocious Lua
 
-**THIS IS THE LAST VERSION BEFORE v0.2.X!!**
+**THIS IS THE LAST VERSION BEFORE v0.3.X!!**
 
 A runtime, based on luajit. This runtime adds the following features:
 
