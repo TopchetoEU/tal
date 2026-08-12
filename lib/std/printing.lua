@@ -1,6 +1,8 @@
+local debug = require "std.debug";
+
 local default_colors = {
-	func_kw = "\x1B[34m",
-	func_name = "\x1B[93m",
+	kw = "\x1B[34m",
+	func = "\x1B[93m",
 	str = "\x1B[32m",
 	num = "\x1B[33m",
 	bool = "\x1B[34m",
@@ -8,8 +10,6 @@ local default_colors = {
 	meta = "\x1B[90m",
 	ref = "\x1B[91m",
 	reset = "\x1B[0m",
-	thread = "\x1B[34m",
-	udata = "\x1B[34m",
 };
 local str_escape_codes = {
 	["\x00"] = "\\0",
@@ -55,38 +55,36 @@ local str_escape_codes = {
 
 --- @alias tal.printing.color fun(color: string): fun(str: string): string, integer
 
---- @param tab table<string, string> | false
---- @return tal.printing.color
-local function mkcolors(tab)
-	local function noop(v)
-		return v, #v;
-	end
+--- @param colors? table<string, string>
+--- @return string
+--- @return integer text_len
+local function stringify_int (obj, n, colors, passed, hit, max_line)
+	local kind = type(obj);
 
-	if not tab then
-		return function ()
-			return noop;
+	local color;
+
+	do
+		local function noop(v)
+			return v, #v;
 		end
-	else
-		local reset = tab.reset;
 
-		return function (color)
-			if tab[color] then
-				local fmt = tab[color];
-				return function (text)
-					return fmt .. text .. reset, #text;
+		if colors then
+			function color(name)
+				if colors[name] then
+					local fmt = colors[name];
+					return function(text)
+						return fmt .. text .. colors.reset, #text;
+					end
+				else
+					return noop;
 				end
-			else
+			end
+		else
+			function color(name)
 				return noop;
 			end
 		end
 	end
-end
-
---- @param color tal.printing.color
---- @return string
---- @return integer text_len
-local function stringify_int(obj, n, color, passed, hit, max_line)
-	local kind = type(obj);
 
 	if kind == "table" then
 		if passed[obj] then
@@ -103,7 +101,7 @@ local function stringify_int(obj, n, color, passed, hit, max_line)
 
 		for i = 1, tablen do
 			local curr_len;
-			parts[i], curr_len = stringify_int(obj[i], n .. "    ", color, passed, hit, max_line - 4);
+			parts[i], curr_len = stringify_int(obj[i], n .. "    ", colors, passed, hit, max_line - 4);
 			parts[i] = parts[i] .. ",";
 			res_len = res_len + curr_len;
 		end
@@ -116,11 +114,11 @@ local function stringify_int(obj, n, color, passed, hit, max_line)
 			end
 		end
 
-		table.sort(keys, function (a, b)
+		table.sort(keys, function(a, b)
 			if type(a) ~= type(b) then
 				return type(a) < type(b);
 			else
-				local ok, res = pcall(function (a, b) return a < b end);
+				local ok, res = pcall(function(a, b) return a < b end);
 				if ok then return res end
 
 				return tostring(a) < tostring(b);
@@ -131,13 +129,13 @@ local function stringify_int(obj, n, color, passed, hit, max_line)
 			local k = keys[i];
 			local v = obj[k];
 
-			local val, val_len = stringify_int(v, n .. "    ", color, passed, hit, max_line - 4);
+			local val, val_len = stringify_int(v, n .. "    ", colors, passed, hit, max_line - 4);
 			if val ~= nil then
 				if type(k) == "string" and k:find "^[a-zA-Z_][a-zA-Z0-9_]*$" then
 					res_len = res_len + #k + 3 + val_len + 1;
 					table.insert(parts, k .. " = " .. val .. ",");
 				else
-					local key, key_len = stringify_int(k, n .. "    ", color, passed, hit, max_line - 4);
+					local key, key_len = stringify_int(k, n .. "    ", colors, passed, hit, max_line - 4);
 					res_len = res_len + 1 + key_len + 4 + val_len + 1;
 					table.insert(parts, "[" .. key .. "] = " .. val .. ",");
 				end
@@ -145,18 +143,27 @@ local function stringify_int(obj, n, color, passed, hit, max_line)
 		end
 
 		local meta = getmetatable(obj);
-		if meta ~= nil then
-			local meta_str, meta_len = stringify_int(meta, n .. "    ", color, passed, hit, max_line - 4);
+		if meta ~= nil and type(meta) ~= "string" then
+			local meta_str, meta_len = stringify_int(meta, n .. "    ", colors, passed, hit, max_line - 4);
 			res_len = res_len + 6 + 3 + meta_len + 1;
 			table.insert(parts, color "meta" ("<meta>") .. " = " .. meta_str .. ",");
 		end
 
+		local prefix = "";
+		local prefix_n = 0;
+
+		if hit[obj] ~= nil then
+			prefix = prefix .. color "ref" ("<ref " .. passed[obj] .. "> ");
+			prefix_n = prefix_n + 4 + #tostring(hit[obj]) + 2;
+		end
+
+		if type(meta) == "string" then
+			prefix = prefix .. color "func" (meta) .. " ";
+			prefix_n = prefix_n + #meta + 1;
+		end
+
 		if #parts == 0 then
-			if hit[obj] ~= nil then
-				return color "ref" ("<ref " .. passed[obj] .. ">") .. " {}", #("<ref " .. passed[obj] .. "> {}");
-			else
-				return "{}", 2;
-			end
+			return prefix .. "{}", prefix_n + 2;
 		end
 
 		local contents;
@@ -169,18 +176,14 @@ local function stringify_int(obj, n, color, passed, hit, max_line)
 			contents = " " .. table.concat(parts, " "):sub(1, -2) .. " ";
 		end
 
-		if hit[obj] then
-			return color "ref" ("<ref " .. passed[obj] .. ">") .. " {" .. contents  .. "}", #("<ref " .. passed[obj] .. ">") + 3 + res_len;
-		else
-			return "{" .. contents  .. "}", 2 + res_len;
-		end
+		return prefix .. "{" .. contents .. "}", prefix_n + 1 + res_len + 1;
 	elseif kind == "function" then
-		local data = debug.getinfo(obj, "Sn");
-		local res = color "func_kw" "function";
+		local data = debug.getinfo(obj, "Sn") --[[@as debuginfo]];
+		local res = color "kw" "function";
 		local res_len = 8;
 
 		if data.name then
-			res = res .. " " .. color "func_name" (data.name);
+			res = res .. " " .. color "func" (data.name);
 			res_len = res_len + 1 + #data.name;
 		end
 
@@ -226,11 +229,11 @@ local function stringify_int(obj, n, color, passed, hit, max_line)
 	elseif kind == "number" then
 		return color "num" (tostring(obj));
 	elseif kind == "thread" then
-		return color "thread" (tostring(obj));
+		return color "kw" (tostring(obj));
 	elseif kind == "userdata" then
-		return color "udata" (tostring(obj));
+		return color "kw" (tostring(obj));
 	elseif kind == "cdata" then
-		return color "udata" (tostring(obj));
+		return color "kw" (tostring(obj));
 	else
 		error "unknown type";
 	end
@@ -238,13 +241,17 @@ end
 
 local printing = {};
 
---- @param colors? true | false | table
-function printing.stringify(obj, colors)
-	if colors == nil or colors == true then colors = default_colors end
-	return stringify_int(obj, "", mkcolors(colors), { next = 0 }, {}, 120);
+--- @param colors? boolean | table
+function printing.stringify (obj, colors)
+	if colors == nil or colors == true then
+		colors = default_colors;
+	elseif colors == false then
+		colors = nil;
+	end
+	return stringify_int(obj, "", colors --[[@as table]], { next = 0 }, {}, 120);
 end
 
-function printing.print(...)
+function printing.print (...)
 	if select("#", ...) == 0 then
 		return;
 	elseif select("#", ...) == 1 then
@@ -254,10 +261,11 @@ function printing.print(...)
 		return print(select(2, ...));
 	end
 end
-function printing.pprint(...)
+
+function printing.pprint (...)
 	if select("#", ...) == 0 then return end
 
-	local function fix(...)
+	local function fix (...)
 		if select("#", ...) == 0 then
 			return;
 		else
@@ -267,7 +275,8 @@ function printing.pprint(...)
 
 	print(fix(...));
 end
-function printing.eprint(err, trace, reason, write)
+
+function printing.eprint (err, trace, reason, write)
 	local res = {};
 
 	table.insert(res, "Unhandled error ");
