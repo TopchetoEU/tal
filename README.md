@@ -1,5 +1,7 @@
 # TAL - TopchetoEU's Atrocious Lua
 
+**THIS IS THE LAST VERSION BEFORE v0.2.X!!**
+
 A runtime, based on luajit. This runtime adds the following features:
 
 - An async I/O API, using my own alternative to libuv (libev), combined with lua's coroutines
