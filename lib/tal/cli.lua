@@ -4,7 +4,11 @@ local cli = {};
 
 function cli.stacktrace_call(func, ...)
 	local ok, err, trace = spcall(func, ...);
-	if not ok then eprint(err, trace) end
+	if not ok then
+		eprint(err, trace);
+		return false;
+	end
+	return true;
 end
 
 function cli.load_eval(src, name, env)
@@ -82,8 +86,8 @@ function cli.run_mod(module, ...)
 end
 
 function cli.print_version()
-	print(("TAL v%s by TopchetoEU"):format(_TAL));
-	print "A lua runtime with concurrent I/O and a lot of useful utils.";
+	print(("TAL v%s Copyright (C) 2025-2026 TopchetoEU"):format(_TAL));
+	print "This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions";
 end
 function cli.print_help()
 	print [[
@@ -118,7 +122,10 @@ function cli.main(...)
 				local val = argv:pop();
 
 				local glob, name = val:match "^(.-)=(.*)$";
-				if not glob then name = val end
+				if not glob then
+					name = val;
+					glob = val:match "[^.]+$" or val;
+				end
 
 				requires[name] = glob;
 			elseif arg == "--help" or arg == "-h" then
@@ -183,16 +190,17 @@ function cli.main(...)
 		end);
 
 	elseif file then
-		package.roots:with(function ()
-			cli.stacktrace_call(function ()
-				local f = assert(io.open(file));
-				local src = f:read "a";
-				f:close();
+		local root = path.dirname(file);
+		package.roots:insert(root);
+		cli.stacktrace_call(function ()
+			local f = assert(io.open(file));
+			local src = f:read "a";
+			f:close();
 
-				local func = iassert(load(src, "@" .. file, "t"));
-				return func(table.unpack(args));
-			end);
-		end, path.join_file(file, ".."));
+			local func = iassert(load(src, "@" .. file, "t"));
+			return func(table.unpack(args));
+		end);
+		package.roots:delete(root);
 	end
 
 	if repl then
