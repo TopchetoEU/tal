@@ -19,7 +19,7 @@ function proc:wait()
 	if self._closed then ierror "closed" end
 
 	--- @type "sig" | "exit", integer
-	local kind, code = assert(loop.sync_ret(self._fd:wait(coroutine.running())));
+	local kind, code = loop.sync_ret(self._fd:wait(coroutine.running()));
 
 	self._closed = true;
 	self._mng = nil;
@@ -85,16 +85,12 @@ end
 --- @field path? string | boolean Supports package.overridepath, set to ";;" or true to use PATH env variable. Set to false for no path resolution
 --- @field env? { [string]: string, [integer]: { [1]: string, [2]: string } }
 --- @field cwd? string
---- @field stdin? "inherit" | "pipe"
---- @field stdout? "inherit" | "pipe"
---- @field stderr? "inherit" | "pipe"
+--- @field stdin? boolean
+--- @field stdout? boolean
+--- @field stderr? boolean
 
 --- @param opts std.proc.opts
 return function (opts)
-	opts.stdin = opts.stdin or "inherit";
-	opts.stdout = opts.stdout or "inherit";
-	opts.stderr = opts.stderr or "inherit";
-
 	local os_path = (os.getenv "PATH" or ""):gsub(":", ";");
 
 	if opts.path == nil then
@@ -121,14 +117,14 @@ return function (opts)
 		end
 	end
 
-	local res = iassert(loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks)));
+	local res, stdin, stdout, stderr = loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks));
 
 	local self = setmetatable(collected({
-		_fd = res.proc,
+		_fd = res,
 		_mng = debug.traceback(),
-		stdin = res.stdin and stream.from_stream(res.stdin, true),
-		stdout = res.stdout and stream.from_stream(res.stdout, true),
-		stderr = res.stderr and stream.from_stream(res.stderr, true)
+		stdin = stdin and stream.from_stream(stdin, true),
+		stdout = stdout and stream.from_stream(stdout, true),
+		stderr = stderr and stream.from_stream(stderr, true)
 	}), proc);
 
 	return self;

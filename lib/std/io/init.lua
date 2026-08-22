@@ -39,9 +39,9 @@ local proc = require "std.os.proc";
 
 local io = {};
 
-io.stdin = stream.from_stream(impl.stdin, false);
-io.stdout = stream.from_stream(impl.stdout, false);
-io.stderr = stream.from_stream(impl.stderr, false);
+io.stdin = stream.from_stream(impl.stdin);
+io.stdout = stream.from_stream(impl.stdout);
+io.stderr = stream.from_stream(impl.stderr);
 
 --- @param path string
 --- @param flags std.io.open_flags
@@ -50,12 +50,9 @@ io.stderr = stream.from_stream(impl.stderr, false);
 function io.xopen(path, flags, mode)
 	mode = mode or "666";
 	if type(mode) == "string" then mode = assert(tonumber(mode, 8)) end
-
-	local f, err = loop.sync_ret(impl:open(coroutine.running(), path, flags, mode));
-	if not f then return nil, err  end
-
-	return stream.from_file(f);
+	return stream.from_file(loop.sync_ret(impl:open(coroutine.running(), path, flags, mode)));
 end
+--- Left as compatibility with stock lua. Use xopen when targeting tal
 --- @param path string
 --- @param mode? openmode
 function io.open(path, mode)
@@ -85,15 +82,17 @@ function io.open(path, mode)
 		sig.error("mode", "invalid mode specified");
 	end
 
-	return io.xopen(path, flags);
+	local ok, res = pcall(io.xopen, path, flags);
+	if not ok then return nil, res --[[@as string]] end
+	return res;
 end
 
 --- @param prog string
 ---@param mode? string
 function io.popen(prog, mode)
 	mode = mode or "r";
-	local r = mode:find "r" and "pipe" or "inherit";
-	local w = mode:find "w" and "pipe" or "inherit";
+	local r = mode:find "r" and true or false;
+	local w = mode:find "w" and true or false;
 	local p, err;
 
 	if jit.os == "Windows" then
