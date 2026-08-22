@@ -46,7 +46,7 @@ io.stderr = stream.from_stream(impl.stderr, false);
 --- @param path string
 --- @param flags std.io.open_flags
 --- @param mode? integer | string
---- @return std.io.stream?, string?
+--- @return std.io.stream
 function io.xopen(path, flags, mode)
 	mode = mode or "666";
 	if type(mode) == "string" then mode = assert(tonumber(mode, 8)) end
