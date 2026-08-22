@@ -3,8 +3,6 @@ local env = require "std.os.env";
 local proc = require "std.os.proc";
 
 -- VERY bad way of gauging this, this will stay until libev v0.3
-local offset = os.clock() - time.monotime();
-
 local old_time = os.time;
 local os = {
 	date = os.date,
@@ -22,13 +20,13 @@ function os.difftime(a, b)
 	return a - b;
 end
 function os.clock()
-	return time.monotime() + offset;
+	return time.time "cpu";
 end
 function os.time(arg)
 	if arg then
 		return old_time(arg);
 	else
-		return time.now();
+		return time.time "real";
 	end
 end
 
