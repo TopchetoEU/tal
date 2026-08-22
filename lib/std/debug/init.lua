@@ -197,13 +197,15 @@ function debug.traceback(...)
 	end
 
 	while true do
-		local info = debug.getinfo(th or coroutine.running(), lvl, "Snl");
+		local info = debug.getinfo(th or coroutine.running(), lvl, "Snlf");
 		if not info then break end
 
-		res:put("\n\t", debug.readabletrace(info) or "<internal>");
+		if info.func ~= pcall and info.func ~= xpcall and info.func ~= error then
+			res:put("\n\t", debug.readabletrace(info) or "<internal>");
 
-		if info.istailcall then
-			res:put("\n\t(...tail calls)");
+			if info.istailcall then
+				res:put("\n\t(...tail calls)");
+			end
 		end
 
 		lvl = lvl + 1;
