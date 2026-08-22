@@ -2,7 +2,7 @@
 
 ROOT=$(dirname "$0")
 
-export FFI_ROOTS="$ROOT/deps/luajit/src;$ROOT/deps/libev/bin/Linux;$FFI_ROOTS"
+export FFI_ROOTS="$ROOT/deps/luajit/src;$ROOT/deps/libyaooi/bin/Linux;$FFI_ROOTS"
 export LUA_CROOTS="$ROOT/.prefix/lib/lua;$LUA_CROOTS"
 export LUA_ROOTS="$ROOT/deps/luajit/src;$LUA_ROOTS"
 # export LUA_PATH="$ROOT/lib/?.lua;$ROOT/lib/?/init.lua;$LUA_PATH;;"
