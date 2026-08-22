@@ -96,9 +96,10 @@ end
 local function spcall_fin(ok, ...)
 	if not ok then
 		return false, errors.serrunpack(...);
+	else
+		return true, ...;
 	end
 
-	return ok, ...;
 end
 --- Calls the given function with xpcall and captures a stack trace on an error. It is returned alongside the unmodified error
 --- @param f function

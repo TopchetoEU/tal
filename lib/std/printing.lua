@@ -276,7 +276,7 @@ function printing.pprint (...)
 	print(fix(...));
 end
 
-function printing.eprint (err, trace, reason, write)
+function printing.eprint(err, trace, reason, write)
 	local res = {};
 
 	table.insert(res, "Unhandled error ");
