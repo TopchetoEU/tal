@@ -2,15 +2,6 @@ local path = require "std.path";
 local argp = require "std.argp";
 local cli = {};
 
-function cli.stacktrace_call(func, ...)
-	local ok, err, trace = spcall(func, ...);
-	if not ok then
-		eprint(err, trace);
-		return false;
-	end
-	return true;
-end
-
 function cli.load_eval(src, name, env)
 	local f, err = load("return " .. src, name, "t", env);
 	if f == nil then
@@ -36,7 +27,7 @@ function cli.repl(prefix, eot)
 	while true do
 		local cont = true;
 
-		cli.stacktrace_call(function ()
+		local ok, err, trace = spcall(function ()
 			local src = "";
 			local err;
 
@@ -72,6 +63,7 @@ function cli.repl(prefix, eot)
 
 			return true;
 		end);
+		if not ok then eprint(err, trace) end
 
 		if not cont then return end
 	end
@@ -162,44 +154,34 @@ function cli.main(...)
 	end
 
 	for k, v in pairs(requires) do
-		if not cli.stacktrace_call(function ()
-			_G[v] = require(k);
-		end) then
-			return false
-		end
+		_G[v] = require(k);
 	end
 
 	for i = 1, #evals do
-		if not cli.stacktrace_call(function ()
-			return assert(load(evals[i], "=<eval " .. i .. ">", "t"))();
-		end) then return false end
+		assert(load(evals[i], "=<eval " .. i .. ">", "t"))();
 	end
 
 	if module then
-		return cli.stacktrace_call(function ()
-			local mod = require(module);
-			if type(mod) == "table" then
-				if mod.__main then
-					return mod.__main(table.unpack(args));
-				else
-					return mod.main(table.unpack(args));
-				end
+		local mod = require(module);
+		if type(mod) == "table" then
+			if mod.__main then
+				return mod.__main(table.unpack(args));
 			else
-				return mod(table.unpack(args));
+				return mod.main(table.unpack(args));
 			end
-		end);
-
+		else
+			return mod(table.unpack(args));
+		end
 	elseif file then
 		local root = path.dirname(file);
 		package.roots:insert(root);
-		cli.stacktrace_call(function ()
-			local f = assert(io.open(file));
-			local src = f:read "a";
-			f:close();
 
-			local func = iassert(load(src, "@" .. file, "t"));
-			return func(table.unpack(args));
-		end);
+		local f = assert(io.open(file));
+		local src = f:read "a";
+		f:close();
+
+		iassert(load(src, "@" .. file, "t"))(table.unpack(args));
+
 		package.roots:delete(root);
 	end
 
