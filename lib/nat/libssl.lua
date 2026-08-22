@@ -80,7 +80,6 @@ bio_index. __metatable = "libssl.bio";
 local bio_type = ffi.metatype("BIO", bio_index);
 
 function bio_index:__gc()
-	print("FREE BIO META");
 	return libssl.BIO_free(self);
 end
 
@@ -121,7 +120,6 @@ x509_index.__metatable = "libssl.x509";
 local x509_type = ffi.metatype("X509", x509_index);
 
 function x509_index:__gc()
-	print("FREE X509");
 	return libssl.X509_free(self);
 end
 
@@ -132,7 +130,6 @@ pkey_index.__metatable = "libssl.pkey";
 local pkey_type = ffi.metatype("EVP_PKEY", pkey_index);
 
 function pkey_index:__gc()
-	print("FREE PKEY");
 	return libssl.EVP_PKEY_free(self);
 end
 
@@ -143,7 +140,6 @@ ssl_index.__metatable = "libssl.ssl";
 local ssl_type = ffi.metatype("SSL", ssl_index);
 
 function ssl_index:__gc()
-	print("FREE SSL");
 	return libssl.SSL_free(self);
 end
 
