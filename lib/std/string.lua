@@ -34,11 +34,10 @@ function string:unquote()
 	-- Although we use the parser, this *should* be safe, as we don't execute any code
 	-- However, the solution and hand is really stupid
 	-- TODO: figure out something less stupid
-	local res, ctx = lex.stream_tokens(self);
-	local _, err, kind, val = res(ctx, 1);
-
-	if kind ~= "str" then return nil end
-	return val --[[@as string]];
+	local toks, err = lex.parse(self);
+	if not toks then error(err) end
+	if toks[1].type ~= "str" then return error "not a string" end
+	return toks[1].val --[[@as string]];
 end
 
 --- Might not be safe...
