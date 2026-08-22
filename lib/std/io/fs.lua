@@ -25,7 +25,7 @@ dir.__metatable = "std.io.fs.dir";
 --- @return string?
 function dir:read()
 	if self.closed then return nil end
-	return iassert(loop.sync_ret(self.hnd:next(coroutine.running())));
+	return loop.sync_ret(self.hnd:next(coroutine.running()));
 end
 function dir:iter()
 	return function (self)
@@ -84,7 +84,7 @@ function fs.mkdir(path, mode)
 		mode = sig.num(mode, "mode");
 	end
 
-	iassert(loop.sync_ret(impl:mkdir(coroutine.running(), path, mode)));
+	loop.sync_ret(impl:mkdir(coroutine.running(), path, mode));
 end
 --- @param path string
 --- @param mode? integer | string
@@ -103,7 +103,7 @@ end
 function fs.opendir(path)
 	path = sig.str(path, "path");
 
-	local fd = iassert(loop.sync_ret(impl:opendir(coroutine.running(), path)));
+	local fd = loop.sync_ret(impl:opendir(coroutine.running(), path));
 	return collected(setmetatable({ hnd = fd, closed = false }, dir));
 end
 function fs.readdir(path)
@@ -115,20 +115,20 @@ end
 --- @param dst string
 --- @return true?, string?
 function fs.symlink(src, dst)
-	iassert(loop.sync_ret(impl:symlink((coroutine.running()), src, dst)));
+	loop.sync_ret(impl:symlink((coroutine.running()), src, dst));
 end
 --- @param src string
 --- @param dst string
 function fs.hardlink(src, dst)
-	iassert(loop.sync_ret(impl:hardlink((coroutine.running()), src, dst)));
+	loop.sync_ret(impl:hardlink((coroutine.running()), src, dst));
 end
 --- @param path string
 function fs.readlink(path)
-	return iassert(loop.sync_ret(impl:readlink((coroutine.running()), path)));
+	return loop.sync_ret(impl:readlink((coroutine.running()), path));
 end
 --- @param path string
-function fs.delete(path)
-	iassert(loop.sync_ret(impl:delete((coroutine.running()), path)));
+function fs.remove(path)
+	loop.sync_ret(impl:remove((coroutine.running()), path));
 end
 
 --- @param type? std.fs.path = "cwd"

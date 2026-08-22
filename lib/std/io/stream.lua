@@ -238,7 +238,8 @@ function stream:seek(whence, pos)
 end
 function stream:flush()
 	if self._backend.flush then
-		self._backend:flush();
+		-- TODO: invent something smarter here...
+		pcall(self._backend.flush, self);
 	end
 end
 
@@ -334,7 +335,7 @@ function stream.combine(read, write)
 		end,
 	}, mngd);
 end
---- @param file _impl.file
+--- @param file _impl.fd
 function stream.from_file(file)
 	local self = {
 		fd = file,
@@ -344,14 +345,14 @@ function stream.from_file(file)
 	function self:read(ptr, n)
 		if not self.fd then ierror "closed" end
 
-		local read_n = iassert(loop.sync_ret(self.fd:read(coroutine.running(), self.ptr, ptr, n)));
+		local read_n = loop.sync_ret(self.fd:pread(coroutine.running(), self.ptr, ptr, n));
 		self.ptr = self.ptr + read_n;
 		return read_n;
 	end
 	function self:write(ptr, n)
 		if not self.fd then ierror "closed" end
 
-		local write_n = iassert(loop.sync_ret(self.fd:write(coroutine.running(), self.ptr, ptr, n)));
+		local write_n = loop.sync_ret(self.fd:pwrite(coroutine.running(), self.ptr, ptr, n));
 		self.ptr = self.ptr + write_n;
 		return write_n;
 	end
@@ -363,7 +364,7 @@ function stream.from_file(file)
 		elseif whence == "cur" then
 			self.ptr = self.ptr + offset;
 		elseif whence == "end" then
-			local stat = iassert(loop.sync_ret(self.fd:stat(coroutine.running())));
+			local stat = loop.sync_ret(self.fd:stat(coroutine.running()));
 			self.ptr = self.ptr + stat.size;
 		end
 
@@ -373,19 +374,19 @@ function stream.from_file(file)
 	end
 	function self:flush()
 		if not self.fd then ierror "closed" end
-		iassert(loop.sync_ret(self.fd:flush((coroutine.running()))));
+		loop.sync_ret(self.fd:flush((coroutine.running())));
 	end
 	function self:stat()
 		if not self.fd then ierror "closed" end
-		return iassert(loop.sync_ret(self.fd:stat((coroutine.running()))));
+		return loop.sync_ret(self.fd:stat((coroutine.running())));
 	end
 	function self:chmod(mode)
 		if not self.fd then ierror "closed" end
-		iassert(loop.sync_ret(self.fd:chmod((coroutine.running()), mode)));
+		loop.sync_ret(self.fd:chmod((coroutine.running()), mode));
 	end
 	function self:chown(uid, gid)
 		if not self.fd then ierror "closed" end
-		iassert(loop.sync_ret(self.fd:chown((coroutine.running()), uid, gid)));
+		loop.sync_ret(self.fd:chown((coroutine.running()), uid, gid));
 	end
 	function self:close()
 		if self.fd then
@@ -398,25 +399,25 @@ function stream.from_file(file)
 
 	return stream.new(self);
 end
---- @param str _impl.stream
+--- @param str _impl.fd
 function stream.from_stream(str, mngd)
 	local self = { fd = str };
 
 	function self:read(ptr, n)
 		if not self.fd then ierror "closed" end
-		return iassert(loop.sync_ret(self.fd:read(coroutine.running(), ptr, n)));
+		return loop.sync_ret(self.fd:read(coroutine.running(), ptr, n));
 	end
 	function self:write(ptr, n)
 		if not self.fd then ierror "closed" end
-		return iassert(loop.sync_ret(self.fd:write(coroutine.running(), ptr, n)));
+		return loop.sync_ret(self.fd:write(coroutine.running(), ptr, n));
 	end
 	function self:flush()
 		if not self.fd then ierror "closed" end
-		iassert(loop.sync_ret(self.fd:flush((coroutine.running()))));
+		loop.sync_ret(self.fd:flush((coroutine.running())));
 	end
 	function self:stat()
 		if not self.fd then ierror "closed" end
-		return iassert(loop.sync_ret(self.fd:stat((coroutine.running()))));
+		return loop.sync_ret(self.fd:stat((coroutine.running())));
 	end
 	function self:close()
 		if self.fd then

@@ -22,8 +22,8 @@ server.__metatable = "std.io.net.server";
 --- @return string ip
 --- @return integer port
 function server:next()
-	local res = iassert(loop.sync_ret(self._fd:next((coroutine.running()))));
-	return stream.from_stream(res.client, true), res.ip, res.port;
+	local res, ip, port = loop.sync_ret(self._fd:next((coroutine.running())));
+	return stream.from_stream(res, true), ip, port;
 end
 function server:iter()
 	return self.next, self;
@@ -41,7 +41,7 @@ server.__gc = server.close;
 --- @param max_n? integer = 32
 --- @return std.net.server
 function net.bind(addr, port, protocol, max_n)
-	local f = iassert(loop.sync_ret(impl:bind(coroutine.running(), addr, port, protocol or "tcp", max_n or 32)));
+	local f = loop.sync_ret(impl:bind(coroutine.running(), addr, port, protocol or "tcp", max_n or 32));
 	return collected(setmetatable({ _fd = f, _mngd = true }, server));
 end
 --- @param addr string
@@ -49,7 +49,7 @@ end
 --- @param protocol? "tcp" | "udp" = "tcp"
 --- @return std.io.stream
 function net.connect(addr, port, protocol)
-	local f = iassert(loop.sync_ret(impl:connect(coroutine.running(), addr, port, protocol or "tcp")));
+	local f = loop.sync_ret(impl:connect(coroutine.running(), addr, port, protocol or "tcp"));
 	return stream.from_stream(f, true);
 end
 --- @param name string
@@ -76,7 +76,7 @@ end
 --- @param flags std.io.net.addrinfo_flags
 --- @return string[]
 function net.getaddrinfo(name, flags)
-	return iassert(loop.sync_ret(impl:getaddrinfo(coroutine.running(), name, flags)));
+	return loop.sync_ret(impl:getaddrinfo(coroutine.running(), name, flags));
 end
 
 return net;
