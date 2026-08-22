@@ -78,7 +78,7 @@ function cli.run_mod(module, ...)
 end
 
 function cli.print_version()
-	print(("TAL v%s Copyright (C) 2025-2026 TopchetoEU"):format(_TAL));
+	print(("TAL v%s Copyright (C) 2025-2026, and LGPL'd, by TopchetoEU"):format(_TAL));
 	print "This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions";
 end
 function cli.print_help()
