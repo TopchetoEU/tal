@@ -1,6 +1,6 @@
 [submodule "deps/luajit"]
 	path = deps/luajit
 	url = https://github.com/LuaJIT/LuaJIT
-[submodule "deps/libev"]
-	path = deps/libev
-	url = https://git.topcheto.eu/libev.git
+[submodule "deps/libyaooi"]
+	path = deps/libyaooi
+	url = https://git.topcheto.eu/libyaooi.git
