@@ -45,27 +45,24 @@ dir.__gc = dir.close;
 --- @param path string
 --- @param mode string | integer
 function fs.chmod(path, mode)
-	iassert(io.xopen(path, "s"))
-		:chmod(mode)
-		:close();
+	io.xopen(path, "s"):chmod(mode):close();
 end
 --- @param path string
 --- @param uid integer
 --- @param gid integer
 function fs.chown(path, uid, gid)
-	iassert(io.xopen(path, "s"))
-		:chown(uid, gid)
-		:close();
+	io.xopen(path, "s"):chown(uid, gid):close();
 end
 --- @param path string
 function fs.stat(path)
 	path = sig.str(path, "path");
 
-	local fd, err = io.xopen(path, "ls");
-	if not fd then return nil, err end
+	local ok, fd = pcall(io.xopen, path, "ls");
+	if not ok then return nil, fd --[[@as string]] end
 
 	local res = fd:stat();
-	iassert(fd:close());
+	fd:close();
+
 	return res;
 end
 --- @param path string
