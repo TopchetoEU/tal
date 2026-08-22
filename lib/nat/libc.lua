@@ -17,6 +17,8 @@ const char *memchr(const char *str, char c, size_t n);
 
 local c = {};
 
+c.NULL = ffi.cast("void*", 0);
+
 --- @param ptr ffi.cdata*
 --- @param n? integer
 function c.strlen(ptr, n)
