@@ -2,68 +2,72 @@ local stream = require "std.io.stream";
 local ffi = require "ffi";
 local libssl = require "nat.libssl";
 local cond = require "std.sync.cond";
+local mutex = require "std.sync.mutex";
 
---- @class std.io.ssl_data
---- @field hnd? nat.libssl.ssl
---- @field stream? std.io.stream
----
---- @field bin nat.libssl.bio
---- @field bout nat.libssl.bio
----
---- @field owned boolean
+local function ssl_doread(self)
+	if self.reading then
+		-- A bit shitty, makes sure that we block on the current read, as if we did it
+		self.cond:wait();
+		return false;
+	end
 
-local function ssl_flush(self)
-	if not self.hnd then ierror "closed" end
+	self.reading = true;
+
+	local ptr = ffi.new "char[8192]";
+
+	local ok, n, trace = spcall(self.stream.ptrread, self.stream, false, ptr, 8192);
+	if n == 0 then ok = false; n = "unexpected ssl stream eof" end
+	if not ok then
+		self.reading = false;
+		self.cond:signal(true);
+		srethrow(n, trace);
+	end
+	--- @cast n integer
+
+	self.bin:write(n, ptr);
+
+	self.reading = false;
+	self.cond:signal(true);
+	return true;
+end
+local function ssl_dowrite(self)
+	if self.writting then
+		self.cond:wait();
+		return false;
+	end
+
+	self.writting = true;
 
 	local buff = ffi.new "char[8192]";
 
 	while true do
-		local n = self.bout:read(8192, buff);
-		if not n or n == 0 then return end
 		if not self.stream then ierror "closed" end
-		self.stream:ptrwrite(true, buff, n);
-	end
-end
-local function ssl_close(self_data)
-	if self_data.owned then
-		self_data.stream:close();
-		self_data.owned = false;
-		self_data.stream = nil;
-	end
-end
 
-local function ssl_handle_err(self, code)
-	if not self.hnd then ierror "closed" end
+		local n = self.bout:read(8192, buff);
+		if not n or n == 0 then break end
 
-	local ssl_err = self.hnd:get_error(code);
-	if ssl_err == 2 or ssl_err == 3 then
-		ssl_flush(self);
-
-		if ssl_err == 2 then
-			if self.reading then
-				self.read_cond:wait();
-				return true;
-			end
-
-			local ptr = ffi.new "char[8192]";
-
-			if not self.stream then ierror "closed" end
-
-			self.reading = true;
-			local n = self.stream:ptrread(false, ptr, 8192);
-			self.reading = false;
-			self.read_cond:signal(true);
-
-			if n == 0 then return false end
-
-			ssl_flush(self);
-			self.bin:write(n, ptr);
-
-			return true;
+		local ok, err, trace = spcall(self.stream.ptrwrite, self.stream, true, buff, n);
+		if not ok then
+			self.writting = false;
+			self.cond:signal(true);
+			srethrow(err, trace);
 		end
-	else
-		ierror(libssl.err_msg(code));
 	end
+
+	self.writting = false;
+	self.cond:signal(true);
+	return true;
+end
+
+local function ssl_flush(self)
+	if not self.hnd then ierror "closed" end
+	ssl_dowrite(self);
+end
+local function ssl_close(self)
+	if not self.stream then return end
+	if self.owned then self.stream:close() end
+	self.cond:signal(true);
+	self.stream = nil;
 end
 
 --- @class std.io.ssl_opts
@@ -104,7 +108,10 @@ return function (opts)
 		stream = backend,
 
 		reading = false,
-		read_cond = cond.new(),
+		writting = false,
+		cond = cond.new(),
+		-- readlock = mutex.new(),
+		-- writelock = mutex.new(),
 
 		bin = bin,
 		bout = bout,
@@ -119,16 +126,16 @@ return function (opts)
 			local curr_n, code = self.hnd:read(n, ptr);
 			if curr_n and not code then return curr_n end
 
-			if self.hnd:get_error(0) == 6 then
-				ierror "pipe broken";
-			end
+			local err_code = self.hnd:get_error(0);
 
-			if self.hnd:get_error(0) == 5 then
-				if code == 0 then return 0 end
-			end
-
-			if not ssl_handle_err(self, code) then
+			if err_code == 6 then
 				ierror "pipe broken";
+			elseif err_code == 5 then
+				return 0;
+			elseif err_code == 2 then
+				if ssl_dowrite(self) then ssl_doread(self) end
+			elseif err_code ~= 3 then
+				ierror(libssl.err_msg(code));
 			end
 		end
 	end
@@ -137,20 +144,33 @@ return function (opts)
 
 		while true do
 			local res_n, code = self.hnd:write(n, ptr);
-			if res_n then return res_n end
+			if res_n then
+				ssl_dowrite(self);
+				return res_n;
+			end
 
-			if not ssl_handle_err(self, code) then
+			local err_code = self.hnd:get_error(0);
+
+			if err_code == 6 then
+				ierror "pipe broken";
+			elseif err_code == 5 then
 				return 0;
+			elseif err_code == 2 then
+				if ssl_dowrite(self) then ssl_doread(self) end
+			elseif err_code ~= 3 then
+				ierror(libssl.err_msg(code));
 			end
 		end
 	end
 	function self:flush()
+		if not self.hnd then ierror "closed" end
+
 		ssl_flush(self);
 		self.stream:flush();
 	end
 	function self:close()
-		ssl_close(self --[[@as std.io.ssl_data]]);
+		ssl_close(self);
 	end
 
-	return stream.new(self, true);
+	return stream.new(self);
 end
