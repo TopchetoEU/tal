@@ -6,8 +6,8 @@ LUAJIT_MK := deps/luajit/Makefile
 
 OS ?= $(shell uname)
 
-LIBEV_LIBS := deps/libev/bin/$(OS)/libev.a deps/libev/bin/$(OS)/libev.so
-LIBEV_MK := deps/libev/Makefile
+LIBEV_LIBS := deps/libyaooi/bin/$(OS)/libyaooi.a deps/libyaooi/bin/$(OS)/libyaooi.so
+LIBEV_MK := deps/libyaooi/Makefile
 
 LIBS := $(LUAJIT_LIBS)
 
@@ -31,7 +31,7 @@ install: $(PREFIX)/bin/tal all
 
 clean: $(LUAJIT_MK) $(LIBEV_MK)
 	$(MAKE) -C deps/luajit clean
-	$(MAKE) -C deps/libev clean
+	$(MAKE) -C deps/libyaooi clean
 	rm -rf bin
 
 $(PREFIX)/bin/tal:
@@ -46,6 +46,6 @@ $(LUAJIT_EXE) $(LUAJIT_LIBS)&: $(LUAJIT_MK)
 	$(MAKE) -C deps/luajit XCFLAGS=-DLUAJIT_ENABLE_LUA52COMPAT
 
 $(LIBEV_MK):
-	git submodule update --init deps/libev
+	git submodule update --init deps/libyaooi
 $(LIBEV_LIBS)&: $(LIBEV_MK)
-	$(MAKE) -C deps/libev
+	$(MAKE) -C deps/libyaooi
