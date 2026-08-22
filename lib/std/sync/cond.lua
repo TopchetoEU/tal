@@ -8,12 +8,12 @@ cond.__index = cond;
 cond.__metatable = "std.sync.cond";
 
 function cond:wait()
-	if self._pending then
-		self._pending = false;
-	else
+	-- if self._pending then
+	-- 	self._pending = false;
+	-- else
 		table.insert(self._waiters, (coroutine.running()));
 		loop.await();
-	end
+	-- end
 end
 --- @param all? boolean
 function cond:signal(all)

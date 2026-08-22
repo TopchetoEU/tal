@@ -7,6 +7,11 @@ local mutex = {};
 mutex.__index = mutex;
 mutex.__metatable = "std.sync.mutex";
 
+function mutex:trylock()
+	if self._locked then return false end
+	self._locked = true;
+	return true;
+end
 function mutex:lock()
 	while self._locked do
 		table.insert(self._waiters, (coroutine.running()));
