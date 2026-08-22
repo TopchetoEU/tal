@@ -3,7 +3,7 @@ local libyaooi = require "nat.libyaooi";
 
 --- @class impl.libyaooi.fd: _impl.fd, _impl.fd
 --- @field queue libyaooi.queue
---- @field fd libyaooi.file
+--- @field fd libyaooi.fd
 --- @field closed boolean
 local yo_fd = {};
 yo_fd.__index = yo_fd;
