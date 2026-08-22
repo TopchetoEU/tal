@@ -19,16 +19,12 @@ function proc:wait()
 	if self._closed then ierror "closed" end
 
 	--- @type "sig" | "exit", integer
-	local kind, code = loop.sync_ret(self._fd:wait(coroutine.running()));
+	local code = loop.sync_ret(self._fd:wait(coroutine.running()));
 
 	self._closed = true;
 	self._mng = nil;
 
-	if kind == "sig" then
-		return -code;
-	else
-		return code;
-	end
+	return code;
 end
 function proc:close()
 	if self._closed then return true end

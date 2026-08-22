@@ -5,25 +5,21 @@ local env = {};
 --- @param key string
 function env.get(key)
 	sig.str(key, "key");
-	return impl:getenv(key)
+	return impl:env_get(key)
 end
 --- @param key string
 --- @param val string
 function env.set(key, val)
 	sig.str(key, "key");
 	sig.str(val, "val");
-	return impl:setenv(key, val)
+	return impl:env_set(key, val)
 end
---- @return fun(): string?, string?
+--- @return fun(self: _impl.iterenv): string?, string?
+--- @return _impl.iterenv
 function env.iter()
-	local iter = impl:iterenv();
-
-	return function ()
-		local res = iter:next();
-		if not res then
-			iter:close();
-			return;
-		end
+	return function (self)
+		local res = self:next();
+		if not res then return end
 
 		local k, v = res:match "^(.-)=(.*)$";
 		if k then
@@ -31,7 +27,7 @@ function env.iter()
 		else
 			return res;
 		end
-	end
+	end, impl:iterenv();
 end
 
 --- A map-like representation of the environment
