@@ -344,11 +344,6 @@ yo_code_t yoa_sig_wait(yo_req_t req, yo_signo_t *pres);
 #line 344
 ]];
 
---- @class libyaooi.fd: ffi.cdata*
---- @class libyaooi.dir: ffi.cdata*
---- @class libyaooi.proc: ffi.cdata*
---- @class libyaooi.enviter: ffi.cdata*
---- @class libyaooi.file: libyaooi.fd
 
 local function addrparse(ip)
 	local pres = ffi.new "yo_addr_t[1]";
