@@ -356,33 +356,35 @@ end
 --- @field src ffi.cdata*
 --- @field n integer
 
+local lazy_loc_meta = {};
+lazy_loc_meta.__index = lazy_loc_meta;
+lazy_loc_meta.__metatable = "lex.lazy_loc";
+
+function lazy_loc_meta:get()
+	local low = 1;
+	local high = #self.lines;
+	local row = 1;
+
+	while low <= high do
+		local mid = math.floor((low + high) / 2)
+		if self.lines[mid] < self.i then
+			row = mid;
+			low = mid + 1;
+		else
+			high = mid - 1;
+		end
+	end
+
+	local col = self.i - self.lines[row];
+	self.row = row;
+	self.col = col;
+	self.get = nil;
+end
+
 --- @param ctx lex.ctx
 --- @param i integer
 local function find_loc(ctx, i)
-	return {
-		lines = ctx.lines,
-		i = i + 1,
-		get = function (self)
-			local low = 1;
-			local high = #self.lines;
-			local row = 1;
-
-			while low <= high do
-				local mid = math.floor((low + high) / 2)
-				if self.lines[mid] < self.i then
-					row = mid;
-					low = mid + 1;
-				else
-					high = mid - 1;
-				end
-			end
-
-			local col = self.i - self.lines[row];
-			self.row = row;
-			self.col = col;
-			self.get = nil;
-		end
-	};
+	return setmetatable({ lines = ctx.lines, i = i + 1 }, lazy_loc_meta);
 end
 
 --- @param ctx lex.ctx
