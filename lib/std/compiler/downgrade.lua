@@ -7,12 +7,6 @@ local walk = require "std.compiler.walk";
 --- @field used boolean
 --- @field label node.label
 
---- @class compiler.downgrade.ctx
---- @field parts node.stm[]
---- @field id_base string
---- @field next_id integer
---- @field polyfills table<string, node.name> A table polyfill name -> polyfill
-
 --- @class compiler.downgrade.scope
 --- @field cont? compiler.downgrade.continue
 --- @field prev compiler.downgrade.scope?
@@ -57,39 +51,45 @@ local function polyfill(self, name, node)
 	return res_name;
 end
 
---- @param self compiler.downgrade.scope
+--- @class compiler.downgrade.ctx
+--- @field parts node.stm[]
+--- @field id_base string
+--- @field next_id integer
+--- @field polyfills table<string, node.name> A table polyfill name -> polyfill
+--- @field scope compiler.downgrade.scope
+local ctx_meta = {};
+ctx_meta.__index = ctx_meta;
+ctx_meta.__metatable = "compiler.downgrade";
+
 --- @param names node.name[]
-local function walk_var_decls(self, names, is_const)
+function ctx_meta:walk_var_decls(names, is_const)
 	for i = 1, #names do
-		self.names[names[i].name] = names[i];
-		self.consts[names[i].name] = is_const or false;
+		self.scope.names[names[i].name] = names[i];
+		self.scope.consts[names[i].name] = is_const or false;
 	end
 end
 
---- @param self compiler.downgrade.scope
 --- @param name string
 --- @return node.label?
-local function label_find(self, name)
-	return self.labels[name];
+function ctx_meta:label_find(name)
+	return self.scope.labels[name];
 end
---- @param self compiler.downgrade.scope
-local function label_tmp(self)
+function ctx_meta:label_tmp()
 	local i = 0;
 	repeat
 		i = i + 1;
-	until not label_find(self, "_" .. i);
+	until not self:label_find("_" .. i);
 
 	--- @cast i integer
 
 	local res = nodes.label(nil, "_" .. i);
-	self.labels[res.name] = res;
+	self.scope.labels[res.name] = res;
 	return res;
 end
 
---- @param self compiler.downgrade.scope
 --- @param name string
-local function scope_find(self, name)
-	local curr = self;
+function ctx_meta:scope_find(name)
+	local curr = self.scope;
 
 	while curr do
 		if curr.names[name] then
@@ -101,41 +101,54 @@ local function scope_find(self, name)
 
 	return nil;
 end
---- @param self compiler.downgrade.scope
-local function scope_tmp(self)
+function ctx_meta:scope_tmp()
 	local i = 0;
 	repeat
 		i = i + 1;
-	until not scope_find(self, "_" .. i);
+	until not self:scope_find("_" .. i);
 
 	--- @cast i integer
 
 	local res = nodes.name(nil, "_" .. i, false);
-	self.names["_" .. i] = res;
+	self.scope.names["_" .. i] = res;
 	return res;
 end
 
---- @param self compiler.downgrade.scope
 --- @param cont? boolean
-local function scope_child(self, cont)
-	return {
-		labels = self and self.labels,
-		cont = cont and {
-			used = false,
-			label = label_tmp(self),
-		} or (self and self.cont),
-		consts = {},
-		names = {},
-		prev = self,
-	} --[[@as compiler.downgrade.scope]];
+--- @return compiler.downgrade.ctx
+function ctx_meta:scope_child(cont)
+	return setmetatable({
+		scope = {
+			labels = self.scope and self.scope.labels,
+			cont = cont and {
+				used = false,
+				label = self:label_tmp(),
+			} or (self.scope and self.scope.cont),
+			consts = {},
+			names = {},
+			prev = self.scope,
+		} --[[@as compiler.downgrade.scope]],
+	}, { __index = self });
 end
+
+--- @return compiler.downgrade.ctx
+function ctx_meta.new()
+	return setmetatable({
+		id_base = "_" .. math.random(1, 0x1000000),
+		next_id = 1,
+		parts = {},
+		polyfills = {},
+		scope = { prev = nil, consts = {}, names = {}, labels = {} },
+	} --[[@as compiler.downgrade.ctx]], ctx_meta);
+end
+
+
 
 local err_meta = { __metatable = "downgrade.error" };
 
 local walker = walk(
 	--- @param ctx compiler.downgrade.ctx
-	--- @param scope compiler.downgrade.scope
-	function (self, node, target, ctx, scope)
+	function (self, node, target, ctx)
 		if node.type == "var" then
 			if node.name.name == "_ENV" then
 				return nodes.call(node.loc,
@@ -146,7 +159,7 @@ local walker = walk(
 
 
 			if node.name.global then
-				local env_var = scope_find(scope, "_ENV");
+				local env_var = ctx:scope_find "_ENV";
 				if env_var then
 					return nodes.index(node.loc, nodes.var(node.loc, env_var), nodes.str(node.loc, node.name.name));
 				end
@@ -155,8 +168,8 @@ local walker = walk(
 		elseif node.type == "op" then
 			local func = interop_funcs[node.op];
 			if func then
-				node.a = self:walk_exp(node.a, "multi", ctx, scope);
-				node.b = node.b and self:walk_exp(node.b, "multi", ctx, scope);
+				node.a = self:walk_exp(node.a, "multi", ctx);
+				node.b = node.b and self:walk_exp(node.b, "multi", ctx);
 
 				local id = polyfill(ctx, "operator_" .. node.op, func);
 				return nodes.call(node.loc, nodes.var(node.loc, id), { node.a, node.b });
@@ -164,17 +177,16 @@ local walker = walk(
 		end
 
 		if node.type == "func" then
-			local child = scope_child(scope);
-			child.cont = nil;
-			child.labels = {};
-			walk_var_decls(child, node.args, false);
-			node.body = self:walk_body(node.body, ctx, child);
+			local child = ctx:scope_child();
+			child.scope.cont = nil;
+			child.scope.labels = {};
+			child:walk_var_decls(node.args, false);
+			node.body = self:walk_body(node.body, child);
 			return node;
 		end
 	end,
 	--- @param ctx compiler.downgrade.ctx
-	--- @param scope compiler.downgrade.scope
-	function (self, node, ctx, scope)
+	function (self, node, ctx)
 		if node.type == "assign" then
 			--- @type integer[]
 			local globs = {};
@@ -186,16 +198,16 @@ local walker = walk(
 				end
 			end
 
-			local env_var = scope_find(scope, "_ENV");
+			local env_var = ctx:scope_find "_ENV";
 			if #globs > 0 and env_var then
-				local tmp = scope_tmp(scope);
+				local tmp = ctx:scope_tmp();
 
 				for i = 1, #globs do
 					node.targets[globs[i]] = tmp;
 				end
 
-				node.targets = self:walk_multiexp(node.targets, #node.targets, ctx, scope);
-				node.values = self:walk_multiexp(node.values, #node.targets, ctx, scope);
+				node.targets = self:walk_multiexp(node.targets, #node.targets, ctx);
+				node.values = self:walk_multiexp(node.values, #node.targets, ctx);
 
 				return {
 					nodes.decl(node.loc, false, { tmp });
@@ -208,86 +220,90 @@ local walker = walk(
 			end
 		elseif node.type == "decl" then
 			if node.pre then
-				walk_var_decls(scope, node.names, false);
+				ctx:walk_var_decls(node.names, false);
 			end
 			if node.values then
-				node.values = self:walk_multiexp(node.values, #node.names, ctx, scope);
+				node.values = self:walk_multiexp(node.values, #node.names, ctx);
 			end
 			if not node.pre then
-				walk_var_decls(scope, node.names, false);
+				ctx:walk_var_decls(node.names, false);
 			end
 
 			return node;
 		elseif node.type == "if" then
 			for i = 1, #node.bodies do
-				node.conds[i] = self:walk_exp(node.conds[i], "bool", ctx, scope);
-				node.bodies[i] = self:walk_body(node.bodies[i], ctx, scope_child(scope));
+				node.conds[i] = self:walk_exp(node.conds[i], "bool", ctx);
+				node.bodies[i] = self:walk_body(node.bodies[i], ctx:scope_child());
 			end
 
 			if node.default then
-				node.default = self:walk_body(node.default, ctx, scope);
+				node.default = self:walk_body(node.default, ctx:scope_child());
 			end
 
 			return node;
 		elseif node.type == "while" then
-			node.cond = self:walk_exp(node.cond, "bool", ctx, scope);
-			local child = scope_child(scope, true);
-			node.body = self:walk_body(node.body, ctx, child);
-			if child.cont.used then
-				return { child.cont.label, node };
-			else
-				return node;
+			node.cond = self:walk_exp(node.cond, "bool", ctx);
+			local child = ctx:scope_child(true);
+			node.body = self:walk_body(node.body, child);
+
+			if child.scope.cont.used then
+				table.insert(node.body, child.scope.cont.label);
 			end
+
+			return node;
 		elseif node.type == "repeat" then
-			local child = scope_child(scope, true);
-			node.body = self:walk_body(node.body, ctx, child);
-			node.cond = self:walk_exp(node.cond, "bool", ctx, child);
-			if child.cont.used then
-				return { child.cont.label, node };
-			else
-				return node;
+			local child = ctx:scope_child(true);
+			node.body = self:walk_body(node.body, child);
+			node.cond = self:walk_exp(node.cond, "bool", child);
+
+			if child.scope.cont.used then
+				table.insert(node.body, child.scope.cont.label);
 			end
+
+			return node;
 		elseif node.type == "for" then
-			node.first = self:walk_exp(node.first, "multi", ctx, scope);
+			node.first = self:walk_exp(node.first, "multi", ctx);
 			if node.last then
-				node.last = self:walk_exp(node.last, "multi", ctx, scope);
+				node.last = self:walk_exp(node.last, "multi", ctx);
 			end
 			if node.step then
-				node.step = self:walk_exp(node.step, "multi", ctx, scope);
+				node.step = self:walk_exp(node.step, "multi", ctx);
 			end
-			local child = scope_child(scope, true);
-			walk_var_decls(child, { node.name }, false);
-			node.body = self:walk_body(node.body, ctx, child);
-			if child.cont.used then
-				return { child.cont.label, node };
-			else
-				return node;
+			local child = ctx:scope_child(true);
+			child:walk_var_decls({ node.name }, false);
+			node.body = self:walk_body(node.body, child);
+
+			if child.scope.cont.used then
+				table.insert(node.body, child.scope.cont.label);
 			end
+
+			return node;
 		elseif node.type == "for_in" then
-			local child = scope_child(scope, true);
-			walk_var_decls(child, node.names, false);
-			node.values = self:walk_multiexp(node.values, #node.names, ctx, scope);
-			node.body = self:walk_body(node.body, ctx, child);
-			if child.cont.used then
-				return { child.cont.label, node };
-			else
-				return node;
+			local child = ctx:scope_child(true);
+			child:walk_var_decls(node.names, false);
+			node.values = self:walk_multiexp(node.values, #node.names, ctx);
+			node.body = self:walk_body(node.body, child);
+
+			if child.scope.cont.used then
+				table.insert(node.body, child.scope.cont.label);
 			end
+
+			return node;
 		elseif node.type == "scope" then
-			node.body = self:walk_body(node.body, ctx, scope_child(scope));
+			node.body = self:walk_body(node.body, ctx:scope_child());
 			return node;
 		elseif node.type == "continue" then
-			if not scope.cont then
+			if not ctx.scope.cont then
 				error(setmetatable({
 					msg = "continue used outside a loop",
 					loc = node.loc,
 				}, err_meta));
 			end
 
-			scope.cont.used = true;
-			return nodes._goto(node.loc, scope.cont.label);
+			ctx.scope.cont.used = true;
+			return nodes._goto(node.loc, ctx.scope.cont.label);
 		elseif node.type == "label" then
-			scope.labels[node.name] = node;
+			ctx.scope.labels[node.name] = node;
 		end
 	end
 );
@@ -297,15 +313,7 @@ return {
 	--- @param body node.stm[]
 	walk_body = function (body)
 		local parts = {};
-		local ok, res, trace = errors.spcall(walker.walk_body, walker, body,
-			{
-				id_base = "_" .. math.random(1, 0x1000000),
-				next_id = 1,
-				parts = parts,
-				polyfills = {},
-			} --[[@as compiler.downgrade.ctx]],
-			{ prev = nil, consts = {}, names = {}, labels = {} } --[[@as compiler.downgrade.scope]]
-		);
+		local ok, res, trace = errors.spcall(walker.walk_body, walker, body, ctx_meta.new());
 
 		if ok then
 			return table.move(res, 1, #res, #parts + 1, parts);
@@ -319,15 +327,7 @@ return {
 	--- @param exp node.exp
 	--- @param target compiler.walk.target
 	walk_exp = function (exp, target)
-		local ok, res, trace = errors.spcall(walker.walk_exp, walker, exp, target,
-			{
-				id_base = "_" .. math.random(1, 0x1000000),
-				next_id = 1,
-				parts = {},
-				polyfills = {},
-			} --[[@as compiler.downgrade.ctx]],
-			{ prev = nil, consts = {}, names = {}, labels = {} } --[[@as compiler.downgrade.scope]]
-		);
+		local ok, res, trace = errors.spcall(walker.walk_exp, walker, exp, target, ctx_meta.new());
 
 		if ok then
 			return res;
