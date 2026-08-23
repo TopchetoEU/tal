@@ -37,6 +37,15 @@ function yo_fd:stat(udata)
 	if self.closed then return true, nil, "handle is closed" end
 	return self.fd:stat(libyaooi.req.new(self.queue, udata));
 end
+function yo_fd:chmod(udata, mode)
+	if self.closed then return true, nil, "handle is closed" end
+	return self.fd:chmod(libyaooi.req.new(self.queue, udata), mode);
+end
+function yo_fd:chown(udata, uid, gid)
+	if self.closed then return true, nil, "handle is closed" end
+	return self.fd:chown(libyaooi.req.new(self.queue, udata), uid, gid);
+end
+
 function yo_fd:close()
 	if self.closed then return end
 	self.fd:close();
