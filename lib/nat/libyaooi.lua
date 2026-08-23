@@ -365,7 +365,6 @@ local function timenum(time)
 	return assert(tonumber(time.sec)) + assert(tonumber(time.nsec)) / 1000000000;
 end
 
---- @return true?, string?
 local function yo_assert(code)
 	if code ~= 0 then error(ffi.string(libyaooi.yo_strerr(code))) end
 end
@@ -575,17 +574,19 @@ end
 --- @param req libyaooi.req
 --- @param mode integer
 --- @return fun()? cancel
---- @return integer
+--- @return true?
 function yaooi.fd:chmod(req, mode)
-	return yo_sync_call(libyaooi.yoa_file_chmod, req_prep(req, function () return true end), self, mode);
+	yo_assert(libyaooi.yo_file_chmod(self,mode));
+	return nil, true;
 end
 --- @param req libyaooi.req
 --- @param uid integer
 --- @param gid integer
 --- @return fun()? cancel
---- @return integer n
+--- @return true?
 function yaooi.fd:chown(req, uid, gid)
-	return yo_sync_call(libyaooi.yoa_file_chown, req_prep(req, function () return true end), self, uid, gid);
+	yo_assert(libyaooi.yo_file_chown(self, uid, gid));
+	return nil, true;
 end
 
 --- @param fd integer
