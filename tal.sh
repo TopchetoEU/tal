@@ -10,6 +10,12 @@ export LUA_ROOTS="$ROOT/deps/luajit/src;$LUA_ROOTS"
 if [ "$1" = "--gdb" ]; then
 	shift 1
 	exec gdb --args "$ROOT/deps/luajit/src/luajit" "$ROOT/lib/tal.lua" "$@"
+elif [ "$1" = "--valgrind" ]; then
+	shift 1
+	exec valgrind --tool=memcheck "$ROOT/deps/luajit/src/luajit" "$ROOT/lib/tal.lua" "$@"
+elif [ "$1" = "--helgrind" ]; then
+	shift 1
+	exec valgrind --tool=helgrind "$ROOT/deps/luajit/src/luajit" "$ROOT/lib/tal.lua" "$@"
 else
 	exec "$ROOT/deps/luajit/src/luajit" "$ROOT/lib/tal.lua" "$@"
 fi
