@@ -1,7 +1,7 @@
-local stream = require "std.stream_old";
 local ffi = require "ffi";
 local libssl = require "nat.libssl";
 local cond = require "std.sync.cond";
+local str  = require "std.str"
 
 local function ssl_doread(self)
 	if self.reading then
@@ -14,7 +14,7 @@ local function ssl_doread(self)
 
 	local ptr = ffi.new "char[8192]";
 
-	local ok, n, trace = spcall(self.stream.ptrread, self.stream, false, ptr, 8192);
+	local ok, n, trace = spcall(self.stream.read, self.stream, ptr, 8192);
 	if n == 0 then ok = false; n = "unexpected ssl stream eof" end
 	if not ok then
 		self.reading = false;
@@ -45,7 +45,7 @@ local function ssl_dowrite(self)
 		local n = self.bout:read(8192, buff);
 		if not n or n == 0 then break end
 
-		local ok, err, trace = spcall(self.stream.ptrwrite, self.stream, true, buff, n);
+		local ok, err, trace = spcall(self.stream.fullwrite, self.stream, buff, n);
 		if not ok then
 			self.writting = false;
 			self.cond:signal(true);
@@ -70,7 +70,7 @@ local function ssl_close(self)
 end
 
 --- @class std.io.ssl_opts
---- @field backend std.io.stream The stream over which to do TLS
+--- @field backend std.str The stream over which to do TLS
 --- @field host? string For clients, name of the server we are connecting to
 --- @field owned? boolean If set to true, closing the created stream will close the backend too
 --- @field role? "client" | "server" What role the TLS stream will have. By default client
@@ -101,8 +101,7 @@ return function (opts)
 		hnd:set_accept_state();
 	end
 
-	--- @type std.io.stream.backend
-	local self = {
+	local self = setmetatable({
 		hnd = hnd,
 		stream = backend,
 
@@ -116,7 +115,7 @@ return function (opts)
 		bout = bout,
 
 		owned = owned,
-	};
+	}, str);
 
 	function self:read(ptr, n)
 		if not self.hnd then ierror "closed" end
@@ -171,5 +170,5 @@ return function (opts)
 		ssl_close(self);
 	end
 
-	return stream.new(self);
+	return self;
 end
