@@ -1,29 +1,29 @@
 local impl = require "impl";
 local collected = require "std.collected";
-local stream = require "std.io.stream";
 local loop = require "std.loop";
+local str = require "std.os.fs.str";
 local net = {};
 
---- @alias std.io.net.addrinfo_flags string
+--- @alias std.os.net.addrinfo_flags string
 --- |+ "4" EV_AI_IPV4
 --- |+ "6" EV_AI_IPV6
 --- |+ "m" EV_AI_IPV4_MAPPED
 --- |+ "b" EV_AI_BIND
 --- |+ "n" EV_AI_NODNS
 
---- @class std.net.server
+--- @class std.os.net.server
 --- @field _fd _impl.server
 --- @field _mngd string | true?
 local server = {};
 server.__index = server;
 server.__metatable = "std.io.net.server";
 
---- @return std.io.stream client
+--- @return std.str client
 --- @return string ip
 --- @return integer port
 function server:next()
 	local res, ip, port = loop.sync_ret(self._fd:next((coroutine.running())));
-	return stream.from_stream(res, true), ip, port;
+	return str.new(res), ip, port;
 end
 function server:iter()
 	return self.next, self;
@@ -39,7 +39,7 @@ server.__gc = server.close;
 --- @param port integer
 --- @param protocol? "tcp" | "udp" = "tcp"
 --- @param max_n? integer = 32
---- @return std.net.server
+--- @return std.os.net.server
 function net.bind(addr, port, protocol, max_n)
 	local f = loop.sync_ret(impl:bind(coroutine.running(), addr, port, protocol or "tcp", max_n or 32));
 	return collected(setmetatable({ _fd = f, _mngd = true }, server));
@@ -47,16 +47,16 @@ end
 --- @param addr string
 --- @param port integer
 --- @param protocol? "tcp" | "udp" = "tcp"
---- @return std.io.stream
+--- @return std.str
 function net.connect(addr, port, protocol)
 	local f = loop.sync_ret(impl:connect(coroutine.running(), addr, port, protocol or "tcp"));
-	return stream.from_stream(f, true);
+	return str.new(f);
 end
 --- @param name string
 --- @param port integer
 --- @param protocol? "tcp" | "udp" = "tcp"
---- @param flags? std.io.net.addrinfo_flags
---- @return std.io.stream
+--- @param flags? std.os.net.addrinfo_flags
+--- @return std.str
 function net.nameconnect(name, port, protocol, flags)
 	local ips = net.getaddrinfo(name, flags or "");
 
@@ -73,7 +73,7 @@ function net.nameconnect(name, port, protocol, flags)
 	end
 end
 --- @param name string
---- @param flags std.io.net.addrinfo_flags
+--- @param flags std.os.net.addrinfo_flags
 --- @return string[]
 function net.getaddrinfo(name, flags)
 	return loop.sync_ret(impl:getaddrinfo(coroutine.running(), name, flags));

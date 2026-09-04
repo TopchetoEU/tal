@@ -1,5 +1,5 @@
 local headers = require "std.http.headers";
-local stream = require "std.io.stream";
+local stream = require "std.stream_old";
 local buffer = require "string.buffer";
 local ffi = require "ffi";
 

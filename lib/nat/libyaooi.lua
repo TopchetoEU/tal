@@ -878,7 +878,7 @@ end
 
 --- @param req libyaooi.req
 --- @param name string
---- @param flags? std.io.net.addrinfo_flags
+--- @param flags? std.os.net.addrinfo_flags
 --- @return fun()? cancel
 --- @return string[] names
 function yaooi.dns_getaddrinfo(req, name, flags)

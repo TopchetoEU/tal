@@ -1,8 +1,7 @@
-local stream = require "std.io.stream";
+local stream = require "std.stream_old";
 local ffi = require "ffi";
 local libssl = require "nat.libssl";
 local cond = require "std.sync.cond";
-local mutex = require "std.sync.mutex";
 
 local function ssl_doread(self)
 	if self.reading then
