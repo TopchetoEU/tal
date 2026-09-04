@@ -1,3 +1,4 @@
+local stderr = io.stderr;
 local has_dbg, dbg = pcall(require, "lldebugger");
 local printing = require "std.printing";
 
@@ -13,8 +14,6 @@ return function (entry_mod, ...)
 		dbg.start();
 		oldenv.debug.traceback = old_tb;
 	end
-
-	local stderr = io.stderr;
 
 	local env = setmetatable({}, { __index = oldenv, __metatable = "_G" });
 	env._G = env;
