@@ -126,6 +126,7 @@ do
 end
 
 --- @class std.bstr: std.str
+--- @field _closed boolean
 --- @field _backend std.str
 --- @field _rstack std.bstr.range[]
 --- @field _wbuff? std.bstr.range
@@ -270,6 +271,16 @@ do
 		self._wbuff_char = char;
 
 		return self;
+	end
+
+	function str.buff:close()
+		if not self._closed then
+			self:flush();
+			self._backend:close();
+			self._closed = true;
+		end
+
+		return true;
 	end
 
 	function str.buff:to_buff() return self end
@@ -592,14 +603,27 @@ do
 	--- @param gid integer
 	--- @return std.textfile
 	function str.file.text:chown(uid, gid) ierror "not supported" end
+	--- @param whence? seekwhence
+	--- @param offset? integer
+	--- @return std.textfile
+	function str.file.text:seek(whence, offset) ierror "not supported" end
 
-	--- @class std.luafile.compat: std.file
-	--- @field _backend std.luafile
-	luafile_compat = setmetatable({}, str.file);
-	luafile_compat.__index = luafile_compat;
-	luafile_compat.__metatable = "std.luafile.compat";
+	--- @class std.textfile.compat: std.file
+	--- @field _backend std.textfile
+	textfile_compat = setmetatable({}, str.file);
+	textfile_compat.__index = textfile_compat;
+	textfile_compat.__metatable = "std.textfile.compat";
 
-	function luafile_compat:chmod(...)
+	textfile_compat.read = textstr_compat.read;
+	textfile_compat.write = textstr_compat.write;
+	textfile_compat.stat = textstr_compat.stat;
+	textfile_compat.flush = textstr_compat.flush;
+	textfile_compat.close = textstr_compat.close;
+
+	function textfile_compat:seek(seek)
+		return self._backend:seek(seek);
+	end
+	function textfile_compat:chmod(...)
 		return self._backend:chmod(...);
 	end
 	function textfile_compat:chown(uid, gid)
@@ -612,6 +636,9 @@ do
 	file_compat.__index = file_compat;
 	file_compat.__metatable = "std.textfile.compat";
 
+	function file_compat:seek(whence, pos)
+		return self._backend:seek(whence, pos);
+	end
 	function file_compat:chmod(...)
 		return self._backend:chmod(...);
 	end
