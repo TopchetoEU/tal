@@ -1,10 +1,11 @@
 local http = require "std.http";
 local headers = require "std.http.headers";
+local ffi     = require "nat.ffi"
 
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @param code? integer
 --- @param hdrs? std.http.headers
---- @param body? string | std.io.stream | fun(): string?
+--- @param body? string | std.str | fun(): string?
 return function (conn, code, hdrs, body)
 	hdrs = hdrs or headers.new();
 
@@ -18,8 +19,18 @@ return function (conn, code, hdrs, body)
 	local body_out = http.write_res(conn, { code = code or 200, headers = hdrs or headers.new() }, body ~= nil);
 
 	if body then
-		--- @cast body_out std.io.stream
-		body_out:pipe(body);
+		--- @cast body_out std.bstr
+
+		if type(body) == "string" then
+			body_out:fullwrite(ffi.toptr(body));
+		elseif type(body) == "function" then
+			for el in body do
+				body_out:fullwrite(ffi.toptr(el));
+			end
+		else
+			body_out:pipe(body);
+		end
+
 		body_out:close();
 	end
 

@@ -1,4 +1,4 @@
-local ssl = require "std.io.ssl";
+local ssl = require "std.pipes.ssl";
 local io = require "std.io";
 local loop = require "std.loop";
 local pipe = require "std.sync.pipe";
@@ -59,7 +59,7 @@ return function (...)
 	local server = net.bind(ip or "127.0.0.1", port or 4312);
 
 	local broadcast_pipe = pipe.new();
-	--- @type table<std.io.stream, true>
+	--- @type table<std.textstr, true>
 	local conns = {};
 	local i = 1;
 
@@ -77,7 +77,7 @@ return function (...)
 	for conn, conn_ip, conn_port in server:iter() do
 		loop.fork(function ()
 			print("Connection from " .. conn_ip .. ":" .. conn_port);
-			local sconn = ssl { backend = conn, owned = true, role = "server", key = key, cert = cert };
+			local sconn = ssl { backend = conn, owned = true, role = "server", key = key, cert = cert }:to_text();
 			conns[sconn] = true;
 
 			local username;

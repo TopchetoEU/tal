@@ -1,13 +1,13 @@
 local json = require "std.fmt.json";
 local utils = {};
 
---- @param stream std.io.stream
+--- @param stream std.textstr
 function utils.read_string(stream)
 	local res = stream:read "l";
 	return res and res:unquote();
 end
 
---- @param stream std.io.stream
+--- @param stream std.textstr
 --- @param str string
 function utils.write_string(stream, str)
 	stream:write(str:quote(), "\n");
