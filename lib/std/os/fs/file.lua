@@ -6,7 +6,7 @@ local loop = require "std.loop";
 --- @field _closed boolean
 --- @field _noseek boolean
 --- @field _ptr integer
-local file_impl = setmetatable({}, str);
+local file_impl = setmetatable({}, str.file);
 file_impl.__index = file_impl;
 file_impl.__metatable = "std.os.fs.impl.file";
 
@@ -18,18 +18,18 @@ function file_impl:read(ptr, n)
 	end
 
 	local read_n = loop.sync_ret(self._backend:pread(coroutine.running(), self._ptr, ptr, n));
-	self.ptr = self.ptr + read_n;
+	self._ptr = self._ptr + read_n;
 	return read_n;
 end
 function file_impl:write(ptr, n)
 	if self._closed then ierror "closed" end
 
 	if self._noseek then
-		return loop.sync_ret(self._backend:read(coroutine.running(), ptr, n));
+		return loop.sync_ret(self._backend:write(coroutine.running(), ptr, n));
 	end
 
 	local write_n = loop.sync_ret(self._backend:pwrite(coroutine.running(), self._ptr, ptr, n));
-	self.ptr = self.ptr + write_n;
+	self._ptr = self._ptr + write_n;
 	return write_n;
 end
 
@@ -43,22 +43,25 @@ function file_impl:stat()
 	return loop.sync_ret(self._backend:stat((coroutine.running())));
 end
 
-function file_impl:seek(offset, whence)
+function file_impl:seek(whence, offset)
+	whence = whence or "cur";
+	offset = offset or 0;
+
 	if self._closed then ierror "closed" end
 	if self._noseek then ierror "operation not supported" end
 
 	if whence == "set" then
-		self.ptr = offset;
+		self._ptr = offset;
 	elseif whence == "cur" then
-		self.ptr = self.ptr + offset;
+		self._ptr = self._ptr + offset;
 	elseif whence == "end" then
 		local stat = loop.sync_ret(self._backend:stat(coroutine.running()));
-		self.ptr = self.ptr + stat.size;
+		self._ptr = self._ptr + stat.size;
 	end
 
-	if self.ptr < 0 then self.ptr = 0 end
+	if self._ptr < 0 then self._ptr = 0 end
 
-	return self.ptr;
+	return self._ptr;
 end
 function file_impl:chmod(...)
 	if self._closed then return true, nil, "closed" end
@@ -85,7 +88,7 @@ end
 --- @param fd _impl.fd
 --- @param noseek boolean
 function file_impl.new(fd, noseek)
-	return setmetatable({ _backend = fd, _closed = false, _noseek = noseek }, file_impl);
+	return setmetatable({ _backend = fd, _closed = false, _noseek = noseek, _ptr = 0 }, file_impl);
 end
 
 return file_impl;
