@@ -1,16 +1,17 @@
 local loop = require "std.loop";
-local stream = require "std.stream_old";
 local path = require "std.path";
 local impl = require "impl";
 local collected = require "std.basic.table.collected";
+local str = require "std.str";
+local impl_str = require "std.os.fs.str";
 
 --- @class std.proc
 --- @field _fd _impl.process
 --- @field _mng string?
 --- @field _closed boolean
---- @field stdin std.io.stream?
---- @field stdout std.io.stream?
---- @field stderr std.io.stream?
+--- @field stdin std.str?
+--- @field stdout std.str?
+--- @field stderr std.str?
 local proc = {};
 proc.__index = proc;
 proc.__metatable = "std.proc";
@@ -36,40 +37,40 @@ function proc:close()
 end
 function proc:to_stream()
 	self._mng = nil;
-	local self = { p = self };
+	local self = setmetatable({ _proc = self }, str);
 	function self:read(ptr, n)
-		if not self.p.stdout then ierror "writeonly" end
-		return self.p.stdout:ptrread(false, ptr, n);
+		if not self._proc.stdout then ierror "writeonly" end
+		return self._proc.stdout:read(ptr, n);
 	end
 	function self:write(ptr, n)
-		if not self.p.stdin then ierror "readonly" end
-		return self.p.stdin:ptrwrite(false, ptr, n);
+		if not self._proc.stdin then ierror "readonly" end
+		return self._proc.stdin:write(ptr, n);
 	end
-	function self:flush(ptr, n)
-		if self.p.stdin then
-			self.p.stdin:flush();
+	function self:flush()
+		if self._proc.stdin then
+			self._proc.stdin:flush();
 		end
-		if self.p.stdout then
-			self.p.stdout:flush();
+		if self._proc.stdout then
+			self._proc.stdout:flush();
 		end
-		return true;
+		return self;
 	end
 	function self:close()
-		if self.p._closed then return true end
+		if self._proc._closed then return true end
 
-		if self.p.stdin then
-			self.p.stdin:close();
+		if self._proc.stdin then
+			self._proc.stdin:close();
 		end
-		if self.p.stdout then
-			self.p.stdout:close();
+		if self._proc.stdout then
+			self._proc.stdout:close();
 		end
 
-		return self.p:close();
+		self._proc:close();
+		return true;
 	end
 
-	return stream.new(self);
+	return self;
 end
-
 function proc:__gc()
 	if self._mng then
 		print("warn: proc not freed: " .. self._mng);
@@ -118,9 +119,9 @@ return function (opts)
 	local self = collected(setmetatable({
 		_fd = res,
 		_mng = debug.traceback(),
-		stdin = stdin and stream.from_stream(stdin, true),
-		stdout = stdout and stream.from_stream(stdout, true),
-		stderr = stderr and stream.from_stream(stderr, true)
+		stdin = stdin and impl_str.new(stdin),
+		stdout = stdout and impl_str.new(stdout),
+		stderr = stderr and impl_str.new(stderr)
 	}, proc));
 
 	return self;
