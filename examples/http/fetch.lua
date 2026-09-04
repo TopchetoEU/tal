@@ -42,7 +42,7 @@ return function (...)
 	local res = fetch {
 		url = url,
 		method = method,
-		body = f,
+		body = f and f:to_str(),
 		headers = hdrs,
 	};
 
@@ -51,10 +51,7 @@ return function (...)
 	end
 
 	if res.body then
-		for part in res.body:lines("c") do
-			io.write(part);
-		end
-
+		io.stdout:to_str():pipe(res.body);
 		res.body:close();
 	end
 end

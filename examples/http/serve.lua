@@ -17,7 +17,7 @@ local function send_dir(conn, get_path, file_path)
 	local res_f = http.write_res(conn, {
 		code = 200,
 		headers = headers.of { ["Content-Type"] = "text/html" }
-	}, true);
+	}, true):to_text();
 
 	res_f:write("<!DOCTYPE html>\n");
 	res_f:write("File contents of " .. get_path .. ":<ul>");
@@ -45,6 +45,8 @@ return function (serve_path)
 
 	for conn in server:iter() do
 		loop.fork(function ()
+			local conn = conn:to_buff();
+
 			local ok, err, trace = spcall(function ()
 				local req = http.read_req(conn);
 				if not req then return end
@@ -56,8 +58,8 @@ return function (serve_path)
 
 				local file_path = path.chroot(serve_path, req.path);
 
-				local f = io.open(file_path, "r");
-				if not f then return send_not_found(conn) end
+				local ok, f = pcall(fs.open, file_path, "r");
+				if not ok then return send_not_found(conn) end
 
 				local stat = f:stat();
 
