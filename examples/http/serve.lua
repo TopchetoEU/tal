@@ -12,6 +12,7 @@ local url = require "std.http.url";
 local fs = require "std.os.fs";
 local headers = require "std.http.headers";
 local net = require "std.os.net";
+local signal = require "std.os.signal";
 
 local function send_dir(conn, get_path, file_path)
 	local res_f = http.write_res(conn, {
@@ -36,6 +37,18 @@ local function send_not_found(conn)
 end
 
 return function (serve_path)
+	signal.on "INT";
+	signal.on "BADPIPE";
+
+	loop.fork(function ()
+		for sig in signal.wait do
+			if sig == "INT" then
+				io.stderr:write "Interrutped!";
+				os.exit();
+			end
+		end
+	end)
+
 	if not serve_path then
 		print("Usage: http-serve.lua <path>");
 		return;
