@@ -1,5 +1,5 @@
 --- @diagnostic disable: duplicate-set-field
-local lex = require "std.compiler.lex";
+local lex;
 
 --- @param self string
 --- @param sep? string
@@ -31,6 +31,7 @@ function string:quote()
 end
 --- @param self string
 function string:unquote()
+	lex = lex or require "std.compiler.lex";
 	-- Although we use the parser, this *should* be safe, as we don't execute any code
 	-- However, the solution and hand is really stupid
 	-- TODO: figure out something less stupid

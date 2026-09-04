@@ -1,7 +1,8 @@
 local loop = require "std.loop";
 local stream = require "std.stream_old";
 local path = require "std.path";
-local impl = require "impl"
+local impl = require "impl";
+local collected = require "std.basic.table.collected";
 
 --- @class std.proc
 --- @field _fd _impl.process
@@ -114,7 +115,7 @@ return function (opts)
 
 	local res, stdin, stdout, stderr = loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks));
 
-	local self = table.collected(setmetatable({
+	local self = collected(setmetatable({
 		_fd = res,
 		_mng = debug.traceback(),
 		stdin = stdin and stream.from_stream(stdin, true),

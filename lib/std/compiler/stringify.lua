@@ -1,3 +1,4 @@
+require "std.basic.string";
 local nodes = require "std.compiler.node";
 local buffer = require "string.buffer";
 
