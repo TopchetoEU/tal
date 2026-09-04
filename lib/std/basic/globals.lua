@@ -36,13 +36,13 @@ spcall = err.spcall;
 sxpcall = err.sxpcall;
 srethrow = err.srethrow;
 
-debug = require "std.debug";
-table = require "std.table";
+debug = require "std.basic.debug";
+table = require "std.basic.table";
 io = require "std.io";
 os = require "std.os";
 jit = require "jit";
 bit = require "bit";
-string = require "std.string";
+string = require "std.basic.string";
 number = require "std.basic.number";
 boolean = require "std.basic.boolean";
 coroutine = require "std.basic.coroutine";

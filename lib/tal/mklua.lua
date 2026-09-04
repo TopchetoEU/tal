@@ -1,7 +1,7 @@
 local argp = require "std.argp";
 local ffi = require "ffi";
 local lex = require "std.compiler.lex";
-local mapping = require "std.debug.mapping";
+local mapping = require "std.basic.debug.mapping";
 
 --- @class tal.mklua.ctx
 --- @field entries string[]

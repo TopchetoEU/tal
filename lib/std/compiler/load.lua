@@ -1,7 +1,7 @@
 local syntax = require "std.compiler.syntax";
 local downgrade = require "std.compiler.downgrade";
 local stringify = require "std.compiler.stringify";
-local mapping   = require "std.debug.mapping"
+local mapping = require "std.basic.debug.mapping";
 local loading = {};
 
 local load_raw = load;

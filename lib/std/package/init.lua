@@ -1,9 +1,9 @@
 --- @diagnostic disable: duplicate-set-field
 
-require "std.string";
+require "std.basic.string";
 local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
-local table = require "std.table";
+local table = require "std.basic.table";
 local errors = require "std.errors";
 
 --- @class packagelib
