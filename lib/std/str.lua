@@ -94,7 +94,7 @@ do
 
 	function str:to_buff() return str.buff.new(self) end
 	function str:to_unbuff() return self end
-	function str:to_lua() return str.text.from_stream(self) end
+	function str:to_text() return str.text.from_stream(self) end
 end
 --- @class std.file: std.str
 str.file = setmetatable({}, str);
@@ -118,7 +118,7 @@ do
 	--- @param no_seek? boolean = false
 	function str.file:to_buff(no_seek) return str.file.buff.new(self, no_seek) end
 	function str.file:to_unbuff() return self end
-	function str.file:to_lua() return str.file.text.from_stream(self) end
+	function str.file:to_text() return str.file.text.from_stream(self) end
 
 	--- @return true
 	function str:close() return true end
@@ -344,13 +344,13 @@ end
 
 --- @class std.luastr
 str.text = {};
---- @class std.luastr.compat
-local luastr_compat;
+--- @class std.textstr.compat
+local textstr_compat;
 --- @class std.str.compat
 local str_compat;
 do
-	str.__index = str;
-	str.__metatable = "std.luastr";
+	str.text.__index = str.text;
+	str.text.__metatable = "std.textstr";
 
 	--- @param fmt std.io.readmode
 	--- @return string?
@@ -367,11 +367,11 @@ do
 	function str.text:setvbuff(mode, size) ierror "not supported" end
 	--- @return std.io.stat
 	function str.text:stat() ierror "not supported" end
-	--- @return std.luastr
+	--- @return std.textstr
 	function str.text:flush() return self end
 	function str.text:close() return true end
 
-	--- @param dst std.luastr
+	--- @param dst std.textstr
 	--- @param close? boolean = false
 	--- @param close_dst? boolean = close
 	function str.text:pipe(dst, close, close_dst)
@@ -404,37 +404,37 @@ do
 		end
 	end
 
-	--- @class std.luastr.compat: std.str
-	--- @field _backend std.luastr
-	luastr_compat = setmetatable({}, str);
-	luastr_compat.__index = luastr_compat;
-	luastr_compat.__metatable = "std.luastr.compat";
+	--- @class std.textstr.compat: std.str
+	--- @field _backend std.textstr
+	textstr_compat = setmetatable({}, str);
+	textstr_compat.__index = textstr_compat;
+	textstr_compat.__metatable = "std.textstr.compat";
 
-	function luastr_compat:read(ptr, n)
+	function textstr_compat:read(ptr, n)
 		local res = self._backend:read(n);
 		if not res then return 0 end
 
 		ffi.copy(ptr, res);
 		return #res;
 	end
-	function luastr_compat:write(ptr, n)
+	function textstr_compat:write(ptr, n)
 		return self._backend:write(ffi.string(ptr, n));
 	end
-	function luastr_compat:stat()
+	function textstr_compat:stat()
 		return self._backend:stat();
 	end
-	function luastr_compat:flush()
+	function textstr_compat:flush()
 		return self._backend:flush();
 	end
-	function luastr_compat:close()
+	function textstr_compat:close()
 		return self._backend:close();
 	end
 
-	--- @class std.str.compat: std.luastr
+	--- @class std.str.compat: std.textstr
 	--- @field _backend std.bstr
 	str_compat = setmetatable({}, str.text);
 	str_compat.__index = str_compat;
-	str_compat.__metatable = "std.luastr.compat";
+	str_compat.__metatable = "std.textstr.compat";
 
 	function str_compat:read(mode)
 		if mode == "l" or mode == "L" then
@@ -511,7 +511,7 @@ do
 
 	--- @return std.str
 	function str.text:to_str()
-		return setmetatable({ _backend = self }, luastr_compat);
+		return setmetatable({ _backend = self }, textstr_compat);
 	end
 
 	--- @param str std.str
@@ -520,22 +520,22 @@ do
 	end
 end
 
---- @class std.luafile
+--- @class std.textfile: std.textstr
 str.file.text = setmetatable({}, str.text);
---- @class std.luafile.compat
-local luafile_compat;
+--- @class std.textfile.compat
+local textfile_compat;
 --- @class std.file.compat
 local file_compat;
 do
-	str.__index = str;
-	str.__metatable = "std.luafile";
+	str.file.text.__index = str.file.text;
+	str.file.text.__metatable = "std.textfile";
 
 	--- @param ... string | integer
-	--- @return std.luafile
+	--- @return std.textfile
 	function str.file.text:chmod(...) ierror "not supported" end
 	--- @param uid integer
 	--- @param gid integer
-	--- @return std.luafile
+	--- @return std.textfile
 	function str.file.text:chown(uid, gid) ierror "not supported" end
 
 	--- @class std.luafile.compat: std.file
@@ -547,15 +547,15 @@ do
 	function luafile_compat:chmod(...)
 		return self._backend:chmod(...);
 	end
-	function luafile_compat:chown(uid, gid)
+	function textfile_compat:chown(uid, gid)
 		return self._backend:chown(uid, gid);
 	end
 
-	--- @class std.file.compat: std.str.compat, std.luafile
+	--- @class std.file.compat: std.str.compat, std.textfile
 	--- @field _backend std.bfile
 	file_compat = setmetatable({}, str_compat);
-	file_compat.__index = luafile_compat;
-	file_compat.__metatable = "std.luafile.compat";
+	file_compat.__index = file_compat;
+	file_compat.__metatable = "std.textfile.compat";
 
 	function file_compat:chmod(...)
 		return self._backend:chmod(...);
@@ -566,12 +566,12 @@ do
 
 	--- @return std.str
 	function str.file.text:to_str()
-		return setmetatable({ _backend = self }, luafile_compat);
+		return setmetatable({ _backend = self }, textfile_compat);
 	end
 
 	--- @param str std.file
 	function str.file.text.from_stream(str)
-		return setmetatable({ _backend = str:to_buff() }, str_compat);
+		return setmetatable({ _backend = str:to_buff() }, file_compat);
 	end
 end
 
