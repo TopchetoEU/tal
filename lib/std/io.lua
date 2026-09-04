@@ -1,8 +1,6 @@
-local impl = require "impl";
-local loop = require "std.loop";
 local sig  = require "std.sig";
-local stream = require "std.stream_old";
 local proc = require "std.os.proc";
+local fs = require "std.os.fs";
 
 -- A wrapper around my libraries to mirror lua's "io" global library
 
@@ -39,22 +37,14 @@ local proc = require "std.os.proc";
 
 local io = {};
 
-io.stdin = stream.from_stream(impl.stdin);
-io.stdout = stream.from_stream(impl.stdout);
-io.stderr = stream.from_stream(impl.stderr);
+io.stdin = fs.stdin:to_lua();
+io.stdout = fs.stdout:to_lua();
+io.stderr = fs.stderr:to_lua();
 
 --- @param path string
---- @param flags std.io.open_flags
---- @param mode? integer | string
---- @return std.io.stream
-function io.xopen(path, flags, mode)
-	mode = mode or "666";
-	if type(mode) == "string" then mode = assert(tonumber(mode, 8)) end
-	return stream.from_file(loop.sync_ret(impl:open(coroutine.running(), path, flags, mode)));
-end
---- Left as compatibility with stock lua. Use xopen when targeting tal
---- @param path string
 --- @param mode? openmode
+--- @return std.luastr?
+--- @return string? err
 function io.open(path, mode)
 	--- @type std.io.open_flags
 	local flags;
@@ -82,9 +72,9 @@ function io.open(path, mode)
 		sig.error("mode", "invalid mode specified");
 	end
 
-	local ok, res = pcall(io.xopen, path, flags);
+	local ok, res = pcall(fs.open, path, flags, 777);
 	if not ok then return nil, res --[[@as string]] end
-	return res;
+	return (res:to_lua());
 end
 
 --- @param prog string
