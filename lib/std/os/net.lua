@@ -1,6 +1,7 @@
 local impl = require "impl";
 local loop = require "std.loop";
 local str = require "std.os.fs.str";
+local collected = require "std.basic.table.collected";
 local net = {};
 
 --- @alias std.os.net.addrinfo_flags string
@@ -41,7 +42,7 @@ server.__gc = server.close;
 --- @return std.os.net.server
 function net.bind(addr, port, protocol, max_n)
 	local f = loop.sync_ret(impl:bind(coroutine.running(), addr, port, protocol or "tcp", max_n or 32));
-	return table.collected(setmetatable({ _fd = f, _mngd = true }, server));
+	return collected(setmetatable({ _fd = f, _mngd = true }, server));
 end
 --- @param addr string
 --- @param port integer

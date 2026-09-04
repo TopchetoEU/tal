@@ -1,6 +1,6 @@
 -- Since our compiler supports columns, we need to patch lua's debug library to use our mappings
 
-local mapping = require "std.debug.mapping";
+local mapping = require "std.basic.debug.mapping";
 local buffer = require "string.buffer";
 local sig = require "std.sig";
 

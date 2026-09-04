@@ -1,5 +1,6 @@
 local loop = require "std.loop";
 local sig = require "std.sig";
+local collected = require "std.basic.table.collected";
 
 local buffer = require "string.buffer";
 
@@ -287,7 +288,7 @@ end
 --- @param mngd? string | true
 --- @return std.io.stream
 function stream.new(backend, mngd)
-	return table.collected(setmetatable({
+	return collected(setmetatable({
 		buffr = buffer.new(),
 		buffw = buffer.new(),
 		_backend = backend,

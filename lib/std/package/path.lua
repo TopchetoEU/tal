@@ -1,3 +1,5 @@
+require "std.basic.string";
+
 local package = {
 	sep = ".",
 	rep = require "std.path".sep,
