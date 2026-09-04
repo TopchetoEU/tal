@@ -29,7 +29,7 @@ return function (entry_mod, ...)
 
 		require "std.basic.globals";
 		local loop = require "std.loop";
-		local fs = require "std.io.fs";
+		local fs = require "std.os.fs";
 		local ffi = require "nat.ffi";
 
 		package.roots:insert(fs.path "cwd");

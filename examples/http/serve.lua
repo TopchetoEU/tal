@@ -9,7 +9,7 @@ local loop = require "std.loop";
 local respond = require "std.http.respond";
 local path = require "std.path";
 local url = require "std.http.url";
-local fs = require "std.io.fs";
+local fs = require "std.os.fs";
 local headers = require "std.http.headers";
 local net = require "std.io.net";
 
