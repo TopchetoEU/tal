@@ -136,7 +136,7 @@ function _impl:connect(udata, addr, port, protocol) end
 --- @return _impl.server server
 function _impl:bind(udata, addr, port, protocol, max_n) end
 --- @param name string
---- @param flags std.io.net.addrinfo_flags
+--- @param flags std.os.net.addrinfo_flags
 --- @return fun()? cancel
 --- @return string[] addrs
 function _impl:getaddrinfo(udata, name, flags) end

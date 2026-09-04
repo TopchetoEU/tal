@@ -1,5 +1,5 @@
 local loop = require "std.loop";
-local stream = require "std.io.stream";
+local stream = require "std.stream_old";
 local collected = require "std.collected";
 local path = require "std.path";
 local impl = require "impl"

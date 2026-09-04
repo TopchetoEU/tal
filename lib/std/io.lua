@@ -1,7 +1,7 @@
 local impl = require "impl";
 local loop = require "std.loop";
 local sig  = require "std.sig";
-local stream = require "std.io.stream";
+local stream = require "std.stream_old";
 local proc = require "std.os.proc";
 
 -- A wrapper around my libraries to mirror lua's "io" global library
