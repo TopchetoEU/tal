@@ -35,7 +35,8 @@ end
 
 function file_impl:flush()
 	if self._closed then ierror "closed" end
-	return loop.sync_ret(self._backend:flush((coroutine.running())));
+	loop.sync_ret(self._backend:flush((coroutine.running())));
+	return self;
 end
 function file_impl:stat()
 	if self._closed then ierror "closed" end

@@ -18,7 +18,8 @@ function str_impl:write(ptr, n)
 end
 function str_impl:flush()
 	if self._closed then ierror "closed" end
-	return loop.sync_ret(self._backend:flush((coroutine.running())));
+	-- return loop.sync_ret(self._backend:flush((coroutine.running())));
+	return self;
 end
 function str_impl:stat()
 	if self._closed then ierror "closed" end

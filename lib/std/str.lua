@@ -128,7 +128,8 @@ end
 --- @class std.bstr: std.str
 --- @field _backend std.str
 --- @field _rstack std.bstr.range[]
---- @field _wbuff std.bstr.range
+--- @field _wbuff? std.bstr.range
+--- @field _wbuff_char? integer
 str.buff = setmetatable({}, str);
 do
 	str.buff.__index = str.buff;
@@ -189,10 +190,9 @@ do
 	function str.buff:readline(ptr, n, char)
 		n = self:read(ptr, n);
 
-		local c_ptr = libc.strnchr(ptr, char, n);
-		if c_ptr then
-			local c_i = c_ptr - ptr;
-			self:unread(c_ptr + 1, n - c_i - 1);
+		local c_i = libc.strnchr(ptr, char, n);
+		if c_i then
+			self:unread(ptr + c_i + 1, n - c_i - 1);
 			return c_i + 1, true;
 		end
 
@@ -200,7 +200,7 @@ do
 	end
 
 	function str.buff:flush()
-		if self._wbuff.f > 0 then
+		if self._wbuff and self._wbuff.f > 0 then
 			self._backend:fullwrite(self._wbuff.data, self._wbuff.f);
 			self._wbuff.f = 0;
 		end
@@ -209,6 +209,10 @@ do
 	end
 
 	function str.buff:write(ptr, n)
+		if not self._wbuff then
+			return self._backend:fullwrite(ptr, n);
+		end
+
 		-- We will either be overfilling the buffer or raw-writting
 		-- Either way, we need to flush
 		if self._wbuff.f + n > self._wbuff.l then
@@ -216,14 +220,45 @@ do
 		end
 
 		-- We can't fit this in the buffer, so we will raw-write it
+		-- TODO: handle flush chars better
 		if n > self._wbuff.l then
-			return self._backend:write(ptr, n);
+			return self._backend:fullwrite(ptr, n);
 		end
 
-		ffi.copy(self._wbuff.data + self._wbuff.f, ptr, n);
-		self._wbuff.f = self._wbuff.f + n;
+		local c_i = self._wbuff_char and libc.strnchr(ptr, self._wbuff_char, n);
 
-		return n;
+		if c_i then
+			c_i = c_i + 1;
+			ffi.copy(self._wbuff.data + self._wbuff.f, ptr, c_i);
+			self._wbuff.f = self._wbuff.f + c_i;
+			self:flush();
+
+			ffi.copy(self._wbuff.data + self._wbuff.f, ptr + c_i, n - c_i);
+			self._wbuff.f = self._wbuff.f + n - c_i;
+
+			return n;
+		else
+			ffi.copy(self._wbuff.data + self._wbuff.f, ptr, n);
+			self._wbuff.f = self._wbuff.f + n;
+
+			return n;
+		end
+	end
+
+	--- @param buff? ffi.cdata* The buffer to be used. If nil, allocated dynamically
+	--- @param n? integer The size of the buffer. If nil, write side remains unbuffered
+	--- @param char? integer The flush char. If nil, no char will flush the write buffer
+	function str.buff:setwbuff(buff, n, char)
+		if n then
+			if not buff then buff = ffi.new("char[?]", n) end
+			self._wbuff = { data = buff, f = 0, l = n };
+		else
+			self._wbuff = nil;
+		end
+
+		self._wbuff_char = char;
+
+		return self;
 	end
 
 	function str.buff:to_buff() return self end
@@ -234,7 +269,8 @@ do
 		return setmetatable({
 			_backend = backend:to_unbuff(),
 			_rstack = {},
-			_wbuff = { data = ffi.new("char[?]", str.chunksize), f = 0, l = str.chunksize },
+			_wbuff = nil,
+			_wbuff_char = nil,
 		}, str.buff);
 	end
 end
@@ -435,14 +471,14 @@ do
 			if #buff == 0 then return nil end
 			return buff:tostring();
 		elseif mode == "c" then
-			local buff = buffer.new(1024);
-			buff:commit(self._backend:read(buff:ref()));
+			local buff = buffer.new();
+			buff:commit(self._backend:read(buff:reserve(1024)));
 
 			if #buff == 0 then return nil end
 			return buff:tostring();
 		elseif type(mode) == "number" then
-			local buff = buffer.new(mode);
-			buff:commit(self._backend:read(buff:ref()));
+			local buff = buffer.new();
+			buff:commit(self._backend:read(buff:reserve(mode), mode));
 
 			if #buff == 0 then return nil end
 			return buff:tostring();

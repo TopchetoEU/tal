@@ -1,7 +1,7 @@
 local impl = require "impl";
-local impl_str  = require "std.os.fs.str"
-local file = require "std.os.fs.file"
-local str  = require "std.str"
+local impl_str = require "std.os.fs.str";
+local impl_file = require "std.os.fs.file";
+local str  = require "std.str";
 
 local sig = require "std.sig";
 local loop = require "std.loop";
@@ -10,6 +10,12 @@ local p = require "std.path";
 local dir = require "std.os.fs.dir";
 
 local fs = {};
+
+-- We make std streams buffered, as most people will use them as buffered
+
+fs.stdin = impl_str.new(impl.stdin):to_buff();
+fs.stdout = impl_str.new(impl.stdout):to_buff():setwbuff(nil, str.chunksize, 0x0A);
+fs.stderr = impl_str.new(impl.stderr):to_buff();
 
 --- @alias std.os.fs.path
 --- | "home"
@@ -37,7 +43,7 @@ function fs.open(path, flags, mode)
 	mode = mode or "666";
 	if type(mode) == "string" then mode = assert(tonumber(mode, 8)) end
 	local fd = loop.sync_ret(impl:open(coroutine.running(), path, flags, mode));
-	return file.new(fd, false); -- TODO: detect seekability of files
+	return impl_file.new(fd, false); -- TODO: detect seekability of files
 end
 --- @param path string
 --- @param ... string | integer
