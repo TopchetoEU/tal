@@ -119,7 +119,7 @@ function http.read_headers(conn)
 
 		if line == "\r\n" or line == "\n" then return res end
 
-		local key, val = line:match "^(.-): ?(.*)\r?\n$";
+		local key, val = line:match "^(.-): ?(.-)\r?\n$";
 		if not key then error "unexpected header format" end
 		key = key:lower();
 
@@ -154,7 +154,7 @@ function http.read_body(conn, hdr)
 	end
 
 	if chunked then
-		local self = setmetatable({ str = conn, done = false }, str.chunked);
+		local self = setmetatable({ str = conn, done = false, _rstack = {} }, str.chunked);
 
 		function self:readchunk()
 			if not self.str then ierror "closed" end
@@ -165,10 +165,15 @@ function http.read_body(conn, hdr)
 			local line = _readline(self.str, buff);
 			if not line then ierror "pipe broken" end
 
-			local slen = _readline(self.str, buff):match "^([%da-zA-Z]+)\r?\n$";
+			local slen = line:match "^([%da-zA-Z]+)\r?\n$";
 			if not slen then ierror "malformed chunked encoding" end
 
 			local len = tonumber(slen, 16);
+			if len == 0 then
+				self.done = true;
+				return 0;
+			end
+
 			local ptr = ffi.new("char[?]", len);
 			self.str:fullread(ptr, len);
 

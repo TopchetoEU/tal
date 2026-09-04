@@ -162,8 +162,9 @@ do
 	end
 	--- @param ptr ffi.cdata*
 	--- @param n integer
+	--- @return integer
 	function str.buff:_rawwrite(ptr, n)
-		self._backend:fullwrite(ptr, n);
+		return self._backend:fullwrite(ptr, n);
 	end
 
 	--- @param ptr ffi.cdata*
@@ -186,7 +187,7 @@ do
 
 				return res_n;
 			else
-				ffi.copy(ptr, part.data, part_n);
+				ffi.copy(ptr, part.data + part.f, part_n);
 				res_n = res_n + part_n;
 				ptr = ptr + part_n;
 				n = n - part_n;
@@ -251,7 +252,7 @@ do
 			return self:_rawwrite(ptr, n);
 		end
 
-		local c_i = self._wbuff_char and libc.strnchr(ptr, self._wbuff_char, n);
+		local c_i = self._wbuff_char and libc.strnrchr(ptr, self._wbuff_char, n);
 
 		if c_i then
 			c_i = c_i + 1;
