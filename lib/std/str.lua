@@ -142,6 +142,17 @@ do
 
 	--- @param ptr ffi.cdata*
 	--- @param n integer
+	function str.buff:_rawread(ptr, n)
+		return self._backend:read(ptr, n);
+	end
+	--- @param ptr ffi.cdata*
+	--- @param n integer
+	function str.buff:_rawwrite(ptr, n)
+		self._backend:fullwrite(ptr, n);
+	end
+
+	--- @param ptr ffi.cdata*
+	--- @param n integer
 	function str.buff:read(ptr, n)
 		local res_n = 0;
 
@@ -169,7 +180,7 @@ do
 
 		if res_n ~= 0 then return res_n end
 
-		return res_n + self._backend:read(ptr, n);
+		return res_n + self:_rawread(ptr, n);
 	end
 	--- Reverts `n` amount of bytes from the last read
 	--- `ptr` is a hint for the data, if the underlying stream can't seek. It must mirror the last `n` read bytes
@@ -201,7 +212,7 @@ do
 
 	function str.buff:flush()
 		if self._wbuff and self._wbuff.f > 0 then
-			self._backend:fullwrite(self._wbuff.data, self._wbuff.f);
+			self:_rawwrite(self._wbuff.data, self._wbuff.f);
 			self._wbuff.f = 0;
 		end
 
@@ -210,7 +221,7 @@ do
 
 	function str.buff:write(ptr, n)
 		if not self._wbuff then
-			return self._backend:fullwrite(ptr, n);
+			return self:_rawwrite(ptr, n);
 		end
 
 		-- We will either be overfilling the buffer or raw-writting
@@ -222,7 +233,7 @@ do
 		-- We can't fit this in the buffer, so we will raw-write it
 		-- TODO: handle flush chars better
 		if n > self._wbuff.l then
-			return self._backend:fullwrite(ptr, n);
+			return self:_rawwrite(ptr, n);
 		end
 
 		local c_i = self._wbuff_char and libc.strnchr(ptr, self._wbuff_char, n);
@@ -342,7 +353,51 @@ do
 	end
 end
 
---- @class std.luastr
+--- @class std.bstr.chunked: std.str
+--- @field _rstack std.bstr.range[]
+str.chunked = setmetatable({}, str);
+do
+	str.chunked.__index = str;
+	str.chunked.__metatable = "std.str.chunked";
+
+	--- @return integer
+	--- @return ffi.cdata*?
+	function str.chunked:readchunk() ierror "not supported" end
+	--- @param ptr ffi.cdata*
+	--- @param n integer
+	--- @return integer
+	function str.chunked:writechunk(ptr, n) ierror "not supported" end
+
+	function str.chunked:_rawread(ptr, n)
+		local res_n = 0;
+
+		while true do
+			local data_n, data = self:readchunk();
+			if data_n == 0 then return res_n end
+
+			if data_n >= n then
+				ffi.copy(ptr, data, n);
+
+				if data_n > n then
+					table.insert(self._rstack, { f = n, l = data_n, data = data });
+				end
+
+				return res_n + n;
+			else
+				ffi.copy(ptr, data, data_n);
+				res_n = res_n + data_n;
+				ptr = ptr + data_n
+				n = n - data_n;
+			end
+		end
+	end
+	function str.chunked:read(ptr, n)
+		-- A bit hacky, but I don't feel like writting this logic twice...
+		return str.buff.read(self --[[@as any]], ptr, n);
+	end
+end
+
+--- @class std.textstr
 str.text = {};
 --- @class std.textstr.compat
 local textstr_compat;
