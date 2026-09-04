@@ -21,8 +21,9 @@ function str:flush() return true end
 function str:stat() ierror "not supported" end
 --- @param mode integer
 function str:rawchmod(mode) ierror "not supported" end
---- @param mode integer
-function str:rawchown(mode) ierror "not supported" end
+--- @param uid integer
+--- @param gid integer
+function str:chown(mode) ierror "not supported" end
 --- @return true _ Must be returned, so that `assert(self:flush())` doesn't error out
 function str:close() return true end
 
@@ -32,10 +33,3 @@ function str:chmod(mode)
 	self:rawchmod(mode);
 	return self;
 end
---- @param mode integer | string
-function str:chown(mode)
-	if type(mode) == "string" then mode = assert(tonumber(mode, 8), "bad mode") end
-	self:rawchown(mode);
-	return self;
-end
-
