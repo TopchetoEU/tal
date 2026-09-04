@@ -41,8 +41,8 @@ local function polyfill(self, name, node)
 		return self.polyfills[name];
 	end
 
-	local id = self.id_base .. "_" .. self.next_id;
-	self.next_id = self.next_id + 1;
+	local id = self.id_base .. "_" .. self.next_id[1];
+	self.next_id[1] = self.next_id[1] + 1;
 	local res_name = nodes.name(nil, id, false);
 
 	table.insert(self.parts, nodes.decl(nil, false, { res_name }, { node }));
@@ -54,7 +54,7 @@ end
 --- @class compiler.downgrade.ctx
 --- @field parts node.stm[]
 --- @field id_base string
---- @field next_id integer
+--- @field next_id { [1]: integer }
 --- @field polyfills table<string, node.name> A table polyfill name -> polyfill
 --- @field scope compiler.downgrade.scope
 local ctx_meta = {};
@@ -135,7 +135,7 @@ end
 function ctx_meta.new()
 	return setmetatable({
 		id_base = "_" .. math.random(1, 0x1000000),
-		next_id = 1,
+		next_id = { 1 },
 		parts = {},
 		polyfills = {},
 		scope = { prev = nil, consts = {}, names = {}, labels = {} },
