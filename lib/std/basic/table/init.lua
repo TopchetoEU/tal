@@ -9,6 +9,8 @@ tablelib.__metatable = "table";
 
 tablelib.clear = require "table.clear";
 tablelib.new = require "table.new";
+tablelib.field = require "std.basic.table.field";
+tablelib.collected = require "std.basic.table.collected";
 tablelib.unpack = unpack or tablelib.unpack;
 
 function tablelib.pack(...)

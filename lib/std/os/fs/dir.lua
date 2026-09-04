@@ -1,5 +1,4 @@
 local loop = require "std.loop";
-local collected = require "std.collected";
 
 --- @class std.fs.dir
 --- @field hnd _impl.dir
@@ -26,7 +25,7 @@ function dir:close()
 	self.closed = true;
 end
 function dir.new(backend)
-	return collected(setmetatable({ hnd = backend, closed = false }, dir))
+	return table.collected(setmetatable({ hnd = backend, closed = false }, dir))
 end
 
 dir.__gc = dir.close;

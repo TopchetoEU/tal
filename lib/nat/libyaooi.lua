@@ -1,7 +1,8 @@
+require "std.basic.table";
+
 local ffi = require "nat.ffi";
 local libc = require "nat.libc";
 local errors = require "std.errors";
-local field  = require "std.field";
 
 local error = errors.ierror;
 
@@ -374,8 +375,8 @@ yaooi.req = {};
 yaooi.req.__index = yaooi.req;
 yaooi.req.__metatable = "libyaooi.req";
 local req_type = ffi.metatype("struct yo_req", yaooi.req);
-local req_udata = field();
-local req_getres = field();
+local req_udata = table.field();
+local req_getres = table.field();
 
 --- @param getres fun(): ...
 local function req_prep(req, getres)
