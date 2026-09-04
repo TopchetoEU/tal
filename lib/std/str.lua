@@ -1,5 +1,7 @@
 local ffi = require "nat.ffi"
-local libc= require "nat.libc";
+local libc = require "nat.libc";
+local buffer = require "string.buffer";
+local sig = require "std.sig";
 
 --- @class std.str
 local str = {};
@@ -92,6 +94,7 @@ do
 
 	function str:to_buff() return str.buff.new(self) end
 	function str:to_unbuff() return self end
+	function str:to_lua() return str.lua.from_stream(self) end
 end
 --- @class std.file: std.str
 str.file = setmetatable({}, str);
@@ -112,9 +115,10 @@ do
 	--- @return std.file
 	function str.file:chown(uid, gid) ierror "not supported" end
 
-	--- @param no_seek boolean = false
+	--- @param no_seek? boolean = false
 	function str.file:to_buff(no_seek) return str.file.buff.new(self, no_seek) end
 	function str.file:to_unbuff() return self end
+	function str.file:to_lua() return str.file.lua.from_stream(self) end
 
 	--- @return true
 	function str:close() return true end
@@ -189,10 +193,10 @@ do
 		if c_ptr then
 			local c_i = c_ptr - ptr;
 			self:unread(c_ptr + 1, n - c_i - 1);
-			return c_i + 1;
+			return c_i + 1, true;
 		end
 
-		return n;
+		return n, false;
 	end
 
 	function str.buff:flush()
@@ -292,12 +296,12 @@ do
 	function str.file.buff:to_unbuff() return self._backend end
 
 	--- @param backend std.str
-	--- @param noseek boolean
+	--- @param noseek? boolean
 	function str.file.buff.new(backend, noseek)
 		return setmetatable({
 			_backend = backend:to_unbuff(),
 			_bstr = str.buff.new(backend),
-			_noseek = noseek,
+			_noseek = noseek or false,
 		}, str.file.buff);
 	end
 end
@@ -306,6 +310,8 @@ end
 str.lua = {};
 --- @class std.luastr.compat
 local luastr_compat;
+--- @class std.str.compat
+local str_compat;
 do
 	str.__index = str;
 	str.__metatable = "std.luastr";
@@ -388,9 +394,93 @@ do
 		return self._backend:close();
 	end
 
+	--- @class std.str.compat: std.luastr
+	--- @field _backend std.bstr
+	str_compat = setmetatable({}, str.lua);
+	str_compat.__index = str_compat;
+	str_compat.__metatable = "std.luastr.compat";
+
+	function str_compat:read(mode)
+		if mode == "l" or mode == "L" then
+			local buff = buffer.new(1024);
+			while true do
+				local ptr, n = buff:reserve(1024);
+				local n, has_char = self._backend:readline(ptr, n, 0x0A --[['\n']]);
+
+				if n == 0 then break end
+				if has_char then
+					if mode == "l" then
+						buff:commit(n - 1);
+					else
+						buff:commit(n);
+					end
+
+					break;
+				end
+
+				buff:commit(n);
+			end
+
+			if #buff == 0 then return nil end
+			return buff:tostring();
+		elseif mode == "a" then
+			local buff = buffer.new(1024);
+			while true do
+				local n = self._backend:read(buff:reserve(1024));
+				if n == 0 then break end
+
+				buff:commit(n);
+			end
+
+			if #buff == 0 then return nil end
+			return buff:tostring();
+		elseif mode == "c" then
+			local buff = buffer.new(1024);
+			buff:commit(self._backend:read(buff:ref()));
+
+			if #buff == 0 then return nil end
+			return buff:tostring();
+		elseif type(mode) == "number" then
+			local buff = buffer.new(mode);
+			buff:commit(self._backend:read(buff:ref()));
+
+			if #buff == 0 then return nil end
+			return buff:tostring();
+		else
+			sig.error("mode", "must be an integer, 'l', 'L', 'c' or 'a'");
+		end
+	end
+	function str_compat:write(...)
+		for i = 1, select("#", ...) do
+			-- TODO: OPTIMIZE!!!!
+			local str = tostring((select(i, ...)));
+			local buff = ffi.new("char[?]", #str);
+			ffi.copy(buff, str);
+			self._backend:fullwrite(buff, #str)
+		end
+	end
+	function str_compat:stat()
+		return self._backend:stat();
+	end
+	function str_compat:flush()
+		return self._backend:flush();
+	end
+	function str_compat:close()
+		return self._backend:close();
+	end
+
+	function str_compat:to_str()
+		return self._backend;
+	end
+
 	--- @return std.str
 	function str.lua:to_str()
 		return setmetatable({ _backend = self }, luastr_compat);
+	end
+
+	--- @param str std.str
+	function str.lua.from_stream(str)
+		return setmetatable({ _backend = str:to_buff() }, str_compat);
 	end
 end
 
@@ -398,6 +488,8 @@ end
 str.file.lua = setmetatable({}, str.lua);
 --- @class std.luafile.compat
 local luafile_compat;
+--- @class std.file.compat
+local file_compat;
 do
 	str.__index = str;
 	str.__metatable = "std.luafile";
@@ -423,9 +515,27 @@ do
 		return self._backend:chown(uid, gid);
 	end
 
+	--- @class std.file.compat: std.str.compat, std.luafile
+	--- @field _backend std.bfile
+	file_compat = setmetatable({}, str_compat);
+	file_compat.__index = luafile_compat;
+	file_compat.__metatable = "std.luafile.compat";
+
+	function file_compat:chmod(...)
+		return self._backend:chmod(...);
+	end
+	function file_compat:chown(uid, gid)
+		return self._backend:chown(uid, gid);
+	end
+
 	--- @return std.str
 	function str.file.lua:to_str()
 		return setmetatable({ _backend = self }, luafile_compat);
+	end
+
+	--- @param str std.file
+	function str.file.lua.from_stream(str)
+		return setmetatable({ _backend = str:to_buff() }, str_compat);
 	end
 end
 
