@@ -165,12 +165,12 @@ function cli.main(...)
 		local mod = require(module);
 		if type(mod) == "table" then
 			if mod.__main then
-				return mod.__main(table.unpack(args));
+				mod.__main(table.unpack(args));
 			else
-				return mod.main(table.unpack(args));
+				mod.main(table.unpack(args));
 			end
 		else
-			return mod(table.unpack(args));
+			mod(table.unpack(args));
 		end
 	elseif file then
 		local root = path.dirname(file);
@@ -184,6 +184,8 @@ function cli.main(...)
 
 		package.roots:delete(root);
 	end
+
+	io.stdout:flush();
 
 	if repl then
 		return cli.repl();
