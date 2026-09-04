@@ -148,7 +148,7 @@ function _impl:getaddrinfo(udata, name, flags) end
 --- @param stdout? boolean
 --- @param stderr? boolean
 --- @return fun()? cancel
---- @return { proc: _impl.process, stdin?: std.io.stream, stdout?: std.io.stream, stder?: std.io.stream }
+--- @return { proc: _impl.process, stdin?: _impl.fd, stdout?: _impl.fd, stder?: _impl.fd }
 function _impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr) end
 
 --- @param signal std.signal

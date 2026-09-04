@@ -108,7 +108,7 @@ function io.flush()
 	pcall(io.stderr.flush, io.stderr);
 	return true;
 end
---- @param file? std.io.stream
+--- @param file? std.textstr
 function io.close(file)
 	if file then
 		file:close();

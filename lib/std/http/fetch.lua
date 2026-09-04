@@ -2,10 +2,11 @@ local url = require "std.http.url";
 local net = require "std.os.net";
 local headers = require "std.http.headers";
 local http = require "std.http";
-local ssl = require "std.io.ssl";
+local ssl = require "std.pipes.ssl";
 local sig = require "std.sig";
+local ffi = require "nat.ffi"
 
---- @param arg { url: string, method?: string, headers?: std.http.headers, body?: string | std.io.stream | fun(): string? }
+--- @param arg { url: string, method?: string, headers?: std.http.headers, body?: string | std.str | fun(): string? }
 return function (arg)
 	local parsed = url.parse(arg.url);
 	if not parsed.scheme then sig.error("arg.url", "scheme must be specified") end
@@ -35,6 +36,8 @@ return function (arg)
 		conn = ssl { backend = conn, owned = true, host = parsed.host };
 	end
 
+	conn = conn:to_buff();
+
 	local body_out = http.write_req(conn, {
 		method = arg.method or "GET",
 		path = url.stringify { path = parsed.path, params = parsed.params },
@@ -42,8 +45,18 @@ return function (arg)
 	}, arg.body ~= nil);
 
 	if arg.body then
-		--- @cast body_out std.io.stream
-		body_out:pipe(arg.body);
+		--- @cast body_out std.bstr
+
+		if type(arg.body) == "string" then
+			body_out:fullwrite(ffi.toptr(arg.body));
+		elseif type(arg.body) == "function" then
+			for el in arg.body do
+				body_out:fullwrite(ffi.toptr(el));
+			end
+		else
+			body_out:pipe(arg.body);
+		end
+
 		body_out:close();
 	end
 

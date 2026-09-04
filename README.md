@@ -3,7 +3,7 @@
 A runtime, based on luajit. This runtime adds the following features:
 
 - An async I/O API, using my own alternative to libuv (libyaooi), combined with lua's coroutines
-- Networking & SSL, under the same abstraction the IO library uses (std.io.stream)
+- Networking & SSL, under the same abstraction the IO library uses (std.str)
 - A compiler, written in lua, that brings some newer syntax features to luajit (most notably bit ops)
 - A nicer REPL with `readline` and history support
 - Nice value printing! (no more `for k, v in pairs(obj) do print(k, v)`)
