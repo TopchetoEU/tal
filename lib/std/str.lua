@@ -94,7 +94,7 @@ do
 
 	function str:to_buff() return str.buff.new(self) end
 	function str:to_unbuff() return self end
-	function str:to_lua() return str.lua.from_stream(self) end
+	function str:to_lua() return str.text.from_stream(self) end
 end
 --- @class std.file: std.str
 str.file = setmetatable({}, str);
@@ -118,7 +118,7 @@ do
 	--- @param no_seek? boolean = false
 	function str.file:to_buff(no_seek) return str.file.buff.new(self, no_seek) end
 	function str.file:to_unbuff() return self end
-	function str.file:to_lua() return str.file.lua.from_stream(self) end
+	function str.file:to_lua() return str.file.text.from_stream(self) end
 
 	--- @return true
 	function str:close() return true end
@@ -307,7 +307,7 @@ do
 end
 
 --- @class std.luastr
-str.lua = {};
+str.text = {};
 --- @class std.luastr.compat
 local luastr_compat;
 --- @class std.str.compat
@@ -318,27 +318,27 @@ do
 
 	--- @param fmt std.io.readmode
 	--- @return string?
-	function str.lua:read(fmt) ierror "not supported" end
+	function str.text:read(fmt) ierror "not supported" end
 	--- @param ... any
 	--- @return integer
-	function str.lua:write(...) ierror "not supported" end
+	function str.text:write(...) ierror "not supported" end
 	--- @param whence? seekwhence
 	--- @param pos? integer
 	--- @return integer
-	function str.lua:seek(whence, pos) ierror "not supported" end
+	function str.text:seek(whence, pos) ierror "not supported" end
 	--- @param mode vbuf
 	--- @param size? integer
-	function str.lua:setvbuff(mode, size) ierror "not supported" end
+	function str.text:setvbuff(mode, size) ierror "not supported" end
 	--- @return std.io.stat
-	function str.lua:stat() ierror "not supported" end
+	function str.text:stat() ierror "not supported" end
 	--- @return std.luastr
-	function str.lua:flush() return self end
-	function str.lua:close() return true end
+	function str.text:flush() return self end
+	function str.text:close() return true end
 
 	--- @param dst std.luastr
 	--- @param close? boolean = false
 	--- @param close_dst? boolean = close
-	function str.lua:pipe(dst, close, close_dst)
+	function str.text:pipe(dst, close, close_dst)
 		if close_dst == nil then close_dst = close end
 
 		for line in self:lines(4096) do
@@ -354,7 +354,7 @@ do
 	--- @param fmt std.io.readmode
 	--- @param close? boolean = false
 	--- @return fun(): string?
-	function str.lua:lines(fmt, close)
+	function str.text:lines(fmt, close)
 		if close then
 			return function ()
 				local res = self:read(fmt);
@@ -396,7 +396,7 @@ do
 
 	--- @class std.str.compat: std.luastr
 	--- @field _backend std.bstr
-	str_compat = setmetatable({}, str.lua);
+	str_compat = setmetatable({}, str.text);
 	str_compat.__index = str_compat;
 	str_compat.__metatable = "std.luastr.compat";
 
@@ -474,18 +474,18 @@ do
 	end
 
 	--- @return std.str
-	function str.lua:to_str()
+	function str.text:to_str()
 		return setmetatable({ _backend = self }, luastr_compat);
 	end
 
 	--- @param str std.str
-	function str.lua.from_stream(str)
+	function str.text.from_stream(str)
 		return setmetatable({ _backend = str:to_buff() }, str_compat);
 	end
 end
 
 --- @class std.luafile
-str.file.lua = setmetatable({}, str.lua);
+str.file.text = setmetatable({}, str.text);
 --- @class std.luafile.compat
 local luafile_compat;
 --- @class std.file.compat
@@ -496,11 +496,11 @@ do
 
 	--- @param ... string | integer
 	--- @return std.luafile
-	function str.file.lua:chmod(...) ierror "not supported" end
+	function str.file.text:chmod(...) ierror "not supported" end
 	--- @param uid integer
 	--- @param gid integer
 	--- @return std.luafile
-	function str.file.lua:chown(uid, gid) ierror "not supported" end
+	function str.file.text:chown(uid, gid) ierror "not supported" end
 
 	--- @class std.luafile.compat: std.file
 	--- @field _backend std.luafile
@@ -529,12 +529,12 @@ do
 	end
 
 	--- @return std.str
-	function str.file.lua:to_str()
+	function str.file.text:to_str()
 		return setmetatable({ _backend = self }, luafile_compat);
 	end
 
 	--- @param str std.file
-	function str.file.lua.from_stream(str)
+	function str.file.text.from_stream(str)
 		return setmetatable({ _backend = str:to_buff() }, str_compat);
 	end
 end
