@@ -50,20 +50,20 @@ function c.strdup_gc(str)
 end
 
 function c.strcmp(a, b)
-	return libc.strcmp(a, b);
+	return assert(tonumber(libc.strcmp(a, b)));
 end
 function c.strncmp(a, b, n)
-	return libc.strncmp(a, b, n);
+	return assert(tonumber(libc.strncmp(a, b, n)));
 end
 function c.strchr(str, char)
 	local ptr = libc.strchr(str, char);
 	if ptr == ffi.cast("void*", 0) then return nil end
-	return ptr - str;
+	return assert(tonumber(ptr - str));
 end
 function c.strnchr(str, char, n)
 	local ptr = libc.memchr(str, char, n);
 	if ptr == ffi.cast("void*", 0) then return nil end
-	return ptr - str;
+	return assert(tonumber(ptr - str));
 end
 
 return c;
