@@ -8,7 +8,7 @@ return function (entry_mod, ...)
 	local oldenv = getfenv();
 
 	if has_dbg then
-		oldenv.debug = require "std.debug";
+		oldenv.debug = require "std.basic.debug";
 		local old_tb = debug.traceback;
 		dbg.start();
 		oldenv.debug.traceback = old_tb;

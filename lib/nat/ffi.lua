@@ -2,8 +2,8 @@
 local ffi = require "ffi";
 local pkgpath = require "std.package.path";
 local path = require "std.path";
-local table = require "std.table";
-local debug = require "std.debug";
+local table = require "std.basic.table";
+local debug = require "std.basic.debug";
 --- @class debug.registry
 --- @field _FFI_PATH? string
 --- @field _FFI_APATH? string

@@ -1,4 +1,4 @@
-local debug = require "std.debug";
+local debug = require "std.basic.debug";
 
 local default_colors = {
 	kw = "\x1B[34m",

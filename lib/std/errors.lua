@@ -1,4 +1,4 @@
-local debug = require "std.debug";
+local debug = require "std.basic.debug";
 
 local real_error = error;
 

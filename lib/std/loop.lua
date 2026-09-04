@@ -1,8 +1,7 @@
 local impl = require "impl";
 local errors = require "std.errors";
-local debug = require "std.debug";
+local debug = require "std.basic.debug";
 require "std.basic.coroutine";
-local libyaooi = require "nat.libyaooi"
 
 local loop = {};
 
