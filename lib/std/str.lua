@@ -364,11 +364,11 @@ do
 	end
 end
 
---- @class std.bstr.chunked: std.str
+--- @class std.str.chunked: std.str
 --- @field _rstack std.bstr.range[]
 str.chunked = setmetatable({}, str);
 do
-	str.chunked.__index = str;
+	str.chunked.__index = str.chunked;
 	str.chunked.__metatable = "std.str.chunked";
 
 	--- @return integer
@@ -497,7 +497,7 @@ do
 	end
 
 	--- @class std.str.compat: std.textstr
-	--- @field _backend std.bstr
+	--- @field _backend std.str
 	str_compat = setmetatable({}, str.text);
 	str_compat.__index = str_compat;
 	str_compat.__metatable = "std.textstr.compat";
