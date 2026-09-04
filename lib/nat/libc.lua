@@ -13,6 +13,9 @@ int strncmp(const char *a, const char *b, size_t n);
 
 const char *strchr(const char *str, char c);
 const char *memchr(const char *str, char c, size_t n);
+
+const char *strrchr(const char *str, char c);
+const char *memrchr(const char *str, char c, size_t n);
 ]];
 
 local c = {};
@@ -62,6 +65,16 @@ function c.strchr(str, char)
 end
 function c.strnchr(str, char, n)
 	local ptr = libc.memchr(str, char, n);
+	if ptr == ffi.cast("void*", 0) then return nil end
+	return assert(tonumber(ptr - str));
+end
+function c.strrchr(str, char)
+	local ptr = libc.strrchr(str, char);
+	if ptr == ffi.cast("void*", 0) then return nil end
+	return assert(tonumber(ptr - str));
+end
+function c.strnrchr(str, char, n)
+	local ptr = libc.memrchr(str, char, n);
 	if ptr == ffi.cast("void*", 0) then return nil end
 	return assert(tonumber(ptr - str));
 end
