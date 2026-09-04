@@ -46,7 +46,7 @@ do
 
 	--- @param ptr ffi.cdata*
 	--- @param n integer
-	--- @return integer? n If nil, indicates an EOF
+	--- @return integer n
 	function str:read(ptr, n) ierror "not supported" end
 	--- @param ptr ffi.cdata*
 	--- @param n integer
@@ -90,6 +90,20 @@ do
 		end
 
 		return res;
+	end
+
+	--- Writes the given stream, string or string generator to the stream
+	--- @param src std.str
+	function str:pipe(src)
+		local buff = ffi.new("char[?]", str.chunksize);
+
+		while true do
+			local read_n = src:read(buff, str.chunksize);
+			if read_n == 0 then break end
+			self:fullwrite(buff, read_n);
+		end
+
+		return self;
 	end
 
 	function str:to_buff() return str.buff.new(self) end
