@@ -1,6 +1,5 @@
 local loop = require "std.loop";
 local stream = require "std.stream_old";
-local collected = require "std.collected";
 local path = require "std.path";
 local impl = require "impl"
 
@@ -115,13 +114,13 @@ return function (opts)
 
 	local res, stdin, stdout, stderr = loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks));
 
-	local self = setmetatable(collected({
+	local self = table.collected(setmetatable({
 		_fd = res,
 		_mng = debug.traceback(),
 		stdin = stdin and stream.from_stream(stdin, true),
 		stdout = stdout and stream.from_stream(stdout, true),
 		stderr = stderr and stream.from_stream(stderr, true)
-	}), proc);
+	}, proc));
 
 	return self;
 end
