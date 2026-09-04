@@ -72,7 +72,7 @@ function io.open(path, mode)
 		sig.error("mode", "invalid mode specified");
 	end
 
-	local ok, res = pcall(fs.open, path, flags, 777);
+	local ok, res = pcall(fs.open, path, flags, "777");
 	if not ok then return nil, res --[[@as string]] end
 	return (res:to_text());
 end

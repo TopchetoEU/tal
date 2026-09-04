@@ -37,13 +37,12 @@ fs.stderr = impl_str.new(impl.stderr):to_buff();
 
 --- @param path string
 --- @param flags std.os.fs.open_flags
---- @param mode? integer | string
+--- @param ... integer | string
 --- @return std.file
-function fs.open(path, flags, mode)
-	mode = mode or "666";
-	if type(mode) == "string" then mode = assert(tonumber(mode, 8)) end
-	local fd = loop.sync_ret(impl:open(coroutine.running(), path, flags, mode));
-	return impl_file.new(fd, false); -- TODO: detect seekability of files
+function fs.open(path, flags, ...)
+	local fd = loop.sync_ret(impl:open(coroutine.running(), path, flags, str.parsechmod(...)));
+	local append = flags:find "a";
+	return impl_file.new(fd, append and true or false); -- TODO: detect seekability of files
 end
 --- @param path string
 --- @param ... string | integer
