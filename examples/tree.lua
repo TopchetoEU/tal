@@ -1,7 +1,7 @@
 -- An example tree printing program, that prints the structure of a given directory in a nice format
 -- Most of the complexity comes from the pretty-printing part
 
-local fs = require "std.io.fs";
+local fs = require "std.os.fs";
 local path = require "std.path";
 local time = require "std.os.time";
 local buffer = require "string.buffer";

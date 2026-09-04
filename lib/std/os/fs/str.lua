@@ -1,30 +1,30 @@
-local str = require "std.io.str";
-local loop= require "std.loop";
+local str = require "std.str";
+local loop = require "std.loop";
 
---- @class std.io.implstr: std.str
+--- @class std.os.fs.impl.str: std.str
 --- @field _backend _impl.fd
 --- @field _closed boolean
-local implstr = setmetatable({}, str);
-implstr.__index = implstr;
-implstr.__metatable = "std.io.implstr";
+local str_impl = setmetatable({}, str);
+str_impl.__index = str_impl;
+str_impl.__metatable = "std.os.fs.impl.str";
 
-function implstr:read(ptr, n)
+function str_impl:read(ptr, n)
 	if self._closed then ierror "closed" end
 	return loop.sync_ret(self._backend:read(coroutine.running(), ptr, n));
 end
-function implstr:write(ptr, n)
+function str_impl:write(ptr, n)
 	if self._closed then ierror "closed" end
 	return loop.sync_ret(self._backend:write(coroutine.running(), ptr, n));
 end
-function implstr:flush()
+function str_impl:flush()
 	if self._closed then ierror "closed" end
 	return loop.sync_ret(self._backend:flush((coroutine.running())));
 end
-function implstr:stat()
+function str_impl:stat()
 	if self._closed then ierror "closed" end
 	return loop.sync_ret(self._backend:stat((coroutine.running())));
 end
-function implstr:close()
+function str_impl:close()
 	if not self._closed then
 		self._backend:close();
 		self._closed = true;
@@ -34,8 +34,8 @@ function implstr:close()
 end
 
 --- @param fd _impl.fd
-function implstr.new(fd)
-	return setmetatable({ _backend = fd, _closed = false }, implstr);
+function str_impl.new(fd)
+	return setmetatable({ _backend = fd, _closed = false }, str_impl);
 end
 
-return implstr;
+return str_impl;

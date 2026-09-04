@@ -50,8 +50,8 @@ function str:read(ptr, n) ierror "not supported" end
 --- @return integer n
 function str:write(ptr, n) ierror "not supported" end
 
---- @return true
-function str:flush() return true end
+--- @return std.str
+function str:flush() return self end
 --- @return std.io.stat
 function str:stat() ierror "not supported" end
 
@@ -97,15 +97,19 @@ str.file = setmetatable({}, str);
 str.file.__index = str.file;
 str.file.__metatable = "std.file";
 
+--- @return std.file
+function str.file:flush() return self end
 --- @param whence "set" | "cur" | "end"
 --- @param pos integer
 --- @return integer
 function str.file:seek(whence, pos) ierror "not supported" end
 
 --- @param ... string | integer
+--- @return std.file
 function str.file:chmod(...) ierror "not supported" end
 --- @param uid integer
 --- @param gid integer
+--- @return std.file
 function str.file:chown(uid, gid) ierror "not supported" end
 
 --- @param no_seek boolean = false
@@ -256,12 +260,15 @@ end
 function str.file.buff:write(ptr, n)
 	return self._bstr:write(ptr, n);
 end
+--- @return std.file
 function str.file.buff:flush()
 	if self._noseek then
-		return self._bstr:flush();
+		self._bstr:flush();
 	else
-		return self._backend:flush();
+		self._backend:flush();
 	end
+
+	return self;
 end
 
 function str.file.buff:seek(whence, pos)

@@ -1,13 +1,17 @@
 local impl = require "impl";
+local impl_str  = require "std.os.fs.str"
+local file = require "std.os.fs.file"
+local str  = require "std.str"
 
 local sig = require "std.sig";
 local loop = require "std.loop";
 local p = require "std.path";
-local collected = require "std.collected";
+
+local dir = require "std.os.fs.dir";
 
 local fs = {};
 
---- @alias std.fs.path
+--- @alias std.os.fs.path
 --- | "home"
 --- | "config"
 --- | "data"
@@ -15,43 +19,36 @@ local fs = {};
 --- | "runtime"
 --- | "cwd"
 
---- @class std.fs.dir
---- @field hnd _impl.dir
---- @field closed boolean
-local dir = {};
-dir.__index = dir;
-dir.__metatable = "std.io.fs.dir";
-
---- @return string?
-function dir:read()
-	if self.closed then return nil end
-	return loop.sync_ret(self.hnd:next(coroutine.running()));
-end
-function dir:iter()
-	return function (self)
-		local res = self:read();
-		if not res then self:close() end
-		return res;
-	end, self;
-end
-function dir:close()
-	if self.closed or self.hnd == nil then return end
-	self.hnd:close();
-	self.closed = true;
-end
-
-dir.__gc = dir.close;
+--- @alias std.os.fs.open_flags string
+--- |+ "r" Read
+--- |+ "w" Write
+--- |+ "a" Append
+--- |+ "c" Create
+--- |+ "t" Truncate
+--- |+ "d" Direct
+--- |+ "l" No follow
+--- |+ "s" Stat
 
 --- @param path string
---- @param mode string | integer
-function fs.chmod(path, mode)
-	io.xopen(path, "s"):chmod(mode):close();
+--- @param flags std.os.fs.open_flags
+--- @param mode? integer | string
+--- @return std.file
+function fs.open(path, flags, mode)
+	mode = mode or "666";
+	if type(mode) == "string" then mode = assert(tonumber(mode, 8)) end
+	local fd = loop.sync_ret(impl:open(coroutine.running(), path, flags, mode));
+	return file.new(fd, false); -- TODO: detect seekability of files
+end
+--- @param path string
+--- @param ... string | integer
+function fs.chmod(path, ...)
+	fs.open(path, "s"):chmod(...):close();
 end
 --- @param path string
 --- @param uid integer
 --- @param gid integer
 function fs.chown(path, uid, gid)
-	io.xopen(path, "s"):chown(uid, gid):close();
+	fs.open(path, "s"):chown(uid, gid):close();
 end
 --- @param path string
 function fs.stat(path)
@@ -71,29 +68,23 @@ function fs.astat(path)
 end
 
 --- @param path string
---- @param mode? integer | string
-function fs.mkdir(path, mode)
+--- @param ... integer | string mode
+function fs.mkdir(path, ...)
 	path = sig.str(path, "path");
-	if type(mode) == "string" then
-		mode = tonumber(mode, 8);
-		if not mode then sig.error("mode", "must be a valid octal number") end
-	else
-		mode = sig.num(mode, "mode");
-	end
-
-	loop.sync_ret(impl:mkdir(coroutine.running(), path, mode));
+	loop.sync_ret(impl:mkdir(coroutine.running(), path, str.parsechmod(...)));
 end
 --- @param path string
---- @param mode? integer | string
-function fs.mkdirs(path, mode)
+--- @param ... integer | string mode
+function fs.mkdirs(path, ...)
 	path = sig.str(path, "path");
-	local segs, root = p.split(p.cwd(fs.path "cwd", path));
+	local mode = ... and str.parsechmod(...) or 511;
 
+	local segs, root = p.split(p.cwd(fs.path "cwd", path));
 	local res = {};
 
 	for i = 1, #segs do
 		table.insert(res, segs[i]);
-		pcall(fs.mkdir, p.stringify(res, root, false), mode or "777");
+		pcall(fs.mkdir, p.stringify(res, root, false), mode);
 	end
 end
 --- @param path string
@@ -101,7 +92,7 @@ function fs.opendir(path)
 	path = sig.str(path, "path");
 
 	local fd = loop.sync_ret(impl:opendir(coroutine.running(), path));
-	return collected(setmetatable({ hnd = fd, closed = false }, dir));
+	return dir.new(fd);
 end
 function fs.readdir(path)
 	path = sig.str(path, "path");
@@ -128,11 +119,10 @@ function fs.remove(path)
 	loop.sync_ret(impl:remove((coroutine.running()), path));
 end
 
---- @param type? std.fs.path = "cwd"
+--- @param type? std.os.fs.path = "cwd"
 function fs.path(type)
 	type = sig.str(type, "type");
 	return iassert(impl:getpath(type or "cwd"));
 end
-
 
 return fs;

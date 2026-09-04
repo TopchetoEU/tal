@@ -1,6 +1,6 @@
 -- A simpler version of examples.tree
 
-local fs = require "std.io.fs";
+local fs = require "std.os.fs";
 local path = require "std.path";
 
 local function list(curr_path, depth)
