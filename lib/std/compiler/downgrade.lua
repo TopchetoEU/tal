@@ -312,11 +312,11 @@ local walker = walk(
 return {
 	--- @param body node.stm[]
 	walk_body = function (body)
-		local parts = {};
-		local ok, res, trace = errors.spcall(walker.walk_body, walker, body, ctx_meta.new());
+		local ctx = ctx_meta.new();
+		local ok, res, trace = errors.spcall(walker.walk_body, walker, body, ctx);
 
 		if ok then
-			return table.move(res, 1, #res, #parts + 1, parts);
+			return table.move(res, 1, #res, #ctx.parts + 1, ctx.parts);
 		elseif getmetatable(res) == "downgrade.error" then
 			--- @cast res table
 			return nil, res.msg, res.loc;
