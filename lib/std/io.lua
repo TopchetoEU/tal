@@ -37,13 +37,13 @@ local fs = require "std.os.fs";
 
 local io = {};
 
-io.stdin = fs.stdin:to_lua();
-io.stdout = fs.stdout:to_lua();
-io.stderr = fs.stderr:to_lua();
+io.stdin = fs.stdin:to_text();
+io.stdout = fs.stdout:to_text();
+io.stderr = fs.stderr:to_text();
 
 --- @param path string
 --- @param mode? openmode
---- @return std.luastr?
+--- @return std.textstr?
 --- @return string? err
 function io.open(path, mode)
 	--- @type std.io.open_flags
@@ -74,7 +74,7 @@ function io.open(path, mode)
 
 	local ok, res = pcall(fs.open, path, flags, 777);
 	if not ok then return nil, res --[[@as string]] end
-	return (res:to_lua());
+	return (res:to_text());
 end
 
 --- @param prog string
