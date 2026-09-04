@@ -1,7 +1,7 @@
 local headers = require "std.http.headers";
-local stream = require "std.stream_old";
 local buffer = require "string.buffer";
 local ffi = require "ffi";
+local str = require "std.str"
 
 local codes_msgs = {
 	[100] = "Continue",
@@ -80,26 +80,46 @@ local codes_msgs = {
 --- @field method string
 --- @field path string
 --- @field headers std.http.headers
---- @field body? std.io.stream
+--- @field body? std.bstr
 
 --- @class std.http.res
 --- @field code integer
 --- @field headers std.http.headers
---- @field body? std.io.stream
+--- @field body? std.bstr
 
 local http = {};
 
---- @param conn std.io.stream
+
+-- TODO: export this to a separate module
+--- @param str std.bstr
+--- @param buff? string.buffer
+local function _readline(str, buff)
+	buff = buff or buffer.new();
+
+	repeat
+		local ptr, ptr_n = buff:reserve(str.chunksize);
+		local n, has_c = str:readline(ptr, ptr_n, 0x0A);
+		buff:commit(n);
+	until n == 0 or has_c;
+
+	if #buff == 0 then return nil end
+
+	local res = buff:tostring();
+	buff:reset();
+	return res;
+end
+
+--- @param conn std.bstr
 function http.read_headers(conn)
 	local res = headers.new();
 
 	while true do
-		local line = conn:read "L";
+		local line = _readline(conn);
 		if not line then return nil end
 
-		if line == "\r\n" then return res end
+		if line == "\r\n" or line == "\n" then return res end
 
-		local key, val = line:match "^(.-): ?(.*)\r\n$";
+		local key, val = line:match "^(.-): ?(.*)\r?\n$";
 		if not key then error "unexpected header format" end
 		key = key:lower();
 
@@ -115,9 +135,9 @@ function http.read_headers(conn)
 		-- end
 	end
 end
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @param hdr std.http.headers
---- @return std.io.stream?
+--- @return std.bstr?
 function http.read_body(conn, hdr)
 	local len = tonumber((hdr:get "content-length"));
 	local chunked = false;
@@ -134,42 +154,29 @@ function http.read_body(conn, hdr)
 	end
 
 	if chunked then
-		local self = { str = conn, done = false, buff = buffer.new() };
+		local self = setmetatable({ str = conn, done = false }, str.chunked);
 
-		function self:read(ptr, n)
+		function self:readchunk()
 			if not self.str then ierror "closed" end
 			if self.done then return 0 end
 
-			if #self.buff == 0 then
-				local line = self.str:read "L";
-				if not line then ierror "pipe broken" end
+			local buff = buffer.new();
 
-				local slen = line:match "^([%da-zA-Z]+)\r?\n$";
-				if not slen then ierror "malformed chunked encoding" end
-				local len = tonumber(slen, 16);
+			local line = _readline(self.str, buff);
+			if not line then ierror "pipe broken" end
 
-				if len == 0 then
-					self.done = true;
-					return 0;
-				end
+			local slen = _readline(self.str, buff):match "^([%da-zA-Z]+)\r?\n$";
+			if not slen then ierror "malformed chunked encoding" end
 
-				local line = iassert(self.str:read(len), "broken pipe");
-				self.buff:put(line);
+			local len = tonumber(slen, 16);
+			local ptr = ffi.new("char[?]", len);
+			self.str:fullread(ptr, len);
 
-				local term = iassert(self.str:read "L", "broken pipe");
-				if not term:find "^\r?\n$" then ierror "malformed chunked encoding" end
-			end
+			local line = _readline(self.str, buff);
+			if not line then ierror "pipe broken" end
+			if not line:find "^\r?\n$" then ierror "malformed chunked encoding" end
 
-			if n > #self.buff then
-				n = #self.buff;
-			end
-			ffi.copy(ptr, self.buff:ref(), n);
-			self.buff:skip(n);
-
-			return n;
-		end
-		function self:write()
-			ierror "readonly";
+			return len, ptr;
 		end
 		function self:close()
 			if self.str then
@@ -178,40 +185,35 @@ function http.read_body(conn, hdr)
 			end
 		end
 
-		return stream.new(self, true);
+		return self:to_buff();
 	elseif len then
-		return stream.new({
-			str = conn,
-			n = tonumber(len),
-			read = function (self, ptr, n)
-				if not self.str then ierror "closed" end
-				if n > self.n then n = self.n end
-				if self.n == 0 then return 0 end
+		local self = setmetatable({ str = conn, done = false, n = len }, str);
 
-				local n = self.str:ptrread(false, ptr, n);
-				self.n = self.n - n;
-				return n;
-			end,
-			write = function (self, ptr, n)
-				if not self.str then ierror "closed" end
-				ierror "readonly";
-			end,
-			flush = function (self)
-				if not self.str then ierror "closed" end
-				return self.str:flush();
-			end,
-			close = function (self)
+		function self:read(ptr, n)
+			if not self.str then ierror "closed" end
+			if n > self.n then n = self.n end
+			if self.n == 0 then return 0 end
+
+			local n = self.str:read(ptr, n);
+			self.n = self.n - n;
+			return n;
+		end
+		function self:close()
+			if self.str then
+				self.str:close();
 				self.str = nil;
-			end,
-		});
+			end
+		end
+
+		return self:to_buff();
 	else
 		return nil;
 	end
 end
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @return std.http.req? head
 function http.read_req(conn)
-	local line = conn:read "L";
+	local line = _readline(conn);
 	if not line then return nil end
 
 	local type, path, version = line:match "^(%S-) (%S-) HTTP/(%S-)\r?\n$";
@@ -223,13 +225,13 @@ function http.read_req(conn)
 
 	return { method = type, path = path, headers = hdr, body = body };
 end
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @return std.http.res? code
 function http.read_res(conn)
-	local line = conn:read "L";
+	local line = _readline(conn);
 	if not line then return nil end
 
-	local version, code = line:match "^HTTP/(%S-) (%S-) (.-)\r\n$";
+	local version, code = line:match "^HTTP/(%S-) (%S-) (.-)\r?\n$";
 	if not version then return error "bad HTTP response" end
 	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
@@ -243,104 +245,102 @@ function http.read_res(conn)
 	};
 end
 
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @param hdr std.http.headers
 function http.write_headers(conn, hdr)
 	for key in hdr:keys() do
 		for _, val in ipairs { hdr:get(key) } do
-			conn:write(("%s: %s\r\n"):format(key, val));
+			conn:write(ffi.toptr(("%s: %s\r\n"):format(key, val)));
 		end
 	end
 
-	conn:write "\r\n";
+	conn:write(ffi.toptr "\r\n");
 end
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @param hdr std.http.headers
 --- @param body? false
---- @return std.io.stream?
---- @overload fun(conn: std.io.stream, hdr: std.http.headers, body: true): std.io.stream
+--- @return std.bstr?
+--- @overload fun(conn: std.bstr, hdr: std.http.headers, body: true): std.bstr
 function http.write_body(conn, hdr, body)
 	if not body then return nil end
 
 	local len = hdr:get "content-length";
 	if len and tonumber(len) then
-		return stream.new({
-			str = conn,
-			n = tonumber(len),
-			read = function (self, ptr, n)
-				if not self.str then ierror "closed" end
-				ierror "writeonly";
-			end,
-			write = function (self, ptr, n)
-				if not self.str then ierror "closed" end
-				if n > self.n then n = self.n end
-				if n == 0 then return 0 end
+		local self = setmetatable({ str = conn, n = assert(tonumber(len)) }, str);
 
-				local n = self.str:ptrwrite(false, ptr, n);
-				self.n = self.n - n;
-				return n;
-			end,
-			flush = function (self)
-				if not self.str then ierror "closed" end
-				return self.str:flush();
-			end,
-			close = function (self)
-				self.str = nil;
-			end,
-		});
+		function self:write(ptr, n)
+			if not self.str then ierror "closed" end
+			if n > self.n then n = self.n end
+			if n == 0 then return 0 end
+
+			local n = self.str:write(ptr, n);
+			self.n = self.n - n;
+			return n;
+		end
+		function self:flush()
+			if not self.str then ierror "closed" end
+			self.str:flush();
+			return self;
+		end
+		function self:close()
+			self.str = nil;
+			return true;
+		end
+
+		return self:to_buff():setwbuff(nil, str.chunksize);
 	end
 
 	hdr:set("transfer-encoding", "chunked");
 
-	return stream.new({
-		str = conn,
-		read = function ()
-			ierror "writeonly";
-		end,
-		write = function (self, ptr, n)
-			if self.str == nil then ierror "closed" end
-			if n > 0 then
-				self.str:write(("%x\r\n"):format(n));
-				self.str:ptrwrite(true, ptr, n);
-				self.str:write("\r\n");
-				return n;
-			else
-				return 0;
-			end
-		end,
-		close = function (self)
-			if self.str then
-				local str = self.str;
-				self.str = nil;
+	local self = setmetatable({ str = conn }, str);
 
-				-- The finalizer of the underlying stream might've been called before us, so we silence the error
-				pcall(str.write, str, "0\r\n\r\n");
-			end
-		end
-	}, true);
+	function self:write(ptr, n)
+		if self.str == nil then ierror "closed" end
+		if n == 0 then return 0 end
+
+		self.str:write(ffi.toptr(("%x\r\n"):format(n)));
+		self.str:fullwrite(ptr, n);
+		self.str:write(ffi.toptr "\r\n");
+		return n;
+	end
+	function self:flush()
+		self.str:flush();
+		return self;
+	end
+	function self:close()
+		if not self.str then return true end
+		local str = self.str;
+		self.str = nil;
+
+		-- The finalizer of the underlying stream might've been called before us, so we silence the error
+		pcall(str.write, str, ffi.toptr "0\r\n\r\n");
+		return true;
+	end
+
+	return self:to_buff():setwbuff(nil, str.chunksize);
 end
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @param req std.http.req
 --- @param body? boolean
---- @return std.io.stream?
---- @overload fun(conn: std.io.stream, req: std.http.req, body: true): std.io.stream
+--- @return std.bstr?
+--- @overload fun(conn: std.bstr, req: std.http.req, body: true): std.bstr
 function http.write_req(conn, req, body)
 	req.body = http.write_body(conn, req.headers, body);
 
-	conn:write(("%s %s HTTP/1.1\r\n"):format(req.method, req.path));
+	conn:write(ffi.toptr(("%s %s HTTP/1.1\r\n"):format(req.method, req.path)));
 	http.write_headers(conn, req.headers);
 
 	return req.body;
 end
---- @param conn std.io.stream
+--- @param conn std.bstr
 --- @param res std.http.res
 --- @param body? boolean
---- @return std.io.stream?
---- @overload fun(conn: std.io.stream, res: std.http.res, body: true): std.io.stream
+--- @return std.bstr?
+--- @overload fun(conn: std.bstr, res: std.http.res, body: true): std.bstr
 function http.write_res(conn, res, body)
 	res.body = http.write_body(conn, res.headers, body);
 
-	conn:write(("HTTP/1.1 %d %s\r\n"):format(res.code, codes_msgs[res.code] or "Unknown"));
+	conn:write(ffi.toptr(("HTTP/1.1 %d %s\r\n"):format(res.code, codes_msgs[res.code] or "Unknown")));
 	http.write_headers(conn, res.headers);
 
 	return res.body;

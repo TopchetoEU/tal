@@ -37,6 +37,10 @@ function ffi_over.load(name, glob)
 	end
 end
 
+function ffi.toptr(str)
+	return ffi.cast("char*", str), #str;
+end
+
 if jit.os == "Windows" then
 	ffi.path = pkgpath.override(
 		reg._FFI_PATH,
