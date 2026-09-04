@@ -1,5 +1,5 @@
 local url = require "std.http.url";
-local net = require "std.io.net";
+local net = require "std.os.net";
 local headers = require "std.http.headers";
 local http = require "std.http";
 local ssl = require "std.io.ssl";
