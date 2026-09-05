@@ -22,7 +22,7 @@ local str = require "std.str";
 --- @field reading boolean
 --- @field writting boolean
 --- @field cond std.sync.cond
-local ssl_str = {};
+local ssl_str = setmetatable({}, str);
 ssl_str.__index = ssl_str;
 ssl_str.__metatable = "std.pipes.ssl";
 
@@ -160,7 +160,7 @@ function ssl_str.new(opts)
 
 	return setmetatable({
 		hnd = hnd,
-		stream = backend,
+		str = backend,
 
 		reading = false,
 		writting = false,
