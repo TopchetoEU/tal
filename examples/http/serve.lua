@@ -78,7 +78,7 @@ return function (serve_path)
 					f:close();
 					return send_dir(conn, req.path, file_path);
 				elseif stat.type == "file" then
-					return respond(conn, 200, nil, f);
+					return respond(conn, 200, nil, f, req.headers);
 				else
 					return send_not_found(conn);
 				end
