@@ -73,7 +73,6 @@ function proc:to_stream()
 
 	return stream.new(self);
 end
-
 function proc:__gc()
 	if self._mng then
 		print("warn: proc not freed: " .. self._mng);
@@ -123,13 +122,13 @@ return function (opts)
 
 	local res = iassert(loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks)));
 
-	local self = setmetatable(collected({
+	local self = collected(setmetatable({
 		_fd = res.proc,
 		_mng = debug.traceback(),
 		stdin = res.stdin and stream.from_stream(res.stdin, true),
 		stdout = res.stdout and stream.from_stream(res.stdout, true),
 		stderr = res.stderr and stream.from_stream(res.stderr, true)
-	}), proc);
+	}, proc));
 
 	return self;
 end

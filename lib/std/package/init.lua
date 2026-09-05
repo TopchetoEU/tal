@@ -113,6 +113,9 @@ for part in (os.getenv "LUA_CROOTS" or ""):gmatch "[^;]+" do
 	package.croots:insert(part);
 end
 
+package.roots:insert(".");
+package.croots:insert(".");
+
 package.loaders = { package.searchpreload, package.searchlua, package.searchc };
 package.searchers = package.loaders;
 package.path = package.overridepath(package.path, ";;@" .. pkgpath.rep .. "?.lua;@" .. pkgpath.rep .. "?" .. pkgpath.rep .. "init.lua");
