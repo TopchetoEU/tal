@@ -1,7 +1,6 @@
 local ffi = require "nat.ffi"
 local libc = require "nat.libc";
-local buffer = require "string.buffer";
-local sig = require "std.sig";
+local text --[[ = require "std.str.text"]];
 
 --- @class std.io.stat
 --- @field type "file" | "dir" | "link" | "sock" | "fifo" | "char" | "blk"
@@ -245,6 +244,12 @@ function str:setwbuff(buff, n, char)
 	return self;
 end
 
+--- @param whence? seekwhence
+--- @param pos? integer
+function str:seek(whence, pos)
+	if not self._seek then ierror "not supported" end
+	return self:_seek(whence or "cur", pos or 0);
+end
 --- @return std.io.stat
 function str:stat()
 	if not self._stat then ierror "not supported" end
@@ -295,185 +300,9 @@ function str:close()
 	return true;
 end
 
-function str:to_text() return str.text.from_stream(self) end
-
---- @class std.textstr
-str.text = {};
---- @class std.textstr.compat
-local textstr_compat;
---- @class std.str.compat
-local str_compat;
-do
-	str.text.__index = str.text;
-	str.text.__metatable = "std.textstr";
-
-	--- @param fmt std.io.readmode
-	--- @return string?
-	function str.text:read(fmt) ierror "not supported" end
-	--- @param ... any
-	--- @return integer
-	function str.text:write(...) ierror "not supported" end
-	--- @param whence? seekwhence
-	--- @param pos? integer
-	--- @return integer
-	function str.text:seek(whence, pos) ierror "not supported" end
-	--- @param mode vbuf
-	--- @param size? integer
-	function str.text:setvbuff(mode, size) ierror "not supported" end
-	--- @return std.io.stat
-	function str.text:stat() ierror "not supported" end
-	--- @return std.textstr
-	function str.text:flush() return self end
-	function str.text:close() return true end
-
-	--- @param dst std.textstr
-	--- @param close? boolean = false
-	--- @param close_dst? boolean = close
-	function str.text:pipe(dst, close, close_dst)
-		if close_dst == nil then close_dst = close end
-
-		for line in self:lines(4096) do
-			dst:write(line);
-		end
-
-		if close then self:close() end
-		if close_dst then dst:close() end
-
-		return true;
-	end
-
-	--- @param fmt std.io.readmode
-	--- @param close? boolean = false
-	--- @return fun(): string?
-	function str.text:lines(fmt, close)
-		if close then
-			return function ()
-				local res = self:read(fmt);
-				if not res then self:close() end
-				return res;
-			end
-		else
-			return function ()
-				return self:read(fmt);
-			end
-		end
-	end
-
-	--- @class std.textstr.compat: std.str
-	--- @field _backend std.textstr
-	textstr_compat = setmetatable({}, str);
-	textstr_compat.__index = textstr_compat;
-	textstr_compat.__metatable = "std.textstr.compat";
-
-	function textstr_compat:read(ptr, n)
-		local res = self._backend:read(n);
-		if not res then return 0 end
-
-		ffi.copy(ptr, res);
-		return #res;
-	end
-	function textstr_compat:write(ptr, n)
-		return self._backend:write(ffi.string(ptr, n));
-	end
-	function textstr_compat:stat()
-		return self._backend:stat();
-	end
-	function textstr_compat:flush()
-		return self._backend:flush();
-	end
-	function textstr_compat:close()
-		return self._backend:close();
-	end
-
-	--- @class std.str.compat: std.textstr
-	--- @field _backend std.str
-	str_compat = setmetatable({}, str.text);
-	str_compat.__index = str_compat;
-	str_compat.__metatable = "std.textstr.compat";
-
-	function str_compat:read(mode)
-		if mode == "l" or mode == "L" then
-			local buff = buffer.new(1024);
-			while true do
-				local ptr, n = buff:reserve(1024);
-				local n, has_char = self._backend:readline(ptr, n, 0x0A --[['\n']]);
-
-				if n == 0 then break end
-				if has_char then
-					if mode == "l" then
-						buff:commit(n - 1);
-					else
-						buff:commit(n);
-					end
-
-					break;
-				end
-
-				buff:commit(n);
-			end
-
-			if #buff == 0 then return nil end
-			return buff:tostring();
-		elseif mode == "a" then
-			local buff = buffer.new(1024);
-			while true do
-				local n = self._backend:read(buff:reserve(1024));
-				if n == 0 then break end
-
-				buff:commit(n);
-			end
-
-			if #buff == 0 then return nil end
-			return buff:tostring();
-		elseif mode == "c" then
-			local buff = buffer.new();
-			buff:commit(self._backend:read(buff:reserve(1024)));
-
-			if #buff == 0 then return nil end
-			return buff:tostring();
-		elseif type(mode) == "number" then
-			local buff = buffer.new();
-			buff:commit(self._backend:read(buff:reserve(mode), mode));
-
-			if #buff == 0 then return nil end
-			return buff:tostring();
-		else
-			sig.error("mode", "must be an integer, 'l', 'L', 'c' or 'a'");
-		end
-	end
-	function str_compat:write(...)
-		for i = 1, select("#", ...) do
-			-- TODO: OPTIMIZE!!!!
-			local str = tostring((select(i, ...)));
-			local buff = ffi.new("char[?]", #str);
-			ffi.copy(buff, str);
-			self._backend:fullwrite(buff, #str)
-		end
-	end
-	function str_compat:stat()
-		return self._backend:stat();
-	end
-	function str_compat:flush()
-		return self._backend:flush();
-	end
-	function str_compat:close()
-		return self._backend:close();
-	end
-
-	function str_compat:to_str()
-		return self._backend;
-	end
-
-	--- @return std.str
-	function str.text:to_str()
-		return setmetatable({ _backend = self }, textstr_compat);
-	end
-
-	--- @param str std.str
-	function str.text.from_stream(str)
-		return setmetatable({ _backend = str:to_buff() }, str_compat);
-	end
+function str:to_text()
+	text = text or require "std.str.text";
+	return text.new(self);
 end
-
 
 return str;
