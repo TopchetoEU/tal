@@ -6,8 +6,17 @@ local utils = require "examples.ssl.utils";
 local net = require "std.io.net";
 local json = require "std.fmt.json";
 local argp = require "std.argp";
+local signal = require "std.os.signal";
 
 return function (...)
+	signal.on "INT";
+	signal.on "BADPIPE";
+	loop.fork(function ()
+		for sig in signal.wait do
+			if sig == "INT" then error "interrupted" end
+		end
+	end):name "INT listener";
+
 	local argv = argp.new(...);
 
 	local ip = "0.0.0.0";

@@ -51,10 +51,7 @@ return function (...)
 	end
 
 	if res.body then
-		for part in res.body:lines("c") do
-			io.write(part);
-		end
-
+		io.stdout:pipe(res.body);
 		res.body:close();
 	end
 end

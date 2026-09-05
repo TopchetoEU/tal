@@ -239,7 +239,7 @@ local function pass_password(buf, size, rwflag, userdata)
 		data.err = "password too short";
 		return -1
 	else
-		ffi.copy(buf, data.pass);
+		ffi.copy(buf, data.pass, #data.pass);
 		return #data.pass;
 	end
 end

@@ -8,7 +8,6 @@ local buffer = require "string.buffer";
 
 --- @type table<string, fun(self: stringify.ctx, node: node)>
 local walkers = {};
-
 local op_str_map = {
 	[nodes.ops.POW] = "^",
 
