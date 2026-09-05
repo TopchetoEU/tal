@@ -63,7 +63,7 @@ function strtxt:write(...)
 		-- TODO: OPTIMIZE!!!!
 		local str = tostring((select(i, ...)));
 		local buff = ffi.new("char[?]", #str);
-		ffi.copy(buff, str);
+		ffi.copy(buff, str, #str);
 		self.str:fullwrite(buff, #str)
 	end
 end
