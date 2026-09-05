@@ -11,7 +11,6 @@ strtxt.__metatable = "std.strtxt";
 
 function strtxt:read(mode)
 	if type(mode) == "string" and (mode:sub(1, 1) == "l" or mode:sub(1, 1) == "L") then
-		pprint("EOF", mode:sub(2):byte());
 		local res = self.str:readlineto(buffer.new(), mode:sub(2):byte());
 		if #res == 0 then return nil end
 		if mode:sub(1, 1) == "l" then
@@ -27,7 +26,7 @@ function strtxt:read(mode)
 		return res:get();
 	elseif type(mode) == "number" then
 		local buff = buffer.new();
-		buff:commit(self.str:fullread(buff:reserve(mode)));
+		buff:commit(self.str:fullread(buff:reserve(mode), mode));
 
 		if #buff == 0 then return nil end
 		return buff:get();
