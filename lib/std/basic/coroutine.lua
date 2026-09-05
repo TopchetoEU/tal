@@ -32,7 +32,10 @@ function coroutine.__tostring(th)
 	return th:name();
 end
 
-debug.setmetatable(coroutine.running(), coroutine);
-debug.setmetatable(coroutine.running(), coroutine);
+if coroutine.running() then
+	debug.setmetatable(coroutine.running(), coroutine);
+else
+	error "luajit not compiled with -DLUAJIT_ENABLE_LUA52COMPAT";
+end
 
 return coroutine;
