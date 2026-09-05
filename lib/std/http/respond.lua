@@ -21,7 +21,7 @@ return function (conn, code, hdrs, body)
 	if body then
 		--- @cast body_out std.str
 
-		if type(body) == "string" then
+		if type(body) == "string" or getmetatable(body) == "buffer" then
 			body_out:fullwrite(ffi.toptr(body));
 		elseif type(body) == "function" then
 			for el in body do

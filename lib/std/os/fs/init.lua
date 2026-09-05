@@ -61,7 +61,7 @@ end
 function fs.stat(path)
 	path = sig.str(path, "path");
 
-	local ok, fd = pcall(io.xopen, path, "ls");
+	local ok, fd = pcall(fs.open, path, "ls");
 	if not ok then return nil, fd --[[@as string]] end
 
 	local res = fd:stat();
