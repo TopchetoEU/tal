@@ -48,19 +48,19 @@ function strtxt:flush()
 	return self;
 end
 
---- @param fmt std.io.readmode
+--- @param fmt? std.io.readmode
 --- @param close? boolean = false
 --- @return fun(): string?
 function strtxt:lines(fmt, close)
 	if close then
 		return function ()
-			local res = self:read(fmt);
+			local res = self:read(fmt or "l");
 			if not res then self:close() end
 			return res;
 		end
 	else
 		return function ()
-			return self:read(fmt);
+			return self:read(fmt or "l");
 		end
 	end
 end
