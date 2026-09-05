@@ -13,7 +13,7 @@ function strtxt:read(mode)
 	if type(mode) == "string" and mode:find "^[lL]" then
 		local res = self.str:readlineto(buffer.new(), mode:sub(2):byte());
 		if #res == 0 then return nil end
-		if mode == "l" then
+		if mode:find "^l" then
 			return res:get(#res - 1);
 		else
 			return res:get();
