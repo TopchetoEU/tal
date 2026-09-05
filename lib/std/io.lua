@@ -4,19 +4,6 @@ local fs = require "std.os.fs";
 
 -- A wrapper around my libraries to mirror lua's "io" global library
 
---- @class std.io.stat
---- @field type "file" | "dir" | "link" | "sock" | "fifo" | "char" | "blk"
---- @field mode integer
---- @field gid integer
---- @field uid integer
---- @field atime number
---- @field mtime number
---- @field ctime number
---- @field size integer
---- @field blksize integer
---- @field inode integer
---- @field links integer
-
 --- @alias std.io.readmode
 --- | integer Reads n amount of chars
 --- | nil Same as "l"
