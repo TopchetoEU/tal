@@ -10,6 +10,8 @@ local ffi = require "nat.ffi";
 return function (conn, code, hdrs, body, req_hdrs)
 	hdrs = hdrs or headers.new();
 
+	local etag = hdrs:get "etag";
+
 	if type(body) == "table" then
 		local ok, stat = pcall(body.stat, body);
 		if ok then
@@ -19,23 +21,22 @@ return function (conn, code, hdrs, body, req_hdrs)
 				end
 			end
 
-			local etag;
-
-			if stat.mtime >= 0 then
+			if not etag and stat.mtime >= 0 then
 				-- hdrs:set("last-modified", os.date("%a, %d %b %Y %H:%M:%S GMT", stat.mtime));
 				-- Im so done with WWW's bullshit
-				hdrs:set("Cache-Control", "age=0, must-revalidate"); -- no-cache, as in please do cache this
 				etag = "\"" .. tostring(stat.mtime) .. "\"";
-				hdrs:set("ETag", etag);
-			end
-
-			if req_hdrs then
-				if req_hdrs:get "if-none-match" == etag then
-					http.write_res(conn, { code = 304, headers = hdrs });
-					return true;
-				end
 			end
 		end
+	end
+
+	if etag then
+		hdrs:set("cache-control", "max-age=0, must-revalidate");
+		hdrs:set("etag", etag);
+	end
+
+	if req_hdrs and req_hdrs:get "if-none-match" == etag then
+		http.write_res(conn, { code = 304, headers = hdrs });
+		return true;
 	end
 
 	local body_out = http.write_res(conn, { code = code or 200, headers = hdrs }, body ~= nil);
