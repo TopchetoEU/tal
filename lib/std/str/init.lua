@@ -204,6 +204,8 @@ end
 ---@param ptr ffi.cdata*
 ---@param n integer
 ---@param char integer
+---@return integer n
+---@return boolean has_c If true, the output was trimmed to the newline char
 function str:readline(ptr, n, char)
 	n = self:read(ptr, n);
 
@@ -215,6 +217,28 @@ function str:readline(ptr, n, char)
 
 	return n, false;
 end
+
+--- Same as `readline`, but uses a `string.buffer` as a backend
+---@param buff string.buffer
+---@param char? integer = 0x0A
+function str:readlineto(buff, char)
+	repeat
+		local ptr, ptr_n = buff:reserve(str.chunksize);
+		local n, has_c = self:readline(ptr, ptr_n, char or 0x0A);
+		buff:commit(n);
+	until n == 0 or has_c;
+
+	return buff;
+end
+--- Same as `read`, but reads to a `string.buffer`
+---@param buff string.buffer
+---@param n? integer = str.chunksize
+function str:readto(buff, n)
+	local res_n = self:read(buff:reserve(str.chunksize or n));
+	buff:commit(res_n);
+	return res_n;
+end
+
 --- Writes the given stream, string or string generator to the stream
 --- @param src std.str
 function str:pipe(src)
