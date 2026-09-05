@@ -156,6 +156,16 @@ function str:write(ptr, n)
 		return n;
 	end
 end
+function str:flush()
+	if self._wbuff and self._wbuff.f > 0 then
+		if not self._write then ierror "not supported" end
+		self:_write(self._wbuff.data, self._wbuff.f);
+		self._wbuff.f = 0;
+	end
+
+	if self._flush then self:_flush() end
+	return self;
+end
 
 --- Performs consequtive reads until either an EOF is reached or the provided buffer is filled
 function str:fullread(ptr, n)
@@ -273,17 +283,6 @@ function str:chown(uid, gid)
 	if not self._stat then ierror "not supported" end
 	self:_chown(uid, gid);
 	return self
-end
-
-function str:flush()
-	if self._wbuff and self._wbuff.f > 0 then
-		if not self._write then ierror "not supported" end
-		self:_write(self._wbuff.data, self._wbuff.f);
-		self._wbuff.f = 0;
-	end
-
-	if self._flush then self:_flush() end
-	return self;
 end
 
 function str:close()
