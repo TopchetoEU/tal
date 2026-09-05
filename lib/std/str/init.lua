@@ -31,6 +31,32 @@ str.__metatable = "std.str";
 
 str.chunksize = 8192;
 
+--- @param ... string | integer
+--- @return integer
+function str.parsechmod(...)
+	local mode = 0;
+
+	for i = 1, select("#", ...) do
+		local arg = select(i, ...);
+		if type(arg) == "number" then
+			mode = arg;
+		elseif type(arg) == "string" then
+			local op, arg = arg:match "^([+-]?)(.-)$";
+			local iarg = assert(tonumber(arg, 8), arg);
+
+			if op == "+" then
+				mode = mode | iarg;
+			elseif op == "-" then
+				mode = mode & ~iarg;
+			else
+				mode = iarg;
+			end
+		end
+	end
+
+	return mode;
+end
+
 --- @param ptr ffi.cdata*
 --- @param n integer
 function str:read(ptr, n)
@@ -267,27 +293,7 @@ end
 function str:chmod(...)
 	if not self._chmod then ierror "not supported" end
 
-	local mode = 0;
-
-	for i = 1, select("#", ...) do
-		local arg = select(i, ...);
-		if type(arg) == "number" then
-			mode = arg;
-		elseif type(arg) == "string" then
-			local function op(a, b) return b end
-			if arg:find "^%+" then
-				arg = arg:sub(2);
-				function op(a, b) return a | b end
-			elseif arg:find "^^-" then
-				arg = arg:sub(2);
-				function op(a, b) return a & ~b end
-			end
-
-			mode = op(mode, assert(tonumber(arg, 8), "invalid mode number"));
-		end
-	end
-
-	self:_chmod(mode);
+	self:_chmod(str.parsechmod(...));
 	return self;
 end
 --- @param uid integer
