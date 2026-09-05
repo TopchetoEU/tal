@@ -197,7 +197,12 @@ function debug.traceback(...)
 	end
 
 	while true do
-		local info = debug.getinfo(th or coroutine.running(), lvl, "Snlf");
+		local info;
+		if th then
+			info = debug.getinfo(th, lvl, "Snlf");
+		else
+			info = debug.getinfo(lvl, "Snlf");
+		end
 		if not info then break end
 
 		if info.func ~= pcall and info.func ~= xpcall and info.func ~= error then
