@@ -28,10 +28,7 @@ function file_impl:_write(ptr, n)
 	return write_n;
 end
 
-function file_impl:_flush()
-	loop.sync_ret(self._backend:flush((coroutine.running())));
-	return self;
-end
+function file_impl:_flush() end
 function file_impl:_stat()
 	return loop.sync_ret(self._backend:stat((coroutine.running())));
 end
