@@ -10,10 +10,11 @@ strtxt.__index = strtxt;
 strtxt.__metatable = "std.strtxt";
 
 function strtxt:read(mode)
-	if type(mode) == "string" and mode:find "^[lL]" then
+	if type(mode) == "string" and (mode:sub(1, 1) == "l" or mode:sub(1, 1) == "L") then
+		pprint("EOF", mode:sub(2):byte());
 		local res = self.str:readlineto(buffer.new(), mode:sub(2):byte());
 		if #res == 0 then return nil end
-		if mode:find "^l" then
+		if mode:sub(1, 1) == "l" then
 			return res:get(#res - 1);
 		else
 			return res:get();
