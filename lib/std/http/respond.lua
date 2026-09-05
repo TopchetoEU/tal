@@ -1,8 +1,8 @@
 local http = require "std.http";
 local headers = require "std.http.headers";
-local ffi     = require "nat.ffi"
+local ffi = require "nat.ffi";
 
---- @param conn std.bstr
+--- @param conn std.str
 --- @param code? integer
 --- @param hdrs? std.http.headers
 --- @param body? string | std.str | fun(): string?
@@ -19,7 +19,7 @@ return function (conn, code, hdrs, body)
 	local body_out = http.write_res(conn, { code = code or 200, headers = hdrs or headers.new() }, body ~= nil);
 
 	if body then
-		--- @cast body_out std.bstr
+		--- @cast body_out std.str
 
 		if type(body) == "string" then
 			body_out:fullwrite(ffi.toptr(body));

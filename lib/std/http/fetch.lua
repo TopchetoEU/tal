@@ -33,10 +33,8 @@ return function (arg)
 	local conn = net.nameconnect(parsed.host, parsed.port or default_port, "tcp");
 
 	if parsed.scheme == "https" then
-		conn = ssl { backend = conn, owned = true, host = parsed.host };
+		conn = ssl.new { backend = conn, owned = true, host = parsed.host };
 	end
-
-	conn = conn:to_buff();
 
 	local body_out = http.write_req(conn, {
 		method = arg.method or "GET",
@@ -45,7 +43,7 @@ return function (arg)
 	}, arg.body ~= nil);
 
 	if arg.body then
-		--- @cast body_out std.bstr
+		--- @cast body_out std.str
 
 		if type(arg.body) == "string" then
 			body_out:fullwrite(ffi.toptr(arg.body));
