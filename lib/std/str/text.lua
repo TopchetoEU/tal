@@ -1,6 +1,7 @@
 local buffer = require "string.buffer";
-local sig    = require "std.sig"
-local ffi    = require "nat.ffi"
+local sig = require "std.sig";
+local ffi = require "nat.ffi";
+local str = require "std.str";
 
 --- @class std.strtxt
 --- @field str std.str
@@ -10,50 +11,25 @@ strtxt.__metatable = "std.strtxt";
 
 function strtxt:read(mode)
 	if mode == "l" or mode == "L" then
-		local buff = buffer.new(1024);
-		while true do
-			local ptr, n = buff:reserve(1024);
-			local n, has_char = self.str:readline(ptr, n, 0x0A --[['\n']]);
-
-			if n == 0 then break end
-			if has_char then
-				if mode == "l" then
-					buff:commit(n - 1);
-				else
-					buff:commit(n);
-				end
-
-				break;
-			end
-
-			buff:commit(n);
+		local res = self.str:readlineto(buffer.new());
+		if #res == 0 then return nil end
+		if mode == "l" then
+			return res:get(#res - 1);
+		else
+			return res:get();
 		end
-
-		if #buff == 0 then return nil end
-		return buff:tostring();
 	elseif mode == "a" then
-		local buff = buffer.new(1024);
-		while true do
-			local n = self.str:read(buff:reserve(1024));
-			if n == 0 then break end
-
-			buff:commit(n);
-		end
-
-		if #buff == 0 then return nil end
-		return buff:tostring();
+		return self.str:readto(buffer.new()):get();
 	elseif mode == "c" then
-		local buff = buffer.new();
-		buff:commit(self.str:read(buff:reserve(1024)));
-
-		if #buff == 0 then return nil end
-		return buff:tostring();
+		local res = self.str:readto(buffer.new(), str.chunksize);
+		if #res == 0 then return nil end
+		return res:get();
 	elseif type(mode) == "number" then
 		local buff = buffer.new();
-		buff:commit(self.str:read(buff:reserve(mode), mode));
+		buff:commit(self.str:fullread(buff:reserve(mode)));
 
 		if #buff == 0 then return nil end
-		return buff:tostring();
+		return buff:get();
 	else
 		sig.error("mode", "must be an integer, 'l', 'L', 'c' or 'a'");
 	end
