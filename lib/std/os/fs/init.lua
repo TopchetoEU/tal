@@ -13,9 +13,11 @@ local fs = {};
 
 -- We make std streams buffered, as most people will use them as buffered
 
-fs.stdin = impl_str.new(impl.stdin):to_buff();
-fs.stdout = impl_str.new(impl.stdout):to_buff():setwbuff(nil, str.chunksize, 0x0A);
-fs.stderr = impl_str.new(impl.stderr):to_buff();
+fs.stdin = impl_str.new(impl.stdin);
+fs.stdout = impl_str.new(impl.stdout);
+fs.stderr = impl_str.new(impl.stderr);
+
+fs.stdout:setwbuff(nil, str.chunksize, 0x0A);
 
 --- @alias std.os.fs.path
 --- | "home"
@@ -38,7 +40,7 @@ fs.stderr = impl_str.new(impl.stderr):to_buff();
 --- @param path string
 --- @param flags std.os.fs.open_flags
 --- @param ... integer | string
---- @return std.file
+--- @return std.str
 function fs.open(path, flags, ...)
 	local fd = loop.sync_ret(impl:open(coroutine.running(), path, flags, str.parsechmod(...)));
 	local append = flags:find "a";

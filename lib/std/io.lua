@@ -30,7 +30,7 @@ io.stderr = fs.stderr:to_text();
 
 --- @param path string
 --- @param mode? openmode
---- @return std.textstr?
+--- @return std.strtxt?
 --- @return string? err
 function io.open(path, mode)
 	--- @type std.io.open_flags
@@ -95,7 +95,7 @@ function io.flush()
 	pcall(io.stderr.flush, io.stderr);
 	return true;
 end
---- @param file? std.textstr
+--- @param file? std.strtxt
 function io.close(file)
 	if file then
 		file:close();
