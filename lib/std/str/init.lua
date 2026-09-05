@@ -60,6 +60,8 @@ end
 --- @param ptr ffi.cdata*
 --- @param n integer
 function str:read(ptr, n)
+	if self._closed then ierror "closed" end
+
 	local res_n = 0;
 
 	while self._rstack and #self._rstack > 0 do
@@ -121,6 +123,8 @@ end
 --- @param ptr? ffi.cdata*
 --- @param n integer
 function str:unread(ptr, n)
+	if self._closed then ierror "closed" end
+
 	if self._seek then
 		self:_seek("cur", -n);
 		return self;
@@ -137,6 +141,7 @@ function str:unread(ptr, n)
 	return self;
 end
 function str:write(ptr, n)
+	if self._closed then ierror "closed" end
 	if not self._write then ierror "not supported" end
 
 	if not self._wbuff then return self:_write(ptr, n) end
@@ -169,6 +174,8 @@ function str:write(ptr, n)
 	end
 end
 function str:flush()
+	if self._closed then ierror "closed" end
+
 	if self._wbuff and self._wbuff.f > 0 then
 		if not self._write then ierror "not supported" end
 		self:_write(self._wbuff.data, self._wbuff.f);
@@ -255,6 +262,8 @@ end
 --- Writes the given stream, string or string generator to the stream
 --- @param src std.str
 function str:pipe(src)
+	if self._closed then ierror "closed" end
+
 	local buff = ffi.new("char[?]", str.chunksize);
 
 	while true do
@@ -269,6 +278,8 @@ end
 --- @param n? integer The size of the buffer. If nil, write side remains unbuffered
 --- @param char? integer The flush char. If nil, no char will flush the write buffer
 function str:setwbuff(buff, n, char)
+	if self._closed then ierror "closed" end
+
 	if n then
 		if not buff then buff = ffi.new("char[?]", n) end
 		self._wbuff = { data = buff, f = 0, l = n };
@@ -284,16 +295,19 @@ end
 --- @param whence? seekwhence
 --- @param pos? integer
 function str:seek(whence, pos)
+	if self._closed then ierror "closed" end
 	if not self._seek then ierror "not supported" end
 	return self:_seek(whence or "cur", pos or 0);
 end
 --- @return std.io.stat
 function str:stat()
+	if self._closed then ierror "closed" end
 	if not self._stat then ierror "not supported" end
 	return self:_stat();
 end
 --- @param ... string | integer
 function str:chmod(...)
+	if self._closed then ierror "closed" end
 	if not self._chmod then ierror "not supported" end
 
 	self:_chmod(str.parsechmod(...));
@@ -302,6 +316,7 @@ end
 --- @param uid integer
 --- @param gid integer
 function str:chown(uid, gid)
+	if self._closed then ierror "closed" end
 	if not self._stat then ierror "not supported" end
 	self:_chown(uid, gid);
 	return self
@@ -314,6 +329,8 @@ function str:close()
 	end
 
 	self._closed = true;
+	self._rstack = nil;
+	self._wbuff = nil;
 	return true;
 end
 
