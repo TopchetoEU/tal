@@ -62,7 +62,7 @@ end
 function str:read(ptr, n)
 	local res_n = 0;
 
-	while #self._rstack > 0 do
+	while self._rstack and #self._rstack > 0 do
 		if n <= 0 then break end
 
 		local part = table.remove(self._rstack) --[[@as std.str.buffrange]];
@@ -91,6 +91,7 @@ function str:read(ptr, n)
 	elseif self._readchunk then
 		local chunk_n, chunk_ptr = self:_readchunk();
 		if chunk_n > n then
+			self._rstack = self._rstack or {};
 			table.insert(self._rstack, { f = n, l = chunk_n, data = chunk_ptr });
 			ffi.copy(ptr, chunk_ptr, n);
 			return n;
@@ -103,6 +104,7 @@ function str:read(ptr, n)
 		if not chunk then return 0 end
 
 		if #chunk > n then
+			self._rstack = self._rstack or {};
 			table.insert(self._rstack, { f = 0, l = #chunk - n, data = ffi.new("char[?]", #chunk - n, chunk:sub(n)) });
 			ffi.copy(ptr, chunk, n);
 			return n;
@@ -130,6 +132,7 @@ function str:unread(ptr, n)
 	ffi.copy(new_ptr, ptr, n);
 	ptr = new_ptr;
 
+	self._rstack = self._rstack or {};
 	table.insert(self._rstack, { data = ptr, f = 0, l = n });
 	return self;
 end
