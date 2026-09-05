@@ -1,4 +1,4 @@
-local ssl = require "std.io.ssl";
+local ssl = require "std.pipes.ssl";
 local loop = require "std.loop";
 local utils = require "examples.ssl.utils";
 local json = require "std.fmt.json";
@@ -37,7 +37,7 @@ return function (...)
 		end
 	end
 
-	local f = ssl { backend = net.connect(ip, port), owned = true, role = "client" };
+	local conn = ssl.new { backend = net.connect(ip, port), owned = true, role = "client" }:to_text();
 
 	if not username then
 		io.stderr:write "Username: ";
@@ -45,31 +45,31 @@ return function (...)
 	end
 
 	loop.fork(function ()
-		for raw in utils.read_string, f do
+		for raw in utils.read_string, conn do
 			local cmd = json.parse(raw);
 			utils.print_event(cmd);
 		end
 	end);
 
 	loop.fork(function ()
-		utils.write_string(f, username);
-		f:flush();
+		utils.write_string(conn, username);
+		conn:flush();
 
 		for line in io.lines() do
 			if line:find "^%/" then
-				utils.write_string(f, json.stringify {
+				utils.write_string(conn, json.stringify {
 					type = "cmd",
 					cmd = line:sub(2),
 				});
 			else
-				utils.write_string(f, json.stringify {
+				utils.write_string(conn, json.stringify {
 					type = "msg",
 					msg = line,
 				});
 			end
 
-			f:flush();
+			conn:flush();
 		end
-		f:close();
+		conn:close();
 	end);
 end
