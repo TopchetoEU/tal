@@ -252,11 +252,19 @@ function str:readlineto(buff, char)
 end
 --- Same as `read`, but reads to a `string.buffer`
 ---@param buff string.buffer
----@param n? integer = str.chunksize
+---@param n? integer If nil, reads the whole file
 function str:readto(buff, n)
-	local res_n = self:read(buff:reserve(str.chunksize or n));
-	buff:commit(res_n);
-	return res_n;
+	if not n then
+		repeat
+			local res_n = self:read(buff:reserve(str.chunksize));
+			buff:commit(res_n);
+		until res_n > 0;
+	else
+		local res_n = self:read(buff:reserve(str.chunksize or n));
+		buff:commit(res_n);
+	end
+
+	return buff;
 end
 
 --- Writes the given stream, string or string generator to the stream
