@@ -35,6 +35,8 @@ return function (conn, code, hdrs, body, req_hdrs)
 	end
 
 	if req_hdrs and req_hdrs:get "if-none-match" == etag then
+		if type(body) == "table" then body:close() end
+
 		http.write_res(conn, { code = 304, headers = hdrs });
 		return true;
 	end
@@ -52,6 +54,7 @@ return function (conn, code, hdrs, body, req_hdrs)
 			end
 		else
 			body_out:pipe(body);
+			body:close();
 		end
 
 		body_out:close();
