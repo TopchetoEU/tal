@@ -1,6 +1,24 @@
 # TAL - TopchetoEU's Atrocious Lua
 
-**THIS IS THE LAST VERSION BEFORE v0.3.X!!**
+**WARNING!!! THIS VERSION IS OUTDATED!** All fixes from v0.3.0 have been backported, but this is the last time this is done. Please, switch to v0.3. Migration only involves adding `:to_text()` to IO streams, created outside the `io` library, as well as updating your `require` paths:
+
+```lua
+-- Old pattern:
+local conn = net.connect("1.2.3.4", 1234, "tcp");
+conn:write "test";
+local line = conn:read "l";
+
+-- New pattern:
+local conn = net.connect("1.2.3.4", 1234, "tcp"):to_text();
+conn:write "test";
+local line = conn:read "l";
+
+-- Or use the faster pointer-based API
+
+local conn = net.connect("1.2.3.4", 1234, "tcp");
+conn:write(ffi.toptr "test");
+local line = conn:readlineto(buffer.new()):get();
+```
 
 A runtime, based on luajit. This runtime adds the following features:
 
