@@ -17,7 +17,7 @@ endif
 
 .PHONY: luajit clean install uninstall
 
-all: $(LIBS) $(LUAJIT_EXE)
+all: $(LIBS) $(LUAJIT_EXE) $(PREFIX)/lib/lua/nat/libhook.so
 
 install: $(PREFIX)/bin/tal all
 	mkdir -p "$(PREFIX)/bin"
@@ -33,6 +33,10 @@ clean: $(LUAJIT_MK) $(LIBEV_MK)
 	$(MAKE) -C deps/luajit clean
 	$(MAKE) -C deps/libyaooi clean
 	rm -rf bin
+
+$(PREFIX)/lib/lua/nat/libhook.so: src/hook.c deps/luajit/src/libluajit.so
+	mkdir -p $(dir $@)
+	gcc -shared $^ -Ideps/luajit/src -o $@
 
 $(PREFIX)/bin/tal:
 	mkdir -p $(dir $@)
