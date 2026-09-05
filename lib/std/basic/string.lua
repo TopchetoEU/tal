@@ -3,6 +3,18 @@ local lex;
 
 --- @param self string
 --- @param sep? string
+--- @return string[]
+function string:splitarr(sep)
+	local res = {};
+
+	for _, el in self:split(sep) do
+		table.insert(res, el);
+	end
+
+	return res;
+end
+--- @param self string
+--- @param sep? string
 function string:split(sep)
 	sep = sep or "";
 
