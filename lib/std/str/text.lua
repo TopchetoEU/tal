@@ -10,8 +10,8 @@ strtxt.__index = strtxt;
 strtxt.__metatable = "std.strtxt";
 
 function strtxt:read(mode)
-	if mode == "l" or mode == "L" then
-		local res = self.str:readlineto(buffer.new());
+	if type(mode) == "string" and mode:find "^[lL]" then
+		local res = self.str:readlineto(buffer.new(), mode:sub(2):byte());
 		if #res == 0 then return nil end
 		if mode == "l" then
 			return res:get(#res - 1);
@@ -31,7 +31,7 @@ function strtxt:read(mode)
 		if #buff == 0 then return nil end
 		return buff:get();
 	else
-		sig.error("mode", "must be an integer, 'l', 'L', 'c' or 'a'");
+		sig.error("mode", "must be an integer, 'l[char]', 'L[char]', 'c' or 'a'");
 	end
 end
 function strtxt:write(...)
