@@ -36,8 +36,6 @@ function proc:close()
 	return true;
 end
 function proc:to_stream()
-	self._mng = nil;
-
 	-- NOTE: we don't have to worry about double-buffering, as the underlying std streams will most likely be unbuffered
 
 	local self = setmetatable({ _proc = self }, str);
@@ -73,8 +71,12 @@ function proc:to_stream()
 	return self;
 end
 function proc:__gc()
-	if self._mng then
-		print("warn: proc not freed: " .. self._mng);
+	if not self._closed then
+		if self._mng then
+			print("warn: proc not freed: " .. self._mng);
+		else
+			print("warn: proc not freed");
+		end
 	end
 end
 
