@@ -42,7 +42,7 @@ return function (...)
 	local res = fetch {
 		url = url,
 		method = method,
-		body = f and f:to_str(),
+		body = f and f.str,
 		headers = hdrs,
 	};
 
@@ -51,7 +51,7 @@ return function (...)
 	end
 
 	if res.body then
-		io.stdout:to_str():pipe(res.body);
+		io.stdout.str:pipe(res.body);
 		res.body:close();
 	end
 end

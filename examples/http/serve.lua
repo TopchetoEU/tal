@@ -58,8 +58,6 @@ return function (serve_path)
 
 	for conn in server:iter() do
 		loop.fork(function ()
-			local conn = conn:to_buff();
-
 			local ok, err, trace = spcall(function ()
 				local req = http.read_req(conn);
 				if not req then return end
