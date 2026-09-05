@@ -37,26 +37,28 @@ function proc:close()
 end
 function proc:to_stream()
 	self._mng = nil;
+
+	-- NOTE: we don't have to worry about double-buffering, as the underlying std streams will most likely be unbuffered
+
 	local self = setmetatable({ _proc = self }, str);
-	function self:read(ptr, n)
+	function self:_read(ptr, n)
 		if not self._proc.stdout then ierror "writeonly" end
 		return self._proc.stdout:read(ptr, n);
 	end
-	function self:write(ptr, n)
+	function self:_write(ptr, n)
 		if not self._proc.stdin then ierror "readonly" end
 		return self._proc.stdin:write(ptr, n);
 	end
-	function self:flush()
+	function self:_flush()
 		if self._proc.stdin then
 			self._proc.stdin:flush();
 		end
 		if self._proc.stdout then
 			self._proc.stdout:flush();
 		end
-		return self;
 	end
-	function self:close()
-		if self._proc._closed then return true end
+	function self:_close()
+		if self._proc._closed then return end
 
 		if self._proc.stdin then
 			self._proc.stdin:close();
@@ -66,7 +68,6 @@ function proc:to_stream()
 		end
 
 		self._proc:close();
-		return true;
 	end
 
 	return self;
