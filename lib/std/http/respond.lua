@@ -5,18 +5,40 @@ local ffi = require "nat.ffi";
 --- @param conn std.str
 --- @param code? integer
 --- @param hdrs? std.http.headers
+--- @param req_hdrs? std.http.headers
 --- @param body? string | std.str | fun(): string?
-return function (conn, code, hdrs, body)
+return function (conn, code, hdrs, body, req_hdrs)
 	hdrs = hdrs or headers.new();
 
 	if type(body) == "table" then
 		local ok, stat = pcall(body.stat, body);
-		if ok and stat.type == "file" and stat.size >= 0 then
-			hdrs:set("content-length", stat.size);
+		if ok then
+			if stat.type == "file" then
+				if stat.size >= 0 then
+					hdrs:set("content-length", stat.size);
+				end
+			end
+
+			local etag;
+
+			if stat.mtime >= 0 then
+				-- hdrs:set("last-modified", os.date("%a, %d %b %Y %H:%M:%S GMT", stat.mtime));
+				-- Im so done with WWW's bullshit
+				hdrs:set("Cache-Control", "age=0, must-revalidate"); -- no-cache, as in please do cache this
+				etag = "\"" .. tostring(stat.mtime) .. "\"";
+				hdrs:set("ETag", etag);
+			end
+
+			if req_hdrs then
+				if req_hdrs:get "if-none-match" == etag then
+					http.write_res(conn, { code = 304, headers = hdrs });
+					return true;
+				end
+			end
 		end
 	end
 
-	local body_out = http.write_res(conn, { code = code or 200, headers = hdrs or headers.new() }, body ~= nil);
+	local body_out = http.write_res(conn, { code = code or 200, headers = hdrs }, body ~= nil);
 
 	if body then
 		--- @cast body_out std.str
