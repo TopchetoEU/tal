@@ -2,6 +2,7 @@ local buffer = require "string.buffer";
 local sig = require "std.sig";
 local ffi = require "nat.ffi";
 local str = require "std.str";
+local objects = require "nat.utils.objects";
 
 --- @class std.strtxt
 --- @field str std.str
@@ -36,11 +37,14 @@ function strtxt:read(mode)
 end
 function strtxt:write(...)
 	for i = 1, select("#", ...) do
-		-- TODO: OPTIMIZE!!!!
-		local str = tostring((select(i, ...)));
-		local buff = ffi.new("char[?]", #str);
-		ffi.copy(buff, str, #str);
-		self.str:fullwrite(buff, #str)
+		local val = select(i, ...);
+		if type(val) ~= "string" and getmetatable(val) ~= "buffer" then
+			val = tostring(val);
+		end
+
+		local ref = objects.add(val);
+		self.str:fullwrite(ffi.cast("char*", val), #val);
+		objects.del(ref);
 	end
 end
 function strtxt:flush()

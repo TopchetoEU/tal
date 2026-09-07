@@ -45,12 +45,13 @@ return function (conn, code, hdrs, body, req_hdrs)
 
 	if body then
 		--- @cast body_out std.str
+		local txt_out = body_out:to_text();
 
 		if type(body) == "string" or getmetatable(body) == "buffer" then
-			body_out:fullwrite(ffi.toptr(body));
+			txt_out:write(body);
 		elseif type(body) == "function" then
 			for el in body do
-				body_out:fullwrite(ffi.toptr(el));
+				txt_out:write(el);
 			end
 		else
 			body_out:pipe(body);

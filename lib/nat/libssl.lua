@@ -78,10 +78,6 @@ bio_index. __index = bio_index;
 bio_index. __metatable = "libssl.bio";
 local bio_type = ffi.metatype("BIO", bio_index);
 
-function bio_index:__gc()
-	return libssl.BIO_free(self);
-end
-
 --- @param n integer
 --- @param ptr ffi.cdata*
 function bio_index:read(n, ptr)
