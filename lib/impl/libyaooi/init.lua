@@ -41,10 +41,9 @@ local sig_table = {
 };
 
 --- @param owned boolean
---- @return impl.libyaooi.fd? fd
---- @return string? err
+--- @return impl.libyaooi.fd fd
 function yo_impl:openfd(fd, owned)
-	return yo_fd(self.queue, libyaooi.fd.new(fd, owned)), nil;
+	return yo_fd(self.queue, libyaooi.fd.new(fd, owned));
 end
 function yo_impl:open(udata, path, flags, mode)
 	path = sig.str(path, "path");
