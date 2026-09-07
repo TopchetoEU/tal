@@ -83,9 +83,10 @@ function process:wait(udata) end
 local _impl = {};
 
 --- Converts an OS fd to a stream
---- @param fd integer
+--- @param fd integer | ffi.cdata*
+--- @param owned boolean
 --- @return _impl.fd file
-function _impl:openfd(fd) end
+function _impl:openfd(fd, owned) end
 
 --- @param path string
 --- @param flags std.io.open_flags

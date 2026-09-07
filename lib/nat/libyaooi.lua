@@ -589,7 +589,7 @@ function yaooi.fd:chown(req, uid, gid)
 	return nil, true;
 end
 
---- @param fd integer
+--- @param fd integer | ffi.cdata*
 --- @param owned? boolean
 --- @return libyaooi.fd fd
 function yaooi.fd.new(fd, owned)

@@ -37,6 +37,11 @@ fs.stdout:setwbuff(nil, str.chunksize, 0x0A);
 --- |+ "l" No follow
 --- |+ "s" Stat
 
+--- @param fd integer | ffi.cdata*
+--- @param owned boolean
+function fs.openfd(fd, owned)
+	return impl_str.new(impl:openfd(fd, owned));
+end
 --- @param path string
 --- @param flags std.os.fs.open_flags
 --- @param ... integer | string
