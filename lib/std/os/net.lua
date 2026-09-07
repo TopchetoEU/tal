@@ -60,17 +60,14 @@ end
 function net.nameconnect(name, port, protocol, flags)
 	local ips = net.getaddrinfo(name, flags or "");
 
-	local ok, res, err, trace;
+	local ok, res, trace;
 	for _, ip in ipairs(ips) do
-		ok, res, err, trace = spcall(net.connect, ip, port, protocol);
+		ok, res, trace = spcall(net.connect, ip, port, protocol);
 		if ok then return res end
 	end
 
-	if err then
-		serror(err, trace);
-	else
-		ierror "couldn't resolve host";
-	end
+	if not ok then srethrow(res, trace) end
+	error "couldn't resolve host";
 end
 --- @param name string
 --- @param flags std.os.net.addrinfo_flags
