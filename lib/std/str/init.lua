@@ -251,25 +251,55 @@ function str:readlineto(buff, char)
 	return buff;
 end
 --- Same as `read`, but reads to a `string.buffer`
----@param buff string.buffer
+---@param buff? string.buffer If nil, discards the data
 ---@param n? integer If nil, reads the whole file
 function str:readto(buff, n)
-	if not n then
-		repeat
-			local res_n = self:read(buff:reserve(str.chunksize));
-			buff:commit(res_n);
-		until res_n > 0;
-	else
-		local res_n = self:read(buff:reserve(str.chunksize or n));
-		buff:commit(res_n);
-	end
+	if not buff then
 
-	return buff;
+		if not n then
+			local buff = ffi.new("char[?]", str.chunksize);
+			repeat
+				local n = self:read(buff, str.chunksize);
+			until n == 0;
+		else
+			local buff = ffi.new("char[?]", n);
+			self:read(buff, n);
+		end
+	else
+		if not n then
+			repeat
+				local ptr, n = buff:reserve(str.chunksize);
+				local res_n = self:read(ptr, n);
+				buff:commit(res_n);
+			until res_n == 0;
+		else
+			local res_n = self:read(buff:reserve(str.chunksize or n));
+			buff:commit(res_n);
+		end
+		return buff;
+	end
+end
+
+--- Returns a function, which, when called, calls :read(buff, n)
+--- If :read returns 0, the given function returns nil instead (to conform with the for-in protocol)
+--- @param buff ffi.cdata*
+--- @param n integer
+--- @param close? boolean = false If true, closes the stream after an EOF has been received
+function str:iter(buff, n, close)
+	return function ()
+		local res = self:read(buff, n);
+		if res == 0 then
+			if close then self:close() end
+			return nil;
+		end
+		return res;
+	end
 end
 
 --- Writes the given stream, string or string generator to the stream
 --- @param src std.str
-function str:pipe(src)
+--- @param close? boolean = false
+function str:pipe(src, close)
 	if self._closed then ierror "closed" end
 
 	local buff = ffi.new("char[?]", str.chunksize);
@@ -279,6 +309,8 @@ function str:pipe(src)
 		if read_n == 0 then break end
 		self:fullwrite(buff, read_n);
 	end
+
+	if close then src:close() end
 
 	return self;
 end

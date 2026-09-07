@@ -68,17 +68,10 @@ function strtxt:lines(fmt, close)
 		end
 	end
 end
---- @param dst std.strtxt
+--- @param src std.strtxt
 --- @param close? boolean = false
---- @param close_dst? boolean = close
-function strtxt:pipe(dst, close, close_dst)
-	if close_dst == nil then close_dst = close end
-
-	self.str:pipe(dst.str);
-
-	if close then self:close() end
-	if close_dst then dst:close() end
-
+function strtxt:pipe(src, close)
+	self.str:pipe(src.str, close);
 	return self;
 end
 --- @param mode vbuf
