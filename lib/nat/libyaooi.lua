@@ -2,6 +2,7 @@ local field = require "std.basic.table.field";
 local ffi = require "nat.ffi";
 local libc = require "nat.libc";
 local errors = require "std.errors";
+local objects = require "nat.utils.objects";
 
 local error = errors.ierror;
 
@@ -497,7 +498,13 @@ end
 --- @return integer n
 function yaooi.fd:read(req, buff, n)
 	local pn = ffi.new("size_t[1]", n);
-	return yo_sync_call(libyaooi.yoa_read, req_prep(req, function () return tonumber(pn[0]) end), self, buff, pn);
+	-- local new_buff = libc.malloc_gc(n);
+	-- ffi.copy(new_buff, buff, n);
+	local hnd = objects.add(buff);
+	return yo_sync_call(libyaooi.yoa_read, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn);
 end
 --- @param req libyaooi.req
 --- @param n integer
@@ -506,7 +513,13 @@ end
 --- @return integer n
 function yaooi.fd:write(req, buff, n)
 	local pn = ffi.new("size_t[1]", n);
-	return yo_sync_call(libyaooi.yoa_write, req_prep(req, function () return tonumber(pn[0]) end), self, buff, pn);
+	-- local new_buff = libc.malloc_gc(n);
+	-- ffi.copy(new_buff, buff, n);
+	local hnd = objects.add(buff);
+	return yo_sync_call(libyaooi.yoa_write, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn);
 end
 --- @param req libyaooi.req
 --- @param offset integer
@@ -516,7 +529,13 @@ end
 --- @return integer n
 function yaooi.fd:pread(req, offset, buff, n)
 	local pn = ffi.new("size_t[1]", n);
-	return yo_sync_call(libyaooi.yoa_file_read, req_prep(req, function () return tonumber(pn[0]) end), self, buff, pn, offset);
+	-- local new_buff = libc.malloc_gc(n);
+	-- ffi.copy(new_buff, buff, n);
+	local hnd = objects.add(buff);
+	return yo_sync_call(libyaooi.yoa_file_read, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn, offset);
 end
 --- @param req libyaooi.req
 --- @param offset integer
@@ -526,7 +545,13 @@ end
 --- @return integer n
 function yaooi.fd:pwrite(req, offset, buff, n)
 	local pn = ffi.new("size_t[1]", n);
-	return yo_sync_call(libyaooi.yoa_file_write, req_prep(req, function () return tonumber(pn[0]) end), self, buff, pn, offset);
+	-- local new_buff = libc.malloc_gc(n);
+	-- ffi.copy(new_buff, buff, n);
+	local hnd = objects.add(buff);
+	return yo_sync_call(libyaooi.yoa_file_write, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn, offset);
 end
 
 --- @param req libyaooi.req
@@ -594,7 +619,7 @@ end
 --- @return libyaooi.fd fd
 function yaooi.fd.new(fd, owned)
 	local pres = ffi.new "yo_fd_t[1]";
-	yo_assert(libyaooi.yo_fd_new(pres, fd, owned or false));
+	yo_assert(libyaooi.yo_fd_new(pres, ffi.cast("uint64_t", fd), owned or false));
 	return pres[0];
 end
 

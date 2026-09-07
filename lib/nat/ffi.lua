@@ -4,6 +4,7 @@ local pkgpath = require "std.package.path";
 local path = require "std.path";
 local table = require "std.basic.table";
 local debug = require "std.basic.debug";
+local objects = require "nat.utils.objects"
 --- @class debug.registry
 --- @field _FFI_PATH? string
 --- @field _FFI_APATH? string
@@ -37,8 +38,16 @@ function ffi_over.load(name, glob)
 	end
 end
 
-function ffi.toptr(str)
+function ffi.toptr_unsafe(str)
 	return ffi.cast("char*", str), #str;
+end
+function ffi.toptr(str)
+	local ptr = ffi.cast("char*", str);
+	local str_key = objects.add { str };
+	ffi.gc(ptr, function ()
+		objects.del(str_key);
+	end)
+	return ptr, #str;
 end
 
 if jit.os == "Windows" then

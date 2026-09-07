@@ -41,15 +41,14 @@ end
 
 --- @param str string
 function c.strdup(str)
-	local res = c.malloc(#str);
-	ffi.copy(res, str);
+	local res = ffi.cast("char*", c.malloc(#str + 1));
+	ffi.copy(res, str, #str);
+	res[#str] = 0;
 	return res;
 end
 --- @param str string
 function c.strdup_gc(str)
-	local res = c.malloc_gc(#str);
-	ffi.copy(res, str);
-	return res;
+	return ffi.gc(c.strdup(str), libc.free);
 end
 
 function c.strcmp(a, b)

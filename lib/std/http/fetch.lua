@@ -45,11 +45,13 @@ return function (arg)
 	if arg.body then
 		--- @cast body_out std.str
 
+		local txt_out = body_out:to_text();
+
 		if type(arg.body) == "string" then
-			body_out:fullwrite(ffi.toptr(arg.body));
+			txt_out:write(arg.body);
 		elseif type(arg.body) == "function" then
 			for el in arg.body do
-				body_out:fullwrite(ffi.toptr(el));
+				txt_out:write(el);
 			end
 		else
 			body_out:pipe(arg.body);

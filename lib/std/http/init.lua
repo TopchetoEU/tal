@@ -189,7 +189,7 @@ function http.read_body(conn, hdr)
 
 		return self;
 	else
-		return nil;
+		return conn;
 	end
 end
 --- @param conn std.str
@@ -230,13 +230,14 @@ end
 --- @param conn std.str
 --- @param hdr std.http.headers
 function http.write_headers(conn, hdr)
+	local txt = conn:to_text();
 	for key in hdr:keys() do
 		for _, val in ipairs { hdr:get(key) } do
-			conn:write(ffi.toptr(("%s: %s\r\n"):format(key, val)));
+			txt:write(("%s: %s\r\n"):format(key, val));
 		end
 	end
 
-	conn:write(ffi.toptr "\r\n");
+	txt:write "\r\n";
 end
 --- @param conn std.str
 --- @param hdr std.http.headers
@@ -278,9 +279,11 @@ function http.write_body(conn, hdr, body)
 		if self.str == nil then ierror "closed" end
 		if n == 0 then return 0 end
 
-		self.str:write(ffi.toptr(("%x\r\n"):format(n)));
+		local txt = self.str:to_text();
+
+		txt:write(("%x\r\n"):format(n));
 		self.str:fullwrite(ptr, n);
-		self.str:write(ffi.toptr "\r\n");
+		txt:write("\r\n");
 		return n;
 	end
 	function self:_flush()
@@ -288,11 +291,11 @@ function http.write_body(conn, hdr, body)
 	end
 	function self:_close()
 		if not self.str then return end
-		local str = self.str;
+		local txt = self.str:to_text();
 		self.str = nil;
 
 		-- The finalizer of the underlying stream might've been called before us, so we silence the error
-		return pcall(str.write, str, ffi.toptr "0\r\n\r\n");
+		return pcall(txt.write, txt, "0\r\n\r\n");
 	end
 
 	return self:setwbuff(nil, str.chunksize);
@@ -305,7 +308,7 @@ end
 function http.write_req(conn, req, body)
 	req.body = http.write_body(conn, req.headers, body);
 
-	conn:write(ffi.toptr(("%s %s HTTP/1.1\r\n"):format(req.method, req.path)));
+	conn:to_text():write(("%s %s HTTP/1.1\r\n"):format(req.method, req.path));
 	http.write_headers(conn, req.headers);
 
 	return req.body;
@@ -318,7 +321,7 @@ end
 function http.write_res(conn, res, body)
 	res.body = http.write_body(conn, res.headers, body);
 
-	conn:write(ffi.toptr(("HTTP/1.1 %d %s\r\n"):format(res.code, codes_msgs[res.code] or "Unknown")));
+	conn:to_text():write(("HTTP/1.1 %d %s\r\n"):format(res.code, codes_msgs[res.code] or "Unknown"));
 	http.write_headers(conn, res.headers);
 
 	return res.body;
