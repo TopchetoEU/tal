@@ -50,8 +50,5 @@ return function (...)
 		print(k .. ": " .. table.concat({ res.headers:get(k) }, "; "));
 	end
 
-	if res.body then
-		io.stdout.str:pipe(res.body);
-		res.body:close();
-	end
+	if res.body then io.stdout.str:pipe(res.body, true) end
 end
