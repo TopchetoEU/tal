@@ -38,7 +38,7 @@ local function _doread(self)
 	local ptr = ffi.new "char[8192]";
 
 	local ok, n, trace = spcall(self.str.read, self.str, ptr, 8192);
-	if n == 0 then ok = false; n = "unexpected ssl stream eof" end
+	-- if n == 0 then ok = false; n = "unexpected ssl stream eof" end
 	if not ok then
 		self.reading = false;
 		self.cond:signal(true);
@@ -91,9 +91,9 @@ function ssl_str:_read(ptr, n)
 		local err_code = self.hnd:get_error(0);
 
 		if err_code == 6 then
-			ierror "pipe broken";
-		elseif err_code == 5 then
 			return 0;
+		elseif err_code == 5 then
+			ierror "syscall";
 		elseif err_code == 2 then
 			if _dowrite(self) then _doread(self) end
 		elseif err_code ~= 3 then
