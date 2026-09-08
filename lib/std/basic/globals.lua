@@ -13,6 +13,7 @@ local printing = require "std.printing";
 local err = require "std.errors";
 
 load = require "std.compiler.load";
+is = require "std.basic.is";
 
 newproxy = newproxy;
 getfenv = getfenv;

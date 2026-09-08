@@ -31,15 +31,16 @@ function meta.__gc(self)
 
 	obj[meta_proxy] = nil;
 
-	local obj_meta = debug.getmetatable(obj);
-
-	if obj_meta == meta then
+	if is(obj, "std.collected.tag") then
 		table.insert(queue, { obj.func, obj.tab });
-		queue_cond:signal(true);
-	elseif type(obj_meta) == "table" and type(obj_meta.__gc) == "function" then
-		table.insert(queue, { obj_meta.__gc, obj });
-		queue_cond:signal(true);
+	else
+		local obj_meta = debug.getmetatable(obj);
+		if type(obj_meta) == "table" and type(obj_meta.__gc) == "function" then
+			table.insert(queue, { obj_meta.__gc, obj });
+		end
 	end
+
+	queue_cond:signal(true);
 end
 function meta:__tostring()
 	return "<__gc caller token>";
