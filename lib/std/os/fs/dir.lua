@@ -1,8 +1,8 @@
 local loop = require "std.loop";
 local collected = require "std.basic.table.collected";
 
---- @class std.fs.dir
---- @field hnd _impl.dir
+--- @class std.os.fs.dir
+--- @field hnd impl.dir
 --- @field closed boolean
 local dir = {};
 dir.__index = dir;

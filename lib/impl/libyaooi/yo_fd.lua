@@ -1,9 +1,9 @@
 local sig = require "std.sig";
 local libyaooi = require "nat.libyaooi";
 
---- @class impl.libyaooi.fd: _impl.fd, _impl.fd
---- @field queue libyaooi.queue
---- @field fd libyaooi.fd
+--- @class impl.libyaooi.fd: impl.fd
+--- @field queue nat.libyaooi.queue
+--- @field fd nat.libyaooi.fd
 --- @field closed boolean
 local yo_fd = {};
 yo_fd.__index = yo_fd;
@@ -52,8 +52,8 @@ function yo_fd:close()
 	self.closed = true;
 end
 
---- @param queue libyaooi.queue
---- @param fd libyaooi.fd
+--- @param queue nat.libyaooi.queue
+--- @param fd nat.libyaooi.fd
 return function (queue, fd)
 	return setmetatable({
 		fd = fd,

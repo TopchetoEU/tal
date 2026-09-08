@@ -44,7 +44,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 	end
 
 	local downgrade_res, err, loc = downgrade.walk_body(ast);
-	if not downgrade_res then return nil, mapping.err_stringify(name, loc --[[@as node.loc]], err --[[@as string]]) end
+	if not downgrade_res then return nil, mapping.err_stringify(name, loc --[[@as std.compiler.loc]], err --[[@as string]]) end
 
 	ast = downgrade_res;
 

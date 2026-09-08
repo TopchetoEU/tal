@@ -12,11 +12,11 @@ local net = {};
 --- |+ "n" EV_AI_NODNS
 
 --- @class std.os.net.server
---- @field _fd _impl.server
+--- @field _fd impl.server
 --- @field _mngd string | true?
 local server = {};
 server.__index = server;
-server.__metatable = "std.io.net.server";
+server.__metatable = "std.os.net.server";
 
 --- @return std.str client
 --- @return string ip

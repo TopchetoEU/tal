@@ -1,7 +1,7 @@
 --- @alias xml_node_raw { tag: string, attribs: { [string]: string }, [integer]: xml_element }
---- @alias xml_element string | xml_node
+--- @alias xml_element string | std.fmt.xml_node
 
---- @class xml_node
+--- @class std.fmt.xml_node
 --- @field tag string
 --- @field attribs { [string]: string }
 --- @field [integer] xml_element
@@ -11,7 +11,7 @@ xml_node.__metatable = "std.fmt.xml_node";
 
 --- @param name string?
 function xml_node:get_all(name)
-	--- @type xml_node[]
+	--- @type std.fmt.xml_node[]
 	local res = {};
 
 	for _, el in ipairs(self) do
@@ -36,7 +36,7 @@ function xml_node:get(name)
 end
 
 --- @param name string
---- @return xml_node[]
+--- @return std.fmt.xml_node[]
 function xml_node:query_all(name)
 	local tag, id, classes, attribs;
 	local rem = name;
@@ -141,7 +141,7 @@ function xml_node:query_all(name)
 end
 
 --- @param name string
---- @return xml_node
+--- @return std.fmt.xml_node
 function xml_node:query(name)
 	local res = self:query_all(name);
 	if #res == 1 then
@@ -152,7 +152,7 @@ function xml_node:query(name)
 end
 
 --- @param name string
---- @return xml_node
+--- @return std.fmt.xml_node
 function xml_node:query_first(name)
 	local res = self:query_all(name);
 	if #res >= 1 then
@@ -207,7 +207,7 @@ function xml_node:__tostring()
 end
 
 --- @param raw xml_node_raw
---- @return xml_node
+--- @return std.fmt.xml_node
 function xml_node.new(raw)
 	local res = setmetatable({
 		tag = raw.tag,
@@ -484,7 +484,7 @@ end
 
 --- @param raw string
 --- @param settings? xml.options | "html"
---- @return xml_node
+--- @return std.fmt.xml_node
 local function parse(raw, settings)
 	if settings == "html" then
 		settings = {
@@ -511,7 +511,7 @@ local function parse(raw, settings)
 		raw_contents = fix_list(settings.raw_contents),
 	};
 
-	--- @type xml_node
+	--- @type std.fmt.xml_node
 	local document = xml_node.new { tag = "document", attribs = {} };
 	local curr_node = document;
 	local stack = {};

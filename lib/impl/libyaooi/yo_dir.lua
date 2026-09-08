@@ -1,9 +1,9 @@
 local libyaooi = require "nat.libyaooi";
 
---- @class impl.libyaooi.dir: _impl.dir
---- @field queue libyaooi.queue
+--- @class impl.libyaooi.dir: impl.dir
+--- @field queue nat.libyaooi.queue
 --- @field closed boolean
---- @field fd libyaooi.dir
+--- @field fd nat.libyaooi.dir
 local yo_dir = {};
 yo_dir.__index = yo_dir;
 yo_dir.__metatable = "impl.libyaooi.dir";
@@ -18,8 +18,8 @@ function yo_dir:close()
 	self.closed = true;
 end
 
---- @param queue libyaooi.queue
---- @param fd libyaooi.dir
+--- @param queue nat.libyaooi.queue
+--- @param fd nat.libyaooi.dir
 return function (queue, fd)
 	return setmetatable({
 		queue = queue,

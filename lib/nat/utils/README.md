@@ -93,6 +93,7 @@ local my_callback = callbacks.new(
 
 local my_class = {};
 my_class.__index = my_class;
+my_class.__metatable = "my_class";
 
 function my_class.new()
 	local ptr = ...;

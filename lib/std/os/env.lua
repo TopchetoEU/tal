@@ -14,8 +14,8 @@ function env.set(key, val)
 	sig.str(val, "val");
 	return impl:env_set(key, val)
 end
---- @return fun(self: _impl.iterenv): string?, string?
---- @return _impl.iterenv
+--- @return fun(self: impl.iterenv): string?, string?
+--- @return impl.iterenv
 function env.iter()
 	return function (self)
 		local res = self:next();
@@ -31,6 +31,7 @@ function env.iter()
 end
 
 --- A map-like representation of the environment
+--- @class std.os.env.map
 env.map = setmetatable({}, {
 	__index = function (self, k)
 		return env.get(k);
@@ -41,7 +42,9 @@ env.map = setmetatable({}, {
 	__pairs = function (t)
 		return env.iter();
 	end,
-	__metatable = "std.env.map",
+	__metatable = "std.os.env.map",
+	__is = function (name) return name == "std.os.env.map" end
+
 });
 
 return env;

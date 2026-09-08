@@ -4,7 +4,7 @@
 -- All "async" functions can short-circtuit by returning true + the return values.
 -- Otherwise, they will return false, and later on, will return the udata + the results from poll()
 
---- @class _impl.fd
+--- @class impl.fd
 local file = {};
 --- @param buff ffi.cdata*
 --- @param n integer
@@ -45,7 +45,7 @@ function file:chmod(udata, mode) end
 function file:chown(udata, uid, gid) end
 function file:close() end
 
---- @class _impl.dir
+--- @class impl.dir
 local dir = {};
 
 --- @return fun()? cancel
@@ -53,22 +53,22 @@ local dir = {};
 function dir:next(udata) end
 function dir:close() end
 
---- @class _impl.server
+--- @class impl.server
 local server = {};
 --- @return fun()? cancel
---- @return _impl.fd client
+--- @return impl.fd client
 --- @return string ip
 --- @return integer port
 function server:next(udata) end
 function server:close() end
 
---- @class _impl.iterenv
+--- @class impl.iterenv
 local iterenv = {};
 --- @return string
 function iterenv:next() end
 function iterenv:close() end
 
---- @class _impl.process
+--- @class impl.process
 local process = {};
 --- @return fun()? cancel
 --- @return integer code
@@ -76,71 +76,71 @@ function process:wait(udata) end
 -- TODO: add close()
 -- function process:close() end
 
---- @class _impl
---- @field stdin _impl.fd
---- @field stdout _impl.fd
---- @field stderr _impl.fd
-local _impl = {};
+--- @class impl
+--- @field stdin impl.fd
+--- @field stdout impl.fd
+--- @field stderr impl.fd
+local impl = {};
 
 --- Converts an OS fd to a stream
 --- @param fd integer | ffi.cdata*
 --- @param owned boolean
---- @return _impl.fd file
-function _impl:openfd(fd, owned) end
+--- @return impl.fd file
+function impl:openfd(fd, owned) end
 
 --- @param path string
 --- @param flags std.io.open_flags
 --- @param mode integer
 --- @return fun()? cancel
---- @return _impl.fd file
-function _impl:open(udata, path, flags, mode) end
+--- @return impl.fd file
+function impl:open(udata, path, flags, mode) end
 --- @param path string
 --- @param mode integer
 --- @return fun()? cancel
 --- @return true ok
-function _impl:mkdir(udata, path, mode) end
+function impl:mkdir(udata, path, mode) end
 --- @param path string
 --- @return fun()? cancel
---- @return _impl.dir dir
-function _impl:opendir(udata, path) end
+--- @return impl.dir dir
+function impl:opendir(udata, path) end
 
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
 --- @return true ok
-function _impl:symlink(udata, src, dst) end
+function impl:symlink(udata, src, dst) end
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
 --- @return true ok
-function _impl:hardlink(udata, src, dst) end
+function impl:hardlink(udata, src, dst) end
 --- @param path string
 --- @return fun()? cancel
 --- @return string res
-function _impl:readlink(udata, path) end
+function impl:readlink(udata, path) end
 --- @param path string
 --- @return fun()? cancel
 --- @return true ok
-function _impl:remove(udata, path) end
+function impl:remove(udata, path) end
 
 --- @param addr string
 --- @param port integer
 --- @param protocol "tcp" | "udp"
 --- @return fun()? cancel
---- @return _impl.fd client
-function _impl:connect(udata, addr, port, protocol) end
+--- @return impl.fd client
+function impl:connect(udata, addr, port, protocol) end
 --- @param addr string
 --- @param port integer
 --- @param protocol "tcp" | "udp"
 --- @param max_n integer
 --- @return fun()? cancel
---- @return _impl.server server
-function _impl:bind(udata, addr, port, protocol, max_n) end
+--- @return impl.server server
+function impl:bind(udata, addr, port, protocol, max_n) end
 --- @param name string
 --- @param flags std.os.net.addrinfo_flags
 --- @return fun()? cancel
 --- @return string[] addrs
-function _impl:getaddrinfo(udata, name, flags) end
+function impl:getaddrinfo(udata, name, flags) end
 
 --- @param argv string[]
 --- @param env { [string]: string, [integer]: { [1]: string, [2]: string } }
@@ -149,35 +149,35 @@ function _impl:getaddrinfo(udata, name, flags) end
 --- @param stdout? boolean
 --- @param stderr? boolean
 --- @return fun()? cancel
---- @return { proc: _impl.process, stdin?: _impl.fd, stdout?: _impl.fd, stder?: _impl.fd }
-function _impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr) end
+--- @return { proc: impl.process, stdin?: impl.fd, stdout?: impl.fd, stder?: impl.fd }
+function impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr) end
 
 --- @param signal std.signal
 --- @return true
-function _impl:sig_on(signal) end
+function impl:sig_on(signal) end
 --- @param signal std.signal
 --- @return true
-function _impl:sig_off(signal) end
+function impl:sig_off(signal) end
 --- @return fun()? cancel
 --- @return std.signal
-function _impl:sig_wait(udata) end
+function impl:sig_wait(udata) end
 
 --- @param kind "real" | "mono" | "cpu"
 --- @return number
-function _impl:time(kind) end
+function impl:time(kind) end
 
 --- @param type "home" | "config" | "data" | "cache" | "runtime" | "cwd"
 --- @return string
-function _impl:getpath(type) end
+function impl:getpath(type) end
 --- @param name string
 --- @return string
-function _impl:env_get(name) end
+function impl:env_get(name) end
 --- @param name string
 --- @param val string
 --- @return true
-function _impl:env_set(name, val) end
---- @return _impl.iterenv
-function _impl:iterenv() end
+function impl:env_set(name, val) end
+--- @return impl.iterenv
+function impl:iterenv() end
 
 --- Returns a callback + arguments to be called if successful
 --- Returns nil
@@ -186,6 +186,6 @@ function _impl:iterenv() end
 --- @return any udata
 --- @return boolean ok
 --- @return ...
-function _impl:next(timeout) end
+function impl:next(timeout) end
 
-return _impl;
+return impl;

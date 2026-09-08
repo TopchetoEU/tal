@@ -2,7 +2,7 @@ local str = require "std.str";
 local loop = require "std.loop";
 
 --- @class std.os.fs.impl.file: std.str
---- @field _backend _impl.fd
+--- @field _backend impl.fd
 --- @field _closed boolean
 --- @field _ptr integer
 local file_impl = setmetatable({}, str);
@@ -71,7 +71,7 @@ function file_seek_impl:_seek(whence, offset)
 	return self._ptr;
 end
 
---- @param fd _impl.fd
+--- @param fd impl.fd
 --- @param noseek boolean
 function file_impl.new(fd, noseek)
 	return setmetatable({ _backend = fd, _closed = false, _ptr = 0 }, noseek and file_impl or file_seek_impl);

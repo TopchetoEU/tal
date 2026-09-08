@@ -370,10 +370,11 @@ local function yo_assert(code)
 	if code ~= 0 then error(ffi.string(libyaooi.yo_strerr(code))) end
 end
 
---- @class libyaooi.req: ffi.cdata*
+--- @class nat.libyaooi.req: ffi.cdata*
 yaooi.req = {};
 yaooi.req.__index = yaooi.req;
-yaooi.req.__metatable = "libyaooi.req";
+yaooi.req.__metatable = "nat.libyaooi.req";
+
 local req_type = ffi.metatype("struct yo_req", yaooi.req);
 local req_udata = field();
 local req_getres = field();
@@ -385,7 +386,7 @@ local function req_prep(req, getres)
 end
 
 --- @param func function
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @return fun()? cancel
 --- @return ...
 local function yo_sync_call(func, req, ...)
@@ -408,8 +409,8 @@ function yaooi.req:udata()
 	return req_udata:get(tonumber(ffi.cast("size_t", self)));
 end
 
---- @param queue libyaooi.queue
---- @return libyaooi.req
+--- @param queue nat.libyaooi.queue
+--- @return nat.libyaooi.req
 function yaooi.req.new(queue, udata)
 	local res = libyaooi.yo_req_new(queue);
 	if res == libc.NULL then error "out of memory" end
@@ -418,7 +419,7 @@ function yaooi.req.new(queue, udata)
 	return res;
 end
 
---- @class libyaooi.queue: ffi.cdata*
+--- @class nat.libyaooi.queue: ffi.cdata*
 yaooi.queue = {};
 yaooi.queue.__index = yaooi.queue;
 yaooi.queue.__metatable = "libyaooi.queue";
@@ -428,7 +429,7 @@ function yaooi.queue:__gc()
 	libyaooi.yo_queue_free(self);
 end
 --- @param deadline? number
---- @return libyaooi.req? req
+--- @return nat.libyaooi.req? req
 --- @return boolean? ok
 --- @return ... results
 function yaooi.queue:poll(deadline)
@@ -446,7 +447,7 @@ function yaooi.queue:poll(deadline)
 	if code == -110 then return nil end
 	if code ~= 0 then error(ffi.string(libyaooi.yo_strerr(code))) end
 
-	--- @type libyaooi.req
+	--- @type nat.libyaooi.req
 	local req = preq[0];
 	local code = assert(tonumber(pcode[0]));
 	if code == 0 then
@@ -455,43 +456,43 @@ function yaooi.queue:poll(deadline)
 		return req, false, ffi.string(libyaooi.yo_strerr(code));
 	end
 end
---- @return libyaooi.queue
+--- @return nat.libyaooi.queue
 function yaooi.queue.new()
 	local res = libyaooi.yo_queue_new();
 	if res == libc.NULL then error "out of memory" end
 	return res;
 end
 
---- @return libyaooi.fd
+--- @return nat.libyaooi.fd
 function yaooi.tty_in()
 	local pres = ffi.new "yo_fd_t[1]";
 	yo_assert(libyaooi.yo_tty_in(pres));
 	return pres[0];
 end
---- @return libyaooi.fd
+--- @return nat.libyaooi.fd
 function yaooi.tty_out()
 	local pres = ffi.new "yo_fd_t[1]";
 	yo_assert(libyaooi.yo_tty_out(pres));
 	return pres[0];
 end
---- @return libyaooi.fd
+--- @return nat.libyaooi.fd
 function yaooi.tty_err()
 	local pres = ffi.new "yo_fd_t[1]";
 	yo_assert(libyaooi.yo_tty_err(pres));
 	return pres[0];
 end
 
---- @class libyaooi.fd: ffi.cdata*
+--- @class nat.libyaooi.fd: ffi.cdata*
 yaooi.fd = {};
 yaooi.fd.__index = yaooi.fd;
 yaooi.fd.__metatable = "libyaooi.fd";
-local fd_type = ffi.metatype("struct yo_fd", yaooi.fd);
+local fd_type = ffi.metatype("stryaooi.queueuct yo_fd", yaooi.fd);
 
 function yaooi.fd:close()
 	libyaooi.yo_fd_close(self);
 	return true;
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param n integer
 --- @param buff? ffi.cdata*
 --- @return fun()? cancel
@@ -506,7 +507,7 @@ function yaooi.fd:read(req, buff, n)
 		return tonumber(pn[0]);
 	end), self, buff, pn);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param n integer
 --- @param buff ffi.cdata* | string
 --- @return fun()? cancel
@@ -521,7 +522,7 @@ function yaooi.fd:write(req, buff, n)
 		return tonumber(pn[0]);
 	end), self, buff, pn);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param offset integer
 --- @param n integer
 --- @param buff ffi.cdata*
@@ -537,7 +538,7 @@ function yaooi.fd:pread(req, offset, buff, n)
 		return tonumber(pn[0]);
 	end), self, buff, pn, offset);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param offset integer
 --- @param n integer
 --- @param buff ffi.cdata* | string
@@ -554,13 +555,13 @@ function yaooi.fd:pwrite(req, offset, buff, n)
 	end), self, buff, pn, offset);
 end
 
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @return fun()? cancel
 --- @return true
 function yaooi.fd:sync(req)
 	return yo_sync_call(libyaooi.yoa_sync, req_prep(req, function () return true end), self);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @return fun()? cancel
 --- @return std.io.stat
 function yaooi.fd:stat(req)
@@ -596,7 +597,7 @@ function yaooi.fd:stat(req)
 		};
 	end), self, pres);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param mode integer
 --- @return fun()? cancel
 --- @return true?
@@ -604,7 +605,7 @@ function yaooi.fd:chmod(req, mode)
 	yo_assert(libyaooi.yo_file_chmod(self,mode));
 	return nil, true;
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param uid integer
 --- @param gid integer
 --- @return fun()? cancel
@@ -616,20 +617,20 @@ end
 
 --- @param fd integer | ffi.cdata*
 --- @param owned? boolean
---- @return libyaooi.fd fd
+--- @return nat.libyaooi.fd fd
 function yaooi.fd.new(fd, owned)
 	local pres = ffi.new "yo_fd_t[1]";
 	yo_assert(libyaooi.yo_fd_new(pres, ffi.cast("uint64_t", fd), owned or false));
 	return pres[0];
 end
 
---- @class libyaooi.dir: ffi.cdata*
+--- @class nat.libyaooi.dir: ffi.cdata*
 yaooi.dir = {};
 yaooi.dir.__index = yaooi.dir;
-yaooi.dir.__metatable = "libyaooi.dir";
+yaooi.dir.__metatable = "nat.libyaooi.dir";
 local dir_type = ffi.metatype("struct yo_dir", yaooi.dir);
 
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param path string
 --- @param mode? integer | string
 --- @return fun()? cancel
@@ -638,13 +639,13 @@ function yaooi.dir.new(req, path, mode)
 	return yo_sync_call(libyaooi.yoa_dir_new, req_prep(req, function () return true end), path, mode);
 end
 --- @param path string
---- @return libyaooi.dir dir
+--- @return nat.libyaooi.dir dir
 function yaooi.dir.open(path)
 	local pres = ffi.new "yo_dir_t[1]";
 	yo_assert(libyaooi.yo_dir_open(pres, path));
 	return pres[0];
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @return fun()? cancel
 --- @return string name
 function yaooi.dir:next(req)
@@ -662,10 +663,10 @@ function yaooi.dir:close()
 	return true;
 end
 
---- @class libyaooi.proc: ffi.cdata*
+--- @class nat.libyaooi.proc: ffi.cdata*
 yaooi.proc = {};
 yaooi.proc.__index = yaooi.proc;
-yaooi.proc.__metatable = "libyaooi.proc";
+yaooi.proc.__metatable = "nat.libyaooi.proc";
 local proc_type = ffi.metatype("struct yo_proc", yaooi.proc);
 
 --- @param argv string[]
@@ -674,10 +675,10 @@ local proc_type = ffi.metatype("struct yo_proc", yaooi.proc);
 --- @param stdout? boolean
 --- @param stderr? boolean
 --- @param windowssucks? boolean Usually always true, but set this only when spawning a cmd /c command process
---- @return libyaooi.proc
---- @return libyaooi.fd? stdin
---- @return libyaooi.fd? stdout
---- @return libyaooi.fd? stderr
+--- @return nat.libyaooi.proc
+--- @return nat.libyaooi.fd? stdin
+--- @return nat.libyaooi.fd? stdout
+--- @return nat.libyaooi.fd? stderr
 function yaooi.proc.spawn(argv, env, cwd, stdin, stdout, stderr, windowssucks)
 	local pin = stdin and ffi.new "yo_fd_t[1]" or nil;
 	local pout = stdout and ffi.new "yo_fd_t[1]" or nil;
@@ -720,7 +721,7 @@ function yaooi.proc.spawn(argv, env, cwd, stdin, stdout, stderr, windowssucks)
 
 	return pres[0], pin and pin[0], pout and pout[0], perr and perr[0];
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @return fun()? cancel
 --- @return integer sig_or_code
 function yaooi.proc:wait(req)
@@ -740,13 +741,13 @@ function yaooi.proc:disown()
 	return true;
 end
 
---- @class libyaooi.enviter: ffi.cdata*
+--- @class nat.libyaooi.enviter: ffi.cdata*
 yaooi.enviter = {};
 yaooi.enviter.__index = yaooi.enviter;
-yaooi.enviter.__metatable = "libyaooi.enviter";
+yaooi.enviter.__metatable = "nat.libyaooi.enviter";
 local enviter_type = ffi.metatype("struct yo_enviter", yaooi.enviter);
 
---- @return libyaooi.enviter
+--- @return nat.libyaooi.enviter
 function yaooi.enviter.new()
 	local res = yaooi.yo_enviter_new();
 	if res == libc.NULL then error "out of memory" end
@@ -768,7 +769,7 @@ end
 --- @param path string
 --- @param flags std.io.open_flags
 --- @param mode? integer | string
---- @return libyaooi.fd file
+--- @return nat.libyaooi.fd file
 function yaooi.file_open(path, flags, mode)
 	local real_flags = 0;
 	for c in flags:gmatch "." do
@@ -801,7 +802,7 @@ function yaooi.file_open(path, flags, mode)
 	yo_assert(libyaooi.yo_file_open(pres, path, real_flags, mode));
 	return pres[0];
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
@@ -809,7 +810,7 @@ end
 function yaooi.file_symlink(req, src, dst)
 	return yo_sync_call(libyaooi.yoa_file_symlink, req_prep(req, function () return true end), src, dst);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
@@ -817,7 +818,7 @@ end
 function yaooi.file_hardlink(req, src, dst)
 	return yo_sync_call(libyaooi.yoa_file_hardlink, req_prep(req, function () return true end), src, dst);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param path string
 --- @return fun()? cancel
 --- @return integer n
@@ -829,7 +830,7 @@ function yaooi.file_readlink(req, path)
 		return res;
 	end), path, pres);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param path string
 --- @return fun()? cancel
 --- @return integer n
@@ -841,7 +842,7 @@ end
 --- @param port integer
 --- @param prot "tcp" | "udp"
 --- @param max_n integer
---- @return libyaooi.fd server
+--- @return nat.libyaooi.fd server
 function yaooi.socket_bind(addr, port, prot, max_n)
 	prot = prot or "tcp";
 
@@ -861,10 +862,10 @@ function yaooi.socket_bind(addr, port, prot, max_n)
 	yo_assert(libyaooi.yo_socket_bind(pres, real_prot, real_addr, port, max_n));
 	return pres[0];
 end
---- @param req libyaooi.req
---- @param fd libyaooi.fd
+--- @param req nat.libyaooi.req
+--- @param fd nat.libyaooi.fd
 --- @return fun()? cancel
---- @return libyaooi.fd client
+--- @return nat.libyaooi.fd client
 --- @return string ip
 --- @return integer port
 function yaooi.socket_accept(req, fd)
@@ -876,12 +877,12 @@ function yaooi.socket_accept(req, fd)
 		return pclient[0], addrstr(paddr[0]), assert(tonumber(pport[0]));
 	end), fd, pclient, paddr, pport);
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param addr string
 --- @param port integer
 --- @param prot? "tcp" | "udp" = tcp
 --- @return fun()? cancel
---- @return libyaooi.fd client
+--- @return nat.libyaooi.fd client
 function yaooi.socket_connect(req, addr, port, prot)
 	prot = prot or "tcp";
 
@@ -901,7 +902,7 @@ function yaooi.socket_connect(req, addr, port, prot)
 	return yo_sync_call(libyaooi.yoa_socket_connect, req_prep(req, function () return pres[0] end), pres, real_prot, real_addr, port);
 end
 
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @param name string
 --- @param flags? std.os.net.addrinfo_flags
 --- @return fun()? cancel
@@ -949,7 +950,7 @@ function yaooi.sig_off(sig)
 	yo_assert(libyaooi.yo_sig_off(sig));
 	return true;
 end
---- @param req libyaooi.req
+--- @param req nat.libyaooi.req
 --- @return fun()? cancel
 --- @return integer sig
 function yaooi.sig_wait(req)

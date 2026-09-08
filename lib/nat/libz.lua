@@ -115,7 +115,7 @@ end
 --- @field str nat.libz.stream
 local zlib_istream = {}
 zlib_istream.__index = zlib_istream;
-zlib_istream.__metatable = "libz.istream";
+zlib_istream.__metatable = "nat.libz.istream";
 local zlib_istream_type = ffi.metatype("z_istream", zlib_istream);
 
 function zlib_istream:__gc()
@@ -162,7 +162,7 @@ end
 --- @field str nat.libz.stream
 local zlib_dstream = {}
 zlib_dstream.__index = zlib_dstream;
-zlib_dstream.__metatable = "libz.dstream";
+zlib_dstream.__metatable = "nat.libz.dstream";
 local zlib_dstream_type = ffi.metatype("z_dstream", zlib_dstream);
 
 function zlib_dstream:__gc()

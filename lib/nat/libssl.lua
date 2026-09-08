@@ -59,8 +59,8 @@ local ssl = {};
 
 --- @class nat.libssl.ssl_ctx: ffi.cdata*
 local ssl_ctx = {};
-ssl_ctx. __index = ssl_ctx;
-ssl_ctx. __metatable = "libssl.ssl_ctx";
+ssl_ctx.__index = ssl_ctx;
+ssl_ctx.__metatable = "nat.libssl.ssl_ctx";
 local ssl_ctx_type = ffi.metatype("SSL_CTX", ssl_ctx);
 
 function ssl_ctx:__gc()
@@ -74,8 +74,8 @@ end
 
 --- @class nat.libssl.bio: ffi.cdata*
 local bio_index = {};
-bio_index. __index = bio_index;
-bio_index. __metatable = "libssl.bio";
+bio_index.__index = bio_index;
+bio_index.__metatable = "nat.libssl.bio";
 local bio_type = ffi.metatype("BIO", bio_index);
 
 --- @param n integer
@@ -111,7 +111,7 @@ end
 --- @class nat.libssl.x509: ffi.cdata*
 local x509_index = {};
 x509_index.__index = x509_index;
-x509_index.__metatable = "libssl.x509";
+x509_index.__metatable = "nat.libssl.x509";
 local x509_type = ffi.metatype("X509", x509_index);
 
 function x509_index:__gc()
@@ -121,7 +121,7 @@ end
 --- @class nat.libssl.pkey: ffi.cdata*
 local pkey_index = {};
 pkey_index.__index = pkey_index;
-pkey_index.__metatable = "libssl.pkey";
+pkey_index.__metatable = "nat.libssl.pkey";
 local pkey_type = ffi.metatype("EVP_PKEY", pkey_index);
 
 function pkey_index:__gc()
@@ -131,7 +131,7 @@ end
 --- @class nat.libssl.ssl: ffi.cdata*
 local ssl_index = {};
 ssl_index.__index = ssl_index;
-ssl_index.__metatable = "libssl.ssl";
+ssl_index.__metatable = "nat.libssl.ssl";
 local ssl_type = ffi.metatype("SSL", ssl_index);
 
 function ssl_index:__gc()

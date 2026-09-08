@@ -2,7 +2,7 @@ local str = require "std.str";
 local loop = require "std.loop";
 
 --- @class std.os.fs.impl.str: std.str
---- @field _backend _impl.fd
+--- @field _backend impl.fd
 --- @field _closed boolean
 local str_impl = setmetatable({}, str);
 str_impl.__index = str_impl;
@@ -34,7 +34,7 @@ function str_impl:_close()
 	return true;
 end
 
---- @param fd _impl.fd
+--- @param fd impl.fd
 function str_impl.new(fd)
 	return setmetatable({ _backend = fd, _closed = false }, str_impl);
 end

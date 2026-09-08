@@ -1,8 +1,8 @@
 local libyaooi = require "nat.libyaooi";
 
---- @class impl.libyaooi.proc: _impl.process
---- @field queue libyaooi.queue
---- @field fd libyaooi.proc
+--- @class impl.libyaooi.proc: impl.process
+--- @field queue nat.libyaooi.queue
+--- @field fd nat.libyaooi.proc
 --- @field closed boolean
 local yo_proc = {};
 yo_proc.__index = yo_proc;
@@ -21,8 +21,8 @@ function yo_proc:disown()
 	self.closed = true;
 	return true;
 end
---- @param queue libyaooi.queue
---- @param fd libyaooi.proc
+--- @param queue nat.libyaooi.queue
+--- @param fd nat.libyaooi.proc
 return function (queue, fd)
 	return setmetatable({
 		queue = queue,

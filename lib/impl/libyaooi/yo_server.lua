@@ -2,11 +2,9 @@ local process_args = require "impl.process_args";
 local libyaooi = require "nat.libyaooi";
 local yo_fd = require "impl.libyaooi.yo_fd";
 
---- @class _impl.server_data
-
---- @class impl.libyaooi.server: _impl.server
---- @field queue libyaooi.queue
---- @field fd libyaooi.fd
+--- @class impl.libyaooi.server: impl.server
+--- @field queue nat.libyaooi.queue
+--- @field fd nat.libyaooi.fd
 --- @field closed boolean
 local yo_server = {};
 yo_server.__index = yo_server;
@@ -25,8 +23,8 @@ function yo_server:close()
 	self.closed = true;
 end
 
---- @param queue libyaooi.queue
---- @param fd libyaooi.fd
+--- @param queue nat.libyaooi.queue
+--- @param fd nat.libyaooi.fd
 return function (queue, fd)
 	return setmetatable({
 		queue = queue,

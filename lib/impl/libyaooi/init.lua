@@ -8,11 +8,11 @@ local yo_iterenv  = require "impl.libyaooi.yo_iterenv";
 local yo_proc  = require "impl.libyaooi.yo_proc";
 local yo_server  = require "impl.libyaooi.yo_server";
 
---- @class impl.libyaooi.impl: _impl
---- @field queue libyaooi.queue
+--- @class impl.libyaooi.impl: impl
+--- @field queue nat.libyaooi.queue
 local yo_impl = {};
 yo_impl.__index = yo_impl;
-yo_impl.__metatable = "impl.ev_impl";
+yo_impl.__metatable = "impl.libyaooi.impl";
 
 local sig_table = {
 	[0] = "INT",

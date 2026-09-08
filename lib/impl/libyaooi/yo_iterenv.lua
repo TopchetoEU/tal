@@ -1,5 +1,5 @@
---- @class impl.libyaooi.iterenv: _impl.iterenv
---- @field fd libyaooi.enviter
+--- @class impl.libyaooi.iterenv: impl.iterenv
+--- @field fd nat.libyaooi.enviter
 --- @field closed boolean
 local yo_iterenv = {};
 yo_iterenv.__index = yo_iterenv;
@@ -10,7 +10,7 @@ function yo_iterenv:next()
 	return self.fd:next();
 end
 
---- @param fd libyaooi.enviter
+--- @param fd nat.libyaooi.enviter
 return function (fd)
 	return setmetatable({
 		fd = fd,

@@ -1,4 +1,4 @@
---- @type table<string, table<integer, node.loc>>
+--- @type table<string, table<integer, std.compiler.loc>>
 local maps = {};
 
 local mapping = {};
@@ -15,7 +15,7 @@ function mapping.short_name(name)
 end
 
 --- @param name? string
---- @param loc? node.loc
+--- @param loc? std.compiler.loc
 --- @param msg string
 function mapping.err_stringify(name, loc, msg)
 	local parts = {};
@@ -65,7 +65,7 @@ function mapping.err_parse(err)
 end
 
 --- @param err string
---- @param fallback? table<integer, node.loc>
+--- @param fallback? table<integer, std.compiler.loc>
 function mapping.err_map(err, fallback)
 	local name, loc, msg = mapping.err_parse(err);
 	if not name then return msg end
@@ -89,7 +89,7 @@ function mapping.map(name, line)
 	end
 end
 --- @param name string
---- @param map table<integer, node.loc>
+--- @param map table<integer, std.compiler.loc>
 function mapping.emit_map(name, map)
 	if maps[name] then return end
 	maps[name] = map;

@@ -6,23 +6,21 @@ local objects = require "nat.utils.objects";
 --- @field fix_args? fun(...): ...
 --- @field ctype ffi.ctype*
 --- @field ptr ffi.cb*
-local callbacks_index = {};
-local callbacks_meta = {
-	__index = callbacks_index,
-	__metatable = "callbacks",
-};
+local callbacks = {};
+callbacks.__index = callbacks;
+callbacks.__metatable = "nat.callbacks";
 
 --- @param cb function
-function callbacks_index:add(cb)
+function callbacks:add(cb)
 	return objects.add(cb);
 end
 --- @param id integer
 --- @return function
-function callbacks_index:del(id)
+function callbacks:del(id)
 	return objects.del(id);
 end
 
-function callbacks_index:fire(...)
+function callbacks:fire(...)
 	local cb = objects.get(self.get_key(...));
 	if not cb then return end
 
@@ -36,8 +34,8 @@ end
 --- @param ctype ffi.ct*
 --- @param get_key fun(...): integer
 --- @param fix_args? fun(...): ...
-function callbacks_index.new(ctype, get_key, fix_args)
-	local self = setmetatable({}, callbacks_meta);
+function callbacks.new(ctype, get_key, fix_args)
+	local self = setmetatable({}, callbacks);
 
 	self.get_key = get_key;
 	self.fix_args = fix_args;
@@ -53,4 +51,4 @@ function callbacks_index.new(ctype, get_key, fix_args)
 	return self;
 end
 
-return callbacks_index;
+return callbacks;

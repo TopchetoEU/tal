@@ -15,7 +15,7 @@ return function (entry_mod, ...)
 		oldenv.debug.traceback = old_tb;
 	end
 
-	local env = setmetatable({}, { __index = oldenv, __metatable = "_G" });
+	local env = setmetatable({}, { __index = oldenv });
 	env._G = env;
 	env._ENV = env;
 	-- setfenv(0, _G);

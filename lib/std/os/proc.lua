@@ -5,8 +5,8 @@ local collected = require "std.basic.table.collected";
 local str = require "std.str";
 local impl_str = require "std.os.fs.str";
 
---- @class std.proc
---- @field _fd _impl.process
+--- @class std.os.proc
+--- @field _fd impl.process
 --- @field _mng string?
 --- @field _closed boolean
 --- @field stdin std.str?
@@ -14,7 +14,7 @@ local impl_str = require "std.os.fs.str";
 --- @field stderr std.str?
 local proc = {};
 proc.__index = proc;
-proc.__metatable = "std.proc";
+proc.__metatable = "std.os.proc";
 
 function proc:wait()
 	if self._closed then ierror "closed" end

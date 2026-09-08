@@ -1,2 +1,2 @@
---- @type _impl
+--- @type impl
 return require "impl.libyaooi"();

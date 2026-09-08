@@ -278,7 +278,7 @@ local op_map = {
 };
 local err_meta = { __metatable = "lex.error" };
 
---- @param loc node.loc
+--- @param loc std.compiler.loc
 --- @param msg string
 local function lex_error(loc, msg)
 	error(setmetatable({ msg = msg, loc = loc }, err_meta), 0);
@@ -313,15 +313,15 @@ end
 --- @field type 'id'
 --- @field val string
 
---- @alias lex.tok lex.str | lex.int | lex.fl | lex.op | lex.id
+--- @alias std.compiler.token lex.str | lex.int | lex.fl | lex.op | lex.id
 
 --- @class lex.tok_base
---- @field loc node.loc
+--- @field loc std.compiler.loc
 local token = {};
 token.__index = token;
-token.__metatable = "lex.token";
+token.__metatable = "std.compiler.token";
 
---- @param self lex.tok
+--- @param self std.compiler.token
 --- @param val? integer
 function token:is_op(val)
 	if self.type ~= "op" then return false end
@@ -329,12 +329,12 @@ function token:is_op(val)
 
 	return true;
 end
---- @param self lex.tok
+--- @param self std.compiler.token
 function token:is_assign_op()
 	if self.type ~= "op" then return false end
 	return self.val >= lexer.operators.ASSIGN and self.val <= lexer.operators.ASSIGN_SHR;
 end
---- @param self lex.tok
+--- @param self std.compiler.token
 --- @param val? string
 function token:is_id(val)
 	if self.type ~= "id" then return false end
@@ -342,7 +342,7 @@ function token:is_id(val)
 
 	return true;
 end
---- @param self lex.tok
+--- @param self std.compiler.token
 --- @param val? string
 function token:is_str(val)
 	if self.type ~= "str" then return false end
@@ -358,7 +358,7 @@ end
 
 local lazy_loc_meta = {};
 lazy_loc_meta.__index = lazy_loc_meta;
-lazy_loc_meta.__metatable = "lex.lazy_loc";
+lazy_loc_meta.__metatable = "std.compiler.loc";
 
 function lazy_loc_meta:get()
 	local low = 1;
@@ -813,9 +813,9 @@ end
 
 --- @param src string
 --- @param strip? boolean
---- @return lex.tok[]?
+--- @return std.compiler.token[]?
 --- @return string? err
---- @return node.loc? err_loc
+--- @return std.compiler.loc? err_loc
 function lexer.parse(src, strip)
 	local ok, res = lex_pcall(function ()
 		--- @type lex.ctx

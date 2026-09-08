@@ -42,7 +42,7 @@ local op_str_map = {
 --- @class stringify.ctx
 --- @field buff string.buffer
 --- @field lines integer
---- @field map table<integer, node.loc>
+--- @field map table<integer, std.compiler.loc>
 local ctx_meta = {};
 ctx_meta.__index = ctx_meta;
 ctx_meta.__metatable = "compiler.stringify.ctx";
@@ -52,7 +52,7 @@ function ctx_meta:suffix(val)
 	self.buff:put(val);
 	return self;
 end
---- @param loc node | node.loc
+--- @param loc node | std.compiler.loc
 --- @param val string
 function ctx_meta:emit(loc, val)
 	self.lines = self.lines + 1;
@@ -61,7 +61,7 @@ function ctx_meta:emit(loc, val)
 		self.map[self.lines] = loc.loc;
 	else
 		if loc and loc.get then loc:get() end
-		self.map[self.lines] = loc --[[@as node.loc]];
+		self.map[self.lines] = loc --[[@as std.compiler.loc]];
 	end
 
 	if #self.buff == 0 then

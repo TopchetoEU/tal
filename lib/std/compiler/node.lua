@@ -1,7 +1,7 @@
 local node = {};
 
 --- @class node.base
---- @field loc? node.loc
+--- @field loc? std.compiler.loc
 
 --- @class node.error: node.base
 --- @field type "error"
@@ -98,7 +98,7 @@ local node = {};
 
 --- @class node.func: node.base
 --- @field type "func"
---- @field def_end? node.loc
+--- @field def_end? std.compiler.loc
 --- @field args node.name[]
 --- @field var boolean
 --- @field body node.body
@@ -187,12 +187,13 @@ node.ops = {
 	PREC_NONE = 100,
 };
 
---- @class node.loc
+--- @class std.compiler.loc
 --- @field _cb? fun(): integer, integer
 --- @field row? integer
 --- @field col? integer
 local loc_index = {};
 loc_index.__index = loc_index;
+loc_index.__metatable = "std.compiler.loc";
 
 function loc_index:get()
 	if not self.row or not self.col then
@@ -208,14 +209,14 @@ function loc_index:__tostring()
 	return r .. ":" .. c;
 end
 
---- @param cb fun(self: node.loc)
---- @return node.loc
+--- @param cb fun(self: std.compiler.loc)
+--- @return std.compiler.loc
 function node.lazy_loc(cb)
 	return { get = cb };
 end
 --- @param row integer
 --- @param col integer
---- @return node.loc
+--- @return std.compiler.loc
 function node.loc(row, col)
 	return { row = row, col = col };
 end
@@ -225,43 +226,43 @@ function node.body(arr)
 	return arr --[[@as node.body]];
 end
 
---- @param line? node.loc
+--- @param line? std.compiler.loc
 function node.error(line)
 	return { type = "error", loc = line } --[[@as node.error]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param pre? boolean If the variables are declared before or after the values
 --- @param values? node.exp[]
 function node.decl(line, pre, names, values)
 	return { type = "decl", loc = line, pre = pre or false, names = names, values = values } --[[@as node.decl]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param targets node.assign_target[]
 --- @param values node.exp[]
 function node.assign(line, targets, values)
 	return { type = "assign", loc = line, targets = targets, values = values } --[[@as node.assign]];
 end
 
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param conds node.exp[]
 --- @param bodies node.body[]
 --- @param default? node.body
 function node._if(line, conds, bodies, default)
 	return { type = "if", loc = line, conds = conds, bodies = bodies, default = default } --[[@as node.if]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param cond node.exp
 --- @param body node.body
 function node._while(line, cond, body)
 	return { type = "while", loc = line, cond = cond, body = body } --[[@as node.while]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param cond node.exp
 --- @param body node.body
 function node._repeat(line, cond, body)
 	return { type = "repeat", loc = line, cond = cond, body = body } --[[@as node.repeat]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param name node.name
 --- @param first node.exp
 --- @param last node.exp
@@ -270,36 +271,36 @@ end
 function node._for(line, name, first, last, step, body)
 	return { type = "for", loc = line, name = name, first = first, last = last, step = step, body = body } --[[@as node.for]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param names node.name[]
 --- @param values node.exp[]
 --- @param body node.body
 function node.for_in(line, names, values, body)
 	return { type = "for_in", loc = line, names = names, values = values, body = body } --[[@as node.for_in]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param body node.body
 function node.scope(line, body)
 	return { type = "scope", loc = line, body = body } --[[@as node.scope]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param vals node.exp
 function node._return(line, vals)
 	return { type = "return", loc = line, vals = vals } --[[@as node.return]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 function node._break(line)
 	return { type = "break", loc = line } --[[@as node.break]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 function node._continue(line)
 	return { type = "continue", loc = line } --[[@as node.continue]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 function node._goto(line, target)
 	return { type = "goto", target = target, loc = line } --[[@as node.goto]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param name string
 function node.label(line, name)
 	return { type = "label", name = name, loc = line } --[[@as node.label]];
@@ -314,35 +315,35 @@ end
 function node.var(line, name)
 	return { type = "var", loc = line, name = name } --[[@as node.var]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 function node.args(line)
 	return { type = "args", loc = line } --[[@as node.args]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 function node._nil(line)
 	return { type = "nil", loc = line } --[[@as node.nil]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param val boolean
 function node.bool(line, val)
 	return { type = "bool", loc = line, val = val } --[[@as node.bool]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param val string
 function node.str(line, val)
 	return { type = "str", loc = line, val = val } --[[@as node.str]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param val integer
 function node.int(line, val)
 	return { type = "int", loc = line, val = val } --[[@as node.int]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param val number
 function node.fl(line, val)
 	return { type = "fl", loc = line, val = val } --[[@as node.fl]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param op integer
 --- @param a node.exp
 --- @param b? node.exp
@@ -350,13 +351,13 @@ function node.op(line, op, a, b)
 	return { type = "op", loc = line, op = op, a = a, b = b } --[[@as node.op]];
 end
 
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param val node.exp
 function node.paren(line, val)
 	return { type = "paren", loc = line, val = val } --[[@as node.paren]];
 end
---- @param line? node.loc
---- @param def_end? node.loc
+--- @param line? std.compiler.loc
+--- @param def_end? std.compiler.loc
 --- @param args node.name[]
 --- @param var boolean
 --- @param body node.body
@@ -364,20 +365,20 @@ function node.func(line, def_end, args, var, body)
 	return { type = "func", loc = line, def_end = def_end, args = args, var = var, body = body } --[[@as node.func]];
 end
 
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param func node.exp
 --- @param args node.exp[]
 function node.call(line, func, args)
 	return { type = "call", loc = line, func = func, args = args } --[[@as node.call]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param obj node.exp
 --- @param name string
 --- @param args node.exp[]
 function node.method(line, obj, name, args)
 	return { type = "method", loc = line, obj = obj, name = name, args = args } --[[@as node.method]];
 end
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param keys node.exp[]
 --- @param vals node.exp[]
 --- @param arr node.exp[]
@@ -385,7 +386,7 @@ function node.table(line, keys, vals, arr)
 	return { type = "table", loc = line, keys = keys, vals = vals, arr = arr } --[[@as node.table]];
 end
 
---- @param line? node.loc
+--- @param line? std.compiler.loc
 --- @param obj node.exp
 --- @param key node.exp
 function node.index(line, obj, key)

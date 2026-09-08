@@ -116,8 +116,8 @@ local un_op_map = {
 --- @field parent? syntax.scope
 
 --- @class syntax.ctx
---- @field toks lex.tok[]
---- @field errs { msg: string, loc: node.loc }[]
+--- @field toks std.compiler.token[]
+--- @field errs { msg: string, loc: std.compiler.loc }[]
 --- @field scope? syntax.scope
 --- @field glob syntax.scope
 
