@@ -4,6 +4,7 @@ local impl = require "impl";
 local collected = require "std.basic.table.collected";
 local str = require "std.str";
 local impl_str = require "std.os.fs.str";
+local err = require "std.err";
 
 --- @class std.os.proc
 --- @field _fd impl.process
@@ -110,7 +111,7 @@ end
 --- @field stderr? boolean
 
 --- @param opts std.proc.opts
-return function (opts)
+function proc.new(opts)
 	local os_path = (os.getenv "PATH" or ""):gsub(":", ";");
 
 	if opts.path == nil then
@@ -149,3 +150,5 @@ return function (opts)
 
 	return self;
 end
+
+return proc;

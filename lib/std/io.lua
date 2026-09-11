@@ -73,10 +73,10 @@ function io.popen(prog, mode)
 	local p, err;
 
 	if jit.os == "Windows" then
-		p, err = proc { argv = { "cmd", "/C", prog }, stdout = r, stdin = w, path = true };
+		p, err = proc.new { argv = { "cmd", "/C", prog }, stdout = r, stdin = w, path = true };
 		if not p then return nil, err end
 	else
-		p, err = proc { argv = { "sh", "-c", prog }, stdout = r, stdin = w, path = true };
+		p, err = proc.new { argv = { "sh", "-c", prog }, stdout = r, stdin = w, path = true };
 		if not p then return nil, err end
 	end
 
