@@ -2,6 +2,7 @@ local buffer = require "string.buffer";
 local ffi = require "ffi";
 local libc = require "nat.libc";
 local comp_err = require "std.compiler.comp_err";
+local loc = require "std.err.loc";
 local lexer = {};
 
 lexer.operators = {
@@ -346,13 +347,22 @@ end
 --- @class lex.ctx
 --- @field lines integer[]
 --- @field src ffi.cdata*
+--- @field fname? string
 --- @field n integer
 
-local lazy_loc_meta = {};
-lazy_loc_meta.__index = lazy_loc_meta;
-lazy_loc_meta.__metatable = "std.compiler.loc";
+--- @class std.compiler.loc_lazy
+--- @field lines integer[]
+--- @field i integer
+--- @field fname? string
+--- @field _cache? std.err.loc
+local lazy_loc = {};
+lazy_loc.__index = lazy_loc;
+lazy_loc.__metatable = "std.err.loc_lazy";
 
-function lazy_loc_meta:get()
+--- @return std.err.loc
+function lazy_loc:get()
+	if self._cache then return self._cache end
+
 	local low = 1;
 	local high = #self.lines;
 	local row = 1;
@@ -368,15 +378,17 @@ function lazy_loc_meta:get()
 	end
 
 	local col = self.i - self.lines[row];
-	self.row = row;
-	self.col = col;
-	self.get = nil;
+	local res = loc.new(row, col, self.fname);
+	self._cache = res;
+	self.lines = nil;
+	self.fname = nil;
+	return res;
 end
 
 --- @param ctx lex.ctx
 --- @param i integer
 local function find_loc(ctx, i)
-	return setmetatable({ lines = ctx.lines, i = i + 1 }, lazy_loc_meta);
+	return setmetatable({ fname = ctx.fname, lines = ctx.lines, i = i + 1 }, lazy_loc);
 end
 
 --- @param ctx lex.ctx
@@ -804,14 +816,15 @@ local function parse_one(ctx, i, strip)
 end
 
 --- @param src string
+--- @param fname? string
 --- @param strip? boolean
 --- @return std.compiler.token[]?
 --- @return string? err
 --- @return std.compiler.loc? err_loc
-function lexer.parse(src, strip)
+function lexer.parse(src, fname, strip)
 	local ok, res = lex_pcall(function ()
 		--- @type lex.ctx
-		local ctx = { lines = { 0 }, n = #src, src = ffi.cast("const unsigned char*", src) };
+		local ctx = { lines = { 0 }, n = #src, src = ffi.cast("const unsigned char*", src), fname = fname };
 		local res = {};
 		local i = 0;
 

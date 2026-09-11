@@ -1,5 +1,6 @@
 local lex = require "std.compiler.lex";
 local node = require "std.compiler.node";
+local comp_err = require "std.compiler.comp_err";
 
 local OP_AND = lex.operators.AND;
 local OP_OR = lex.operators.OR;
@@ -1214,10 +1215,11 @@ local function parse_stm_wrap(src, strip)
 	return res, src.errs;
 end
 --- @param src syntax.ctx | string
+--- @param fname? string
 --- @param strip? boolean
-local function parse_exp_wrap(src, strip)
+local function parse_exp_wrap(src, fname, strip)
 	if type(src) == "string" then
-		local toks, err, loc = lex.parse(src, strip);
+		local toks = lex.parse(src, fname, strip);
 		if not toks then return node.error(), { { msg = err, loc = loc } } end
 		src = {
 			toks = toks, errs = {},

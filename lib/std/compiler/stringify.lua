@@ -42,7 +42,7 @@ local op_str_map = {
 --- @class stringify.ctx
 --- @field buff string.buffer
 --- @field lines integer
---- @field map table<integer, std.compiler.loc>
+--- @field map table<integer, std.err.loc>
 local ctx_meta = {};
 ctx_meta.__index = ctx_meta;
 ctx_meta.__metatable = "compiler.stringify.ctx";
@@ -52,16 +52,14 @@ function ctx_meta:suffix(val)
 	self.buff:put(val);
 	return self;
 end
---- @param loc node | std.compiler.loc
+--- @param loc? std.compiler.loc_lazy | std.err.loc
 --- @param val string
 function ctx_meta:emit(loc, val)
 	self.lines = self.lines + 1;
-	if loc and loc.loc then
-		if loc.loc.get then loc.loc:get() end
-		self.map[self.lines] = loc.loc;
+	if loc and loc.get then
+		self.map[self.lines] = loc:get();
 	else
-		if loc and loc.get then loc:get() end
-		self.map[self.lines] = loc --[[@as std.compiler.loc]];
+		self.map[self.lines] = loc --[[@as std.err.loc]];
 	end
 
 	if #self.buff == 0 then
@@ -96,54 +94,54 @@ end
 --- @param self stringify.ctx
 --- @param node node.var
 function walkers.name(self, node)
-	self:emit(node, node.name.name);
+	self:emit(node.loc, node.name.name);
 end
 --- @param self stringify.ctx
 --- @param node node.var
 function walkers.var(self, node)
-	self:emit(node, node.name.name);
+	self:emit(node.loc, node.name.name);
 end
 --- @param self stringify.ctx
 --- @param node node.str
 function walkers.str(self, node)
-	self:emit(node, node.val:quote());
+	self:emit(node.loc, node.val:quote());
 end
 --- @param self stringify.ctx
 --- @param node node.nil
 walkers["nil"] = function(self, node)
-	self:emit(node, "nil");
+	self:emit(node.loc, "nil");
 end
 --- @param self stringify.ctx
 --- @param node node.str
 function walkers.bool(self, node)
-	self:emit(node, tostring(node.val));
+	self:emit(node.loc, tostring(node.val));
 end
 --- @param self stringify.ctx
 --- @param node node.int
 function walkers.int(self, node)
-	self:emit(node, ("%d"):format(node.val));
+	self:emit(node.loc, ("%d"):format(node.val));
 end
 --- @param self stringify.ctx
 --- @param node node.fl
 function walkers.fl(self, node)
-	self:emit(node, tostring(node.val));
+	self:emit(node.loc, tostring(node.val));
 end
 --- @param self stringify.ctx
 --- @param node node.args
 function walkers.args(self, node)
-	self:emit(node, "...");
+	self:emit(node.loc, "...");
 end
 --- @param self stringify.ctx
 --- @param node node.paren
 function walkers.paren(self, node)
-	self:emit(node, "(");
+	self:emit(node.loc, "(");
 	self:walk(node.val);
 	self:suffix(")");
 end
 --- @param self stringify.ctx
 --- @param node node.table
 function walkers.table(self, node)
-	self:emit(node, "{");
+	self:emit(node.loc, "{");
 
 	for i = 1, #node.keys do
 		local key, val = node.keys[i], node.vals[i];
@@ -197,10 +195,10 @@ end
 function walkers.op(self, node)
 	if node.b then
 		self:walk(node.a);
-		self:emit(node, op_str_map[node.op]);
+		self:emit(node.loc, op_str_map[node.op]);
 		self:walk(node.b);
 	else
-		self:emit(node, op_str_map[node.op]);
+		self:emit(node.loc, op_str_map[node.op]);
 		self:walk(node.a);
 	end
 end
@@ -217,7 +215,7 @@ end
 --- @param node node.method
 function walkers.method(self, node)
 	self:walk(node.obj);
-	self:emit(node, ":" .. node.name .. "(");
+	self:emit(node.loc, ":" .. node.name .. "(");
 	self:walk_all(node.args, ",");
 	self:suffix(")");
 end
@@ -233,7 +231,7 @@ end
 --- @param self stringify.ctx
 --- @param node node.decl
 function walkers.decl(self, node)
-	self:emit(node, "local ");
+	self:emit(node.loc, "local ");
 	for i = 1, #node.names do
 		if i > 1 then self:suffix(",") end
 		self:suffix(node.names[i].name);
@@ -248,7 +246,7 @@ function walkers.decl(self, node)
 			end
 		end
 
-		self:emit(node, "=");
+		self:emit(node.loc, "=");
 		self:walk_all(node.values, ",");
 	end
 end
@@ -256,7 +254,7 @@ end
 --- @param node node.assign
 function walkers.assign(self, node)
 	self:walk_all(node.targets, ", ");
-	self:emit(node, "=");
+	self:emit(node.loc, "=");
 	self:walk_all(node.values, ", ");
 end
 --- @param self stringify.ctx
@@ -266,9 +264,9 @@ walkers["if"] = function (self, node)
 		local cond, body = node.conds[i], node.bodies[i];
 
 		if i == 1 then
-			self:emit(node, "if");
+			self:emit(node.loc, "if");
 		else
-			self:emit(node, "elseif");
+			self:emit(node.loc, "elseif");
 		end
 
 		self:walk(cond);
@@ -279,7 +277,7 @@ walkers["if"] = function (self, node)
 	end
 
 	if node.default then
-		self:emit(node, "else");
+		self:emit(node.loc, "else");
 		self:walk_all(node.default, ";");
 	end
 	self:suffix(" end");
@@ -287,7 +285,7 @@ end
 --- @param self stringify.ctx
 --- @param node node.while
 walkers["while"] = function (self, node)
-	self:emit(node, "while");
+	self:emit(node.loc, "while");
 	self:walk(node.cond);
 	self:suffix(" do");
 	self:walk_all(node.body, ";");
@@ -296,15 +294,15 @@ end
 --- @param self stringify.ctx
 --- @param node node.while
 walkers["repeat"] = function (self, node)
-	self:emit(node, "repeat");
+	self:emit(node.loc, "repeat");
 	self:walk_all(node.body, ";");
-	self:emit(node, "until");
+	self:emit(node.loc, "until");
 	self:walk(node.cond);
 end
 --- @param self stringify.ctx
 --- @param node node.for
 walkers["for"] = function (self, node)
-	self:emit(node, "for " .. node.name.name .. " =");
+	self:emit(node.loc, "for " .. node.name.name .. " =");
 	self:walk_all({ node.first, node.last, node.step }, ",");
 	self:suffix(" do");
 	self:walk_all(node.body, ";");
@@ -313,7 +311,7 @@ end
 --- @param self stringify.ctx
 --- @param node node.for_in
 function walkers.for_in(self, node)
-	self:emit(node, "for ");
+	self:emit(node.loc, "for ");
 
 	for i = 1, #node.names do
 		if i > 1 then self:suffix(",") end
@@ -329,7 +327,7 @@ end
 --- @param self stringify.ctx
 --- @param node node.scope
 function walkers.scope(self, node)
-	self:emit(node, "do ");
+	self:emit(node.loc, "do ");
 	self:walk_all(node.body, ";");
 	self:suffix(" end");
 end
@@ -337,24 +335,24 @@ end
 --- @param self stringify.ctx
 --- @param node node.return
 walkers["return"] = function (self, node)
-	self:emit(node, "return");
+	self:emit(node.loc, "return");
 	self:walk_all(node.vals, ",");
 end
 --- @param self stringify.ctx
 --- @param node node.break
 walkers["break"] = function (self, node)
-	self:emit(node, "break");
+	self:emit(node.loc, "break");
 end
 --- @param self stringify.ctx
 --- @param node node.goto
 walkers["goto"] = function (self, node)
-	self:emit(node, "goto");
+	self:emit(node.loc, "goto");
 	self:suffix(" " ..node.target.name)
 end
 --- @param self stringify.ctx
 --- @param node node.label
 function walkers.label(self, node)
-	self:emit(node, "::" .. node.name .. "::");
+	self:emit(node.loc, "::" .. node.name .. "::");
 end
 
 return {
