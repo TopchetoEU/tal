@@ -20,15 +20,15 @@ local signal = {};
 
 --- @param sig std.signal
 function signal.on(sig)
-	iassert(impl:sig_on(sig));
+	impl:sig_on(sig);
 end
 --- @param sig std.signal
 function signal.off(sig)
-	iassert(impl:sig_off(sig));
+	impl:sig_off(sig);
 end
 --- @return std.signal
 function signal.wait()
-	return iassert(loop.sync_ret(impl:sig_wait((coroutine.running()))));
+	return loop.sync_ret(impl:sig_wait((coroutine.running())));
 end
 
 return signal;

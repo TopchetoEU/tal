@@ -1,5 +1,6 @@
 local str = require "std.str";
 local loop = require "std.loop";
+local err = require "std.err";
 
 --- @class std.os.fs.impl.str: std.str
 --- @field _backend impl.fd
@@ -9,20 +10,20 @@ str_impl.__index = str_impl;
 str_impl.__metatable = "std.os.fs.impl.str";
 
 function str_impl:_read(ptr, n)
-	if self._closed then ierror "closed" end
+	if self._closed then error(err.closed) end
 	return loop.sync_ret(self._backend:read(coroutine.running(), ptr, n));
 end
 function str_impl:_write(ptr, n)
-	if self._closed then ierror "closed" end
+	if self._closed then error(err.closed) end
 	return loop.sync_ret(self._backend:write(coroutine.running(), ptr, n));
 end
 function str_impl:_flush()
-	if self._closed then ierror "closed" end
+	if self._closed then error(err.closed) end
 	-- return loop.sync_ret(self._backend:flush((coroutine.running())));
 	return self;
 end
 function str_impl:_stat()
-	if self._closed then ierror "closed" end
+	if self._closed then error(err.closed) end
 	return loop.sync_ret(self._backend:stat((coroutine.running())));
 end
 function str_impl:_close()

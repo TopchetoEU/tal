@@ -58,7 +58,7 @@ return function (serve_path)
 
 	for conn in server:iter() do
 		loop.fork(function ()
-			local ok, err, trace = spcall(function ()
+			local ok, err = spcall(function ()
 				local req = http.read_req(conn);
 				if not req then return end
 
@@ -85,7 +85,7 @@ return function (serve_path)
 			end);
 
 			if not ok then
-				eprint(err, trace, "in HTTP request handler");
+				eprint(err, "in HTTP request handler");
 				return respond(conn, 500, nil, "Internal server error\n")
 			end
 		end);

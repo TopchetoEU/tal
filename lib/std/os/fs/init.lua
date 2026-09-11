@@ -1,12 +1,10 @@
 local impl = require "impl";
 local impl_str = require "std.os.fs.str";
 local impl_file = require "std.os.fs.file";
-local str  = require "std.str";
-
+local str = require "std.str";
 local sig = require "std.sig";
 local loop = require "std.loop";
 local p = require "std.path";
-
 local dir = require "std.os.fs.dir";
 
 local fs = {};
@@ -76,7 +74,11 @@ function fs.stat(path)
 end
 --- @param path string
 function fs.astat(path)
-	return iassert(fs.stat(path));
+	path = sig.str(path, "path");
+	local f = fs.open(path, "ls");
+	local res = f:stat();
+	f:close();
+	return res;
 end
 
 --- @param path string
@@ -108,7 +110,7 @@ function fs.opendir(path)
 end
 function fs.readdir(path)
 	path = sig.str(path, "path");
-	return iassert(fs.opendir(path)):iter();
+	return assert(fs.opendir(path)):iter();
 end
 
 --- @param src string
@@ -134,7 +136,7 @@ end
 --- @param type? std.os.fs.path = "cwd"
 function fs.path(type)
 	type = sig.str(type, "type");
-	return iassert(impl:getpath(type or "cwd"));
+	return impl:getpath(type or "cwd");
 end
 
 return fs;

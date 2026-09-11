@@ -10,8 +10,8 @@ local th = loop.fork(function ()
 		while #queue > 0 do
 			local func, obj = table.unpack(table.remove(queue));
 			loop.fork(function (func, obj)
-				local ok, err, trace = spcall(func, obj);
-				if not ok then eprint(err, trace, "in finalizer") end
+				local ok, err = spcall(func, obj);
+				if not ok then eprint(err, "in finalizer") end
 			end, func, obj);
 		end
 		queue_cond:wait();

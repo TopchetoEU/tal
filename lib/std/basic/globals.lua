@@ -10,7 +10,8 @@ require = package.require;
 require "nat.ffi";
 
 local printing = require "std.printing";
-local err = require "std.errors";
+local err = require "std.err";
+local traced = require "std.err.traced";
 
 load = require "std.compiler.load";
 is = require "std.basic.is";
@@ -26,16 +27,12 @@ exit = os.exit;
 require = package.require;
 unpack = table.unpack;
 
-error = err.error;
 assert = err.assert;
+error = err.throw;
 throw = err.throw;
 
-ierror = err.ierror;
-iassert = err.iassert;
-
-spcall = err.spcall;
-sxpcall = err.sxpcall;
-srethrow = err.srethrow;
+spcall = traced.spcall;
+sxpcall = traced.sxpcall;
 
 debug = require "std.basic.debug";
 table = require "std.basic.table";
@@ -64,7 +61,7 @@ function loadstring(str, mode, env)
 	return load(str, str, mode, env);
 end
 function dofile(filename, mode, env)
-	return iassert(loadfile(filename, mode, env))();
+	return err.assert(loadfile(filename, mode, env))();
 end
 
 return _G;

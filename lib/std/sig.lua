@@ -1,26 +1,48 @@
 local sig = {};
 
+--- @class std.sig.err: err
+--- @field fname string
+--- @field arg string | integer
+--- @field msg string
+sig.err = setmetatable({}, err);
+sig.__index = sig.err;
+sig.__metatable = "std.sig.err";
+
+function sig.err:__tostring()
+	local res = "bad argument ";
+	if type(self.arg) == "string" then
+		res = res .. "'" .. self.arg .. "'";
+	else
+		res = res .. "#" .. self.arg;
+	end
+
+	if self.fname then
+		res = res .. " to " .. self.fname;
+	end
+
+	if self.msg then
+		res = res .. " (" .. self.msg .. ")";
+	end
+
+	return res;
+end
+
 --- @param i integer | string
 --- @param msg string
+--- @param level? integer
+function sig.err:new(i, msg, level)
+	local info = debug.getinfo((level or 1) + 1, "n");
+	return setmetatable({ arg = i, msg = msg, fname = info and info.name }, sig.err);
+end
+
+sig.parent = err.badarg;
+
+--- @param i integer | string
+--- @param msg string
+--- @param level? integer
 --- @return ...
-function sig.error(i, msg)
-	local res = "bad argument ";
-	if type(i) == "string" then
-		res = res .. "'" .. i .. "'";
-	else
-		res = res .. "#" .. i;
-	end
-
-	local name = debug.getinfo(2, "n");
-	if name then
-		res = res .. " to " .. name.name;
-	end
-
-	if msg then
-		res = res .. " (" .. msg .. ")";
-	end
-
-	return error(res, 2);
+function sig.error(i, msg, level)
+	return error(sig.err:new(i, msg, (level or 1) + 1));
 end
 
 --- @param i integer | string

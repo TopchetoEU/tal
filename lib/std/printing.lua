@@ -1,4 +1,6 @@
 local debug = require "std.basic.debug";
+local err = require "std.err";
+local is = require "std.basic.is";
 
 local default_colors = {
 	kw = "\x1B[34m",
@@ -235,7 +237,7 @@ local function stringify_int (obj, n, colors, passed, hit, max_line)
 	elseif kind == "cdata" then
 		return color "kw" (tostring(obj));
 	else
-		error "unknown type";
+		error(err.never);
 	end
 end
 
@@ -276,19 +278,15 @@ function printing.pprint (...)
 	print(fix(...));
 end
 
-function printing.eprint(err, trace, reason, write)
+function printing.eprint(e, reason, write)
 	local res = {};
 
 	table.insert(res, "Unhandled error ");
 	if reason then table.insert(res, ("(" .. reason .. ") ")) end
-	if type(err) == "string" then
-		table.insert(res, err);
+	if type(e) == "string" or is(e, "err") then
+		table.insert(res, tostring(e));
 	else
-		table.insert(res, (printing.stringify(err)));
-	end
-
-	if trace then
-		table.insert(res, "\n" .. trace);
+		table.insert(res, (printing.stringify(e)));
 	end
 
 	(write or print)(table.concat(res));

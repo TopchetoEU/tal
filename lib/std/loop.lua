@@ -1,6 +1,7 @@
 local impl = require "impl";
-local errors = require "std.errors";
+local err = require "std.err";
 local debug = require "std.basic.debug";
+local traced = require "std.err.traced";
 require "std.basic.coroutine";
 
 local loop = {};
@@ -25,14 +26,13 @@ local function process_handle(next, timeout, cb, ...)
 		return true, ...;
 	else
 		loop_th = coroutine.running();
-		local ok, err, trace = coroutine.resume(cb, ...);
-		err, trace = errors.serrunpack(err);
+		local ok, e = coroutine.resume(cb, ...);
 		loop_th = nil;
 
 		-- An error from another thread, completely unrelated to ours could've thrown this.
 		-- This causes seemingly innocent IO operations to vomit out other threads' errors.
 		-- TODO: invent an 'elegant' way to avoid printing the IO op's stack trace
-		if not ok then errors.throw(errors.serrnew(err, trace)) end
+		if not ok then err.throw(e) end
 	end
 
 	return next();
@@ -81,9 +81,9 @@ end
 --- @return ...
 local function await_fin(status, ...)
 	if status == nil then
-		srethrow(...);
+		err.throw(...);
 	elseif status == false then
-		error "loop ended before main thread got invoked";
+		err.throw(err.never:new "loop ended before main thread got invoked");
 	else
 		return ...;
 	end
@@ -113,7 +113,7 @@ end
 local function sync_ret_handle(ok, ...)
 	cancels[coroutine.running()] = nil;
 
-	if not ok then errors.throw(...) end
+	if not ok then err.throw(...) end
 	return ...;
 end
 
@@ -130,15 +130,9 @@ function loop.fork(main, ...)
 	local fork_trace = debug.traceback(nil, 2);
 
 	local th = coroutine.create(function (...)
-		local ok, err, trace = errors.spcall(...);
+		local ok, e = traced.spcall(...);
 		if not ok then
-			if trace then
-				trace = trace .. "\nfork " .. fork_trace;
-			else
-				trace = "fork " .. fork_trace;
-			end
-
-			return errors.srethrow(err, trace);
+			err.throw(traced:new(e, "fork " .. fork_trace));
 		end
 	end);
 
@@ -173,13 +167,13 @@ end
 function loop.run()
 	if loop_th then return true end
 
-	local status, err = run_loop();
+	local status, e = run_loop();
 	if status == true then
 		return false, "unexpected result from loop run";
 	elseif status == false then
 		return true;
 	else
-		return false, err;
+		return false, e;
 	end
 end
 

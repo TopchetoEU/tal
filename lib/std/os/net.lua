@@ -2,6 +2,8 @@ local impl = require "impl";
 local loop = require "std.loop";
 local str = require "std.os.fs.str";
 local collected = require "std.basic.table.collected";
+local err = require "std.err";
+local aggr = require "std.err.aggr";
 local net = {};
 
 --- @alias std.os.net.addrinfo_flags string
@@ -60,14 +62,17 @@ end
 function net.nameconnect(name, port, protocol, flags)
 	local ips = net.getaddrinfo(name, flags or "");
 
-	local ok, res, trace;
+	local errs = {};
+
 	for _, ip in ipairs(ips) do
-		ok, res, trace = spcall(net.connect, ip, port, protocol);
+		local ok, res = spcall(net.connect, ip, port, protocol);
 		if ok then return res end
+
+		table.insert(errs, res);
 	end
 
-	if not ok then srethrow(res, trace) end
-	error "couldn't resolve host";
+	if #errs > 0 then error(aggr:new(errs)) end
+	error(err.net:new "unknown hostname");
 end
 --- @param name string
 --- @param flags std.os.net.addrinfo_flags

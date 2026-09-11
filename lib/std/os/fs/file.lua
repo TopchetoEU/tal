@@ -1,5 +1,6 @@
 local str = require "std.str";
 local loop = require "std.loop";
+local err = require "std.err";
 
 --- @class std.os.fs.impl.file: std.str
 --- @field _backend impl.fd
@@ -55,7 +56,7 @@ function file_seek_impl:_seek(whence, offset)
 	whence = whence or "cur";
 	offset = offset or 0;
 
-	if not self._seek then ierror "operation not supported" end
+	if not self._seek then error(err.notsupp) end
 
 	if whence == "set" then
 		self._ptr = offset;

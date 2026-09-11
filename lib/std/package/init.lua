@@ -3,7 +3,6 @@
 local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
 local table = require "std.basic.table";
-local errors = require "std.errors";
 
 --- @class packagelib
 local package = {
@@ -98,7 +97,7 @@ function package.require(name)
 		package.loaded[name] = res;
 		return res, data;
 	else
-		return errors.error(data);
+		return error(data, 0);
 	end
 end
 

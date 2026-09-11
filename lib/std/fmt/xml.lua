@@ -1,3 +1,6 @@
+local sig = require "std.sig";
+local err = require "std.err";
+
 --- @alias xml_node_raw { tag: string, attribs: { [string]: string }, [integer]: xml_element }
 --- @alias xml_element string | std.fmt.xml_node
 
@@ -88,7 +91,7 @@ function xml_node:query_all(name)
 		end
 	end
 
-	if #rem > 0 then error "invalid query" end
+	if #rem > 0 then sig.error("name", "invalid query") end
 
 	local res = {};
 
@@ -170,7 +173,7 @@ function xml_node:text()
 		--- @diagnostic disable-next-line: return-type-mismatch
 		return self[1];
 	else
-		error "not a text-only node";
+		sig.error("self", "not a text-only node");
 	end
 end
 
@@ -596,7 +599,7 @@ local function parse(raw, settings)
 		elseif part.type == "small" then
 			curr_node[#curr_node + 1] = xml_node.new { tag = part.tag, attribs = part.attribs };
 		else
-			error "wtf";
+			error(err.never);
 		end
 	end
 

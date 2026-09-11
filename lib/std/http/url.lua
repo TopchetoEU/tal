@@ -1,4 +1,5 @@
 local buffer = require "string.buffer";
+local sig = require "std.sig";
 
 --- @class url
 --- @field scheme? string
@@ -157,7 +158,7 @@ function url.parse(raw)
 
 		i = raw:match("^()/", i);
 	end
-
+	if not i then sig.error("raw", "invalid URL syntax") end
 	if not i then error "invalid URL syntax" end
 
 	path, i = raw:match("^([^?]*)()", i);

@@ -3,6 +3,7 @@ local env = require "std.os.env";
 local proc = require "std.os.proc";
 local impl = require "impl";
 local loop = require "std.loop";
+local err = require "std.err";
 
 -- VERY bad way of gauging this, this will stay until libev v0.3
 local old_time = os.time;
@@ -46,17 +47,13 @@ os.iterenv = env.iter;
 --- @param cmd string
 function os.execute(cmd)
 	if os.os == "Windows" then
-		local code = proc { argv = { "cmd", "/c", cmd } }:wait();
-		if code ~= 0 then
-			ierror("process exited with code " .. -code);
-		end
+		local code = proc.new { argv = { "cmd", "/c", cmd } }:wait();
+		if code ~= 0 then error(proc.err:new(code)) end
 	elseif os.os ~= "Other" then
-		local code = proc { argv = { "sh", "-c", cmd }, path = true }:wait();
-		if code ~= 0 then
-			ierror("process exited with code " .. -code);
-		end
+		local code = proc.new { argv = { "sh", "-c", cmd }, path = true }:wait();
+		if code ~= 0 then error(proc.err:new(code)) end
 	else
-		ierror "unknown operating system, cannot perform system commands";
+		error(err.notsupp:new "unknown OS, can't perform commands");
 	end
 
 	return true;

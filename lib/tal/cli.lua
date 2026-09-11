@@ -27,9 +27,9 @@ function cli.repl(prefix, eot)
 	while true do
 		local cont = true;
 
-		local ok, err, trace = spcall(function ()
+		local ok, err = spcall(function ()
 			local src = "";
-			local err;
+			local e;
 
 			repeat
 				local done = false;
@@ -48,7 +48,7 @@ function cli.repl(prefix, eot)
 				end
 
 				src = src .. "\n" .. line;
-				f, err = cli.load_eval(src, "=<repl>");
+				f, e = cli.load_eval(src, "=<repl>");
 
 				if f ~= nil then
 					pprint(f());
@@ -57,13 +57,11 @@ function cli.repl(prefix, eot)
 				end
 			until done;
 
-			if err ~= nil then
-				error(err, 0);
-			end
+			if e ~= nil then error(e, 0) end
 
 			return true;
 		end);
-		if not ok then eprint(err, trace) end
+		if not ok then eprint(err) end
 
 		if not cont then return end
 	end
@@ -180,7 +178,7 @@ function cli.main(...)
 		local src = f:read "a";
 		f:close();
 
-		iassert(load(src, "@" .. file, "t"))(table.unpack(args));
+		assert(load(src, "@" .. file, "t"))(table.unpack(args));
 
 		package.roots:delete(root);
 	end

@@ -6,7 +6,7 @@ number.__metatable = "number";
 
 --- @param val any
 function number.new(val, base)
-	return iassert(tonumber(val, base), "not convertable to number");
+	return assert(tonumber(val, base), "not convertable to number");
 end
 
 debug.setmetatable(0, number);
