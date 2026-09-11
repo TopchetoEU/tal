@@ -919,7 +919,7 @@ local enviter_type = ffi.metatype("struct yo_enviter", yaooi.enviter);
 
 --- @return nat.libyaooi.enviter
 function yaooi.enviter.new()
-	local res = yaooi.yo_enviter_new();
+	local res = libyaooi.yo_enviter_new();
 	if res == libc.NULL then error(err.nomem) end
 	return res;
 end
