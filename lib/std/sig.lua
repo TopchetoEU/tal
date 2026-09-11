@@ -1,3 +1,5 @@
+local err = require "std.err";
+
 local sig = {};
 
 --- @class std.sig.err: err
@@ -93,7 +95,7 @@ end
 --- @generic T
 --- @param i integer | string
 --- @param def? T
---- @return string
+--- @return string | T
 function sig.optstr(val, i, def)
 	if val == nil then return def end
 	if type(val) ~= "string" then return sig.error_type(val, i, "string") end
@@ -106,10 +108,10 @@ function sig.tab(val, i)
 	if type(val) ~= "table" then return sig.error_type(val, i, "table") end
 	return val;
 end
---- @generic T
+--- @generic T: table
 --- @param i integer | string
 --- @param def? T
---- @return table
+--- @return T
 function sig.opttab(val, i, def)
 	if val == nil then return def end
 	if type(val) ~= "table" then return sig.error_type(val, i, "table") end
