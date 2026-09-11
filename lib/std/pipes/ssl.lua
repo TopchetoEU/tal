@@ -38,12 +38,12 @@ local function _doread(self)
 
 	local ptr = ffi.new "char[8192]";
 
-	local ok, n, trace = spcall(self.str.read, self.str, ptr, 8192);
+	local ok, n = spcall(self.str.read, self.str, ptr, 8192);
 	-- if n == 0 then ok = false; n = "unexpected ssl stream eof" end
 	if not ok then
 		self.reading = false;
 		self.cond:signal(true);
-		srethrow(n, trace);
+		error(n);
 	end
 	--- @cast n integer
 

@@ -352,5 +352,6 @@ end
 
 --- @param src string
 return function (src)
-	return parse_table(src, 1, nil);
+	local _, res = parse_table(src, 1, nil);
+	return res;
 end
