@@ -818,33 +818,26 @@ end
 --- @param src string
 --- @param fname? string
 --- @param strip? boolean
---- @return std.compiler.token[]?
---- @return string? err
---- @return std.compiler.loc? err_loc
+--- @return std.compiler.token[]
 function lexer.parse(src, fname, strip)
-	local ok, res = lex_pcall(function ()
-		--- @type lex.ctx
-		local ctx = { lines = { 0 }, n = #src, src = ffi.cast("const unsigned char*", src), fname = fname };
-		local res = {};
-		local i = 0;
+	--- @type lex.ctx
+	local ctx = { lines = { 0 }, n = #src, src = ffi.cast("const unsigned char*", src), fname = fname };
+	local res = {};
+	local i = 0;
 
-		for line_i in src:gmatch "()\n" do
-			table.insert(ctx.lines, line_i);
-		end
+	for line_i in src:gmatch "()\n" do
+		table.insert(ctx.lines, line_i);
+	end
 
-		while true do
-			i = skip_white(ctx, i);
-			if i >= ctx.n then break end
+	while true do
+		i = skip_white(ctx, i);
+		if i >= ctx.n then break end
 
-			local val;
-			i, val = parse_one(ctx, i, strip);
-			table.insert(res, val);
-		end
+		local val;
+		i, val = parse_one(ctx, i, strip);
+		table.insert(res, val);
+	end
 
-		return res;
-	end);
-
-	if not ok then return nil, res.msg, res.loc end
 	return res;
 end
 

@@ -1,7 +1,7 @@
-local errors = require "std.errors";
 local nodes = require "std.compiler.node";
 local syntax = require "std.compiler.syntax";
 local walk = require "std.compiler.walk";
+local comp_err = require "std.compiler.comp_err";
 
 --- @class compiler.downgrade.continue
 --- @field used boolean
@@ -15,22 +15,22 @@ local walk = require "std.compiler.walk";
 --- @field labels table<string, node.label>
 
 local interop_funcs = {
-	[nodes.ops.POW] = syntax.parse_exp("math.pow", true),
+	[nodes.ops.POW] = syntax.parse_exp("math.pow", nil, true),
 
-	[nodes.ops.B_NEG] = syntax.parse_exp("bit.bnot", true),
+	[nodes.ops.B_NEG] = syntax.parse_exp("bit.bnot", nil, true),
 	[nodes.ops.IDIV] = syntax.parse_exp([[function (a, b)
 		return math.floor(a / b);
-	end]], true), -- TODO: to be done
+	end]], nil, true), -- TODO: to be done
 
-	[nodes.ops.B_SHL] = syntax.parse_exp("bit.lshift", true),
-	[nodes.ops.B_SHR] = syntax.parse_exp("bit.rshift", true),
-	[nodes.ops.B_AND] = syntax.parse_exp("bit.band", true),
-	[nodes.ops.B_OR] = syntax.parse_exp("bit.bor", true),
-	[nodes.ops.B_XOR] = syntax.parse_exp("bit.bxor", true),
+	[nodes.ops.B_SHL] = syntax.parse_exp("bit.lshift", nil, true),
+	[nodes.ops.B_SHR] = syntax.parse_exp("bit.rshift", nil, true),
+	[nodes.ops.B_AND] = syntax.parse_exp("bit.band", nil, true),
+	[nodes.ops.B_OR] = syntax.parse_exp("bit.bor", nil, true),
+	[nodes.ops.B_XOR] = syntax.parse_exp("bit.bxor", nil, true),
 };
 local polyfills = {
-	getfenv = syntax.parse_exp("getfenv", true),
-	setfenv = syntax.parse_exp("setfenv", true),
+	getfenv = syntax.parse_exp("getfenv", nil, true),
+	setfenv = syntax.parse_exp("setfenv", nil, true),
 };
 
 --- @param self compiler.downgrade.ctx
@@ -141,10 +141,6 @@ function ctx_meta.new()
 		scope = { prev = nil, consts = {}, names = {}, labels = {} },
 	} --[[@as compiler.downgrade.ctx]], ctx_meta);
 end
-
-
-
-local err_meta = { __metatable = "downgrade.error" };
 
 local walker = walk(
 	--- @param ctx compiler.downgrade.ctx
@@ -310,29 +306,12 @@ return {
 	--- @param body node.stm[]
 	walk_body = function (body)
 		local ctx = ctx_meta.new();
-		local ok, res, trace = errors.spcall(walker.walk_body, walker, body, ctx);
-
-		if ok then
-			return table.move(res, 1, #res, #ctx.parts + 1, ctx.parts);
-		elseif getmetatable(res) == "downgrade.error" then
-			--- @cast res table
-			return nil, res.msg, res.loc;
-		else
-			errors.srethrow(res, trace);
-		end
+		local res = walker.walk_body(walker, body, ctx);
+		return table.move(res, 1, #res, #ctx.parts + 1, ctx.parts);
 	end,
 	--- @param exp node.exp
 	--- @param target compiler.walk.target
 	walk_exp = function (exp, target)
-		local ok, res, trace = errors.spcall(walker.walk_exp, walker, exp, target, ctx_meta.new());
-
-		if ok then
-			return res;
-		elseif getmetatable(res) == "downgrade.error" then
-			--- @cast res table
-			return nil, res.msg, res.loc;
-		else
-			errors.srethrow(res, trace);
-		end
+		return walker.walk_exp(walker, exp, target, ctx_meta.new());
 	end
 };

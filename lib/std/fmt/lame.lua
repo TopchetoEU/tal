@@ -13,10 +13,12 @@
 
 local lex = require "std.compiler.lex";
 local ffi = require "nat.ffi";
+local err = require "std.err";
+local comp_err = require "std.compiler.comp_err";
+local loc = require "std.err.loc";
 
-local err_meta = { __metatable = "laml.error" };
 local function throw(i, msg)
-	error(setmetatable({ i = i, msg = msg }, err_meta));
+	error(comp_err:new(msg, loc.new(i)));
 end
 
 local parse_table;
@@ -122,11 +124,9 @@ local function parse_str(src, i, eol)
 	-- TODO: expose module with generic whitespace-skippers and literal parsers, instead of doing *this*
 	local ok, j, res = spcall(lex.parse_string, { lines = { 1 }, n = i, src = ffi.cast("char*", src) }, i - 1);
 	if not ok then
-		if getmetatable(j) == "lex.error" then
-			throw(i, j.msg);
-		else
-			srethrow(j, res);
-		end
+		local e = err.find(j, comp_err);
+		if e then throw(i, e.msg or "") end
+		error(j);
 	end
 
 	j = j + 1;
@@ -156,11 +156,9 @@ local function parse_num(src, i, eol)
 	-- TODO: expose module with generic whitespace-skippers and literal parsers, instead of doing *this*
 	local ok, j, kind, val = spcall(lex.parse_number, { lines = { 1 }, n = i, src = ffi.cast("char*", src) }, j - 1);
 	if not ok then
-		if getmetatable(j) == "lex.error" then
-			return i, nil;
-		else
-			srethrow(j, kind);
-		end
+		local e = err.find(j, comp_err);
+		if e then throw(i, e.msg or "") end
+		error(j);
 	end
 
 	j = j + 1;
@@ -354,15 +352,5 @@ end
 
 --- @param src string
 return function (src)
-	local ok, j, res = spcall(parse_table, src, 1, nil);
-	if not ok then
-		if getmetatable(j) == "laml.error" then
-			local around = src:sub(j.i, j.i + 25):gsub("[\r\t\n\"\\]", { ["\r"] = [[\r]], ["\t"] =[[\t]], ["\n"] = [[\n]], ["\""] = [[\"]], ["\\"] = [[\\]] });
-			ierror("lame error at " .. j.i .. " (around \"" .. around .. "\"): " .. j.msg);
-		else
-			srethrow(j, res);
-		end
-	end
-
-	return res;
+	return parse_table(src, 1, nil);
 end

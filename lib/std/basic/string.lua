@@ -1,3 +1,4 @@
+local err = require "std.err"
 --- @diagnostic disable: duplicate-set-field
 local lex;
 
@@ -47,9 +48,10 @@ function string:unquote()
 	-- Although we use the parser, this *should* be safe, as we don't execute any code
 	-- However, the solution and hand is really stupid
 	-- TODO: figure out something less stupid
-	local toks, err = lex.parse(self);
-	if not toks then error(err) end
-	if toks[1].type ~= "str" then return error "not a string" end
+	local toks, e = lex.parse(self);
+	if not toks then error(e) end
+	if #toks ~= 1 then return error(err.syntax:new "too many tokens") end
+	if toks[1].type ~= "str" then return error(err.syntax:new "not a string literal") end
 	return toks[1].val --[[@as string]];
 end
 

@@ -1,6 +1,8 @@
 local lex = require "std.compiler.lex";
 local node = require "std.compiler.node";
 local comp_err = require "std.compiler.comp_err";
+local err = require "std.err";
+local aggr = require "std.err.aggr";
 
 local OP_AND = lex.operators.AND;
 local OP_OR = lex.operators.OR;
@@ -1196,11 +1198,11 @@ function parse_stm_list(ctx, i, eof_name, eof)
 end
 
 --- @param src syntax.ctx | string
+--- @param fname? string
 --- @param strip? boolean
-local function parse_stm_wrap(src, strip)
+local function parse_stm_wrap(src, fname, strip)
 	if type(src) == "string" then
-		local toks, err, loc = lex.parse(src, strip);
-		if not toks then return {}, { { msg = err, loc = loc } } end
+		local toks = lex.parse(src, fname, strip);
 		src = {
 			toks = toks, errs = {},
 			glob = { gotos = {}, labels = {}, vars = {} },
@@ -1212,7 +1214,9 @@ local function parse_stm_wrap(src, strip)
 	local i, res = parse_stm_list(src, 1, "end of file", nil);
 	finish_labels(src);
 	scope_end(src);
-	return res, src.errs;
+
+	if #src.errs > 0 then err.throw(aggr:new(src.errs)) end
+	return res;
 end
 --- @param src syntax.ctx | string
 --- @param fname? string
@@ -1220,7 +1224,6 @@ end
 local function parse_exp_wrap(src, fname, strip)
 	if type(src) == "string" then
 		local toks = lex.parse(src, fname, strip);
-		if not toks then return node.error(), { { msg = err, loc = loc } } end
 		src = {
 			toks = toks, errs = {},
 			glob = { gotos = {}, labels = {}, vars = {} },
@@ -1233,7 +1236,8 @@ local function parse_exp_wrap(src, fname, strip)
 		table.insert(src.errs, { msg = "unexpected syntax", src[i].loc });
 	end
 
-	return res, src.errs;
+	if #src.errs > 0 then err.throw(aggr:new(src.errs)) end
+	return res;
 end
 
 return {

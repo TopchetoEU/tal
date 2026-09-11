@@ -2,7 +2,10 @@ local syntax = require "std.compiler.syntax";
 local downgrade = require "std.compiler.downgrade";
 local stringify = require "std.compiler.stringify";
 local mapping = require "std.basic.debug.mapping";
+local aggr = require "std.err.aggr";
 local err = require "std.err";
+local comp_err = require "std.compiler.comp_err";
+local traced = require "std.err.traced";
 
 local load_raw = load;
 
@@ -34,28 +37,29 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 		end
 	end
 
-	local ast, errs = syntax.parse(chunk);
-	if #errs > 0 then
-		local parts = {};
-		for i = 1, #errs do
-			table.insert(parts, mapping.err_stringify(name, errs[i].loc, errs[i].msg));
-		end
-		return nil, table.concat(parts, "\n");
-	end
-
-	local downgrade_res, err, loc = downgrade.walk_body(ast);
-	if not downgrade_res then return nil, mapping.err_stringify(name, loc --[[@as std.compiler.loc]], err --[[@as string]]) end
-
-	ast = downgrade_res;
-
-	local str, map = stringify.all(ast);
+	local ok, func = traced.spcall(function ()
+		local ast = syntax.parse(chunk, name, false);
+		ast = downgrade.walk_body(ast);
+		local str, map = stringify.all(ast);
 
 		local func, e = load_raw(str, name, "t", env or getfenv(2));
 		if not func then err.throw(mapping.err_map(e --[[@as string]], map)) end
 
-	if not no_map then
-		mapping.emit_map(name, map);
+		if not no_map then
+			mapping.emit_map(name, map);
+		end
+
+		return func;
+	end);
+	if not ok then
+		local e = err.find(func, aggr);
+		if e then return nil, e.children --[[@as std.compiler.err[] ]] end
+
+		local e = err.find(func, comp_err);
+		if e then return nil, e end
+
+		err.throw(func);
 	end
 
-	return fun;
+	return func;
 end
