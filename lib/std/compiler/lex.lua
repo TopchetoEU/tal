@@ -1,7 +1,7 @@
 local buffer = require "string.buffer";
 local ffi = require "ffi";
 local libc = require "nat.libc";
-local errors = require "std.errors"
+local comp_err = require "std.compiler.comp_err";
 local lexer = {};
 
 lexer.operators = {
@@ -276,21 +276,13 @@ local op_map = {
 	[chars.brace_open] = lexer.operators.BRACE_OPEN,
 	[chars.brace_close] = lexer.operators.BRACE_CLOSE,
 };
-local err_meta = { __metatable = "lex.error" };
 
---- @param loc std.compiler.loc
+local old_error = error;
+
+--- @param loc std.compiler.loc_lazy
 --- @param msg string
-local function lex_error(loc, msg)
-	error(setmetatable({ msg = msg, loc = loc }, err_meta), 0);
-end
-local function lex_pcall_fin(ok, ...)
-	if ok then return true, ... end
-	local err, trace = ...;
-	if getmetatable(err) == "lex.error" then return false, err end
-	errors.srethrow(err, trace);
-end
-local function lex_pcall(f, ...)
-	return lex_pcall_fin(errors.spcall(f, ...));
+local function error(loc, msg)
+	old_error(comp_err:new(msg, loc:get()));
 end
 
 --- @class lex.str: lex.tok_base
@@ -316,7 +308,7 @@ end
 --- @alias std.compiler.token lex.str | lex.int | lex.fl | lex.op | lex.id
 
 --- @class lex.tok_base
---- @field loc std.compiler.loc
+--- @field loc std.compiler.loc_lazy
 local token = {};
 token.__index = token;
 token.__metatable = "std.compiler.token";
@@ -411,7 +403,7 @@ local function parse_longlit(ctx, i)
 
 	while true do
 		local find_i = libc.strchr(ctx.src + j, chars.bracket_close);
-		if not find_i then lex_error(find_loc(ctx, ctx.n), "expected ']]'") end
+		if not find_i then error(find_loc(ctx, ctx.n), "expected ']]'") end
 
 		j = j + find_i;
 		local n = ctx.src + j - first;
@@ -552,18 +544,18 @@ local function parse_escape_char(ctx, i, buff)
 		return i + 1;
 	elseif ctx.src[i] == chars.x then
 		local i, val = parse_hex(ctx, i + 1);
-		if not val then lex_error(find_loc(ctx, i), "invalid \\x escape sequence") end
+		if not val then error(find_loc(ctx, i), "invalid \\x escape sequence") end
 		buff:put(string.char(val));
 		return i;
 	elseif ctx.src[i] == chars.u then
 		i = i + 1;
 
-		if ctx.src[i] ~= chars.brace_open then lex_error(find_loc(ctx, i), "expected '{'") end
+		if ctx.src[i] ~= chars.brace_open then error(find_loc(ctx, i), "expected '{'") end
 
 		local i, val = parse_hex(ctx, i);
-		if not val then lex_error(find_loc(ctx, i), "expected a hex number") end
+		if not val then error(find_loc(ctx, i), "expected a hex number") end
 
-		if ctx.src[i] ~= chars.brace_open then lex_error(find_loc(ctx, i), "expected '}'") end
+		if ctx.src[i] ~= chars.brace_open then error(find_loc(ctx, i), "expected '}'") end
 		i = i + 1;
 
 		if val < 128 then
@@ -571,13 +563,13 @@ local function parse_escape_char(ctx, i, buff)
 			return i;
 		end
 
-		lex_error(find_loc(ctx, i), "unicode escape sequences not supported yet");
+		error(find_loc(ctx, i), "unicode escape sequences not supported yet");
 		-- return j, utf8.char(tonumber(val, 16));
 	elseif ctx.src[i] >= chars.zero and ctx.src[i] <= chars.nine then
 		local i, val = parse_dec(ctx, i);
 		assert(val);
 
-		if val >= 256 then lex_error(find_loc(ctx, i), "decimal escape too large") end
+		if val >= 256 then error(find_loc(ctx, i), "decimal escape too large") end
 		buff:put(string.char(val));
 		return i;
 	elseif ctx.src[i] == chars.z then
@@ -627,7 +619,7 @@ local function parse_string(ctx, i)
 			res:put(string.char(ctx.src[i]));
 			i = i + 1;
 		else
-			lex_error(find_loc(ctx, i), "unterminated string literal");
+			error(find_loc(ctx, i), "unterminated string literal");
 		end
 	end
 end
@@ -639,7 +631,7 @@ local function parse_number(ctx, i)
 		if ctx.src[j + 1] == chars.x or ctx.src[j + 1] == chars.x then
 			j = j + 2;
 			local j, hex = parse_hex(ctx, j);
-			if not hex then lex_error(find_loc(ctx, j), "expected a hex number") end
+			if not hex then error(find_loc(ctx, j), "expected a hex number") end
 
 			return j, "int", hex;
 		end
@@ -647,7 +639,7 @@ local function parse_number(ctx, i)
 		if ctx.src[j + 1] == chars.b or ctx.src[j + 1] == chars.B then
 			j = j + 2;
 			local j, hex = parse_bin(ctx, j);
-			if not hex then lex_error(find_loc(ctx, j), "expected a binary number") end
+			if not hex then error(find_loc(ctx, j), "expected a binary number") end
 
 			return j, "int", hex;
 		end
@@ -673,7 +665,7 @@ local function parse_number(ctx, i)
 
 		j = j + 1;
 		j, e = parse_dec(ctx, j);
-		if not e then lex_error(find_loc(ctx, j), "malformed number") end
+		if not e then error(find_loc(ctx, j), "malformed number") end
 	end
 
 	if not whole and not fract then return i end
@@ -808,7 +800,7 @@ local function parse_one(ctx, i, strip)
 	i, val = parse_op(ctx, i);
 	if val then return i, mktok("op", not strip and find_loc(ctx, start_i) or nil, val) end
 
-	lex_error(find_loc(ctx, i), "unknown syntax");
+	error(find_loc(ctx, i), "unknown syntax");
 end
 
 --- @param src string

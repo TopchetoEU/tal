@@ -294,10 +294,7 @@ local walker = walk(
 			return node;
 		elseif node.type == "continue" then
 			if not ctx.scope.cont then
-				error(setmetatable({
-					msg = "continue used outside a loop",
-					loc = node.loc,
-				}, err_meta));
+				error(comp_err:new("continue used outside a loop", node.loc:get()));
 			end
 
 			ctx.scope.cont.used = true;

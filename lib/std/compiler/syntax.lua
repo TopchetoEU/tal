@@ -117,7 +117,7 @@ local un_op_map = {
 
 --- @class syntax.ctx
 --- @field toks std.compiler.token[]
---- @field errs { msg: string, loc: std.compiler.loc }[]
+--- @field errs std.compiler.err[]
 --- @field scope? syntax.scope
 --- @field glob syntax.scope
 
@@ -133,7 +133,7 @@ local function syntax_error(ctx, i, msg)
 		loc = ctx.toks[i].loc;
 	end
 
-	table.insert(ctx.errs, { msg = msg, loc = loc });
+	table.insert(ctx.errs, comp_err:new(msg, loc:get()));
 end
 
 local function syntax_loc(ctx, i)
@@ -214,7 +214,7 @@ local function finish_labels(ctx)
 		if target then
 			gt.target = target;
 		else
-			table.insert(ctx.errs, { msg = "no visible label '" .. gt_name .. "'", loc = gt.loc });
+			table.insert(ctx.errs, comp_err:new("no visible label '" .. gt_name .. "'", gt.loc:get()));
 		end
 	end
 end

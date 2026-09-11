@@ -2,7 +2,7 @@ local syntax = require "std.compiler.syntax";
 local downgrade = require "std.compiler.downgrade";
 local stringify = require "std.compiler.stringify";
 local mapping = require "std.basic.debug.mapping";
-local loading = {};
+local err = require "std.err";
 
 local load_raw = load;
 
@@ -50,8 +50,8 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 
 	local str, map = stringify.all(ast);
 
-	local fun, err = load_raw(str, name, "t", env or getfenv(2));
-	if not fun then return nil, mapping.err_map(err --[[@as string]], map) end
+		local func, e = load_raw(str, name, "t", env or getfenv(2));
+		if not func then err.throw(mapping.err_map(e --[[@as string]], map)) end
 
 	if not no_map then
 		mapping.emit_map(name, map);

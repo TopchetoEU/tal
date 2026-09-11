@@ -187,40 +187,6 @@ node.ops = {
 	PREC_NONE = 100,
 };
 
---- @class std.compiler.loc
---- @field _cb? fun(): integer, integer
---- @field row? integer
---- @field col? integer
-local loc_index = {};
-loc_index.__index = loc_index;
-loc_index.__metatable = "std.compiler.loc";
-
-function loc_index:get()
-	if not self.row or not self.col then
-		self.row, self.col = self._cb();
-		self._cb = nil;
-	end
-
-	return self;
-end
-
-function loc_index:__tostring()
-	local r, c = self:get();
-	return r .. ":" .. c;
-end
-
---- @param cb fun(self: std.compiler.loc)
---- @return std.compiler.loc
-function node.lazy_loc(cb)
-	return { get = cb };
-end
---- @param row integer
---- @param col integer
---- @return std.compiler.loc
-function node.loc(row, col)
-	return { row = row, col = col };
-end
-
 --- @param arr node.stm[]
 function node.body(arr)
 	return arr --[[@as node.body]];
