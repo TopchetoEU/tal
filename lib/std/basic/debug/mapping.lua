@@ -1,4 +1,7 @@
---- @type table<string, table<integer, std.compiler.loc>>
+local comp_err = require "std.compiler.comp_err"
+local err = require "std.err";
+local loc = require "std.err.loc";
+--- @type table<string, table<integer, std.err.loc>>
 local maps = {};
 
 local mapping = {};
@@ -15,7 +18,7 @@ function mapping.short_name(name)
 end
 
 --- @param name? string
---- @param loc? std.compiler.loc
+--- @param loc? std.err.loc
 --- @param msg string
 function mapping.err_stringify(name, loc, msg)
 	local parts = {};
@@ -24,8 +27,6 @@ function mapping.err_stringify(name, loc, msg)
 	end
 
 	if loc then
-		if loc.get then loc:get() end
-
 		if loc.row then
 			if #parts > 0 then table.insert(parts, ":") end
 			table.insert(parts, tostring(loc.row));
@@ -42,41 +43,41 @@ function mapping.err_stringify(name, loc, msg)
 	return table.concat(parts);
 end
 
---- @param err string
-function mapping.err_parse(err)
+--- @param e string
+function mapping.err_parse(e)
 	local i = 1;
 
-	if err:find "^%[" then return nil, nil, err end
+	if e:find "^%[" then return err:new(e) end
 
-	local name, name_l = err:match("^([^%[%]%:]+):()", i);
+	local name, name_l = e:match("^([^%[%]%:]+):()", i);
 	i = name_l or i;
 
-	local row, col, loc_i = err:match("^(%d+):(%d+):()", i);
+	local row, col, loc_i = e:match("^(%d+):(%d+):()", i);
 	if not row then
-		row, loc_i = err:match("^(%d+):()", i);
+		row, loc_i = e:match("^(%d+):()", i);
 	end
 	row = row and tonumber(row);
 	col = col and tonumber(col);
 	i = loc_i or i;
 
-	local msg = err:match("^ ?(.+)", i);
-
-	return "=" .. name, row and { row = row, col = col or 1 }, msg;
+	local msg = e:match("^ ?(.+)", i);
+	return comp_err:new(msg, row and loc.new(row, col or 1, name));
 end
 
 --- @param err string
---- @param fallback? table<integer, std.compiler.loc>
+--- @param fallback? table<integer, std.err.loc>
 function mapping.err_map(err, fallback)
-	local name, loc, msg = mapping.err_parse(err);
-	if not name then return msg end
+	local e = mapping.err_parse(err);
+	if e ~= comp_err then return e end
+	if not e.loc then return e end
 
-	local map = maps["@" .. name] or maps["=" .. name] or fallback;
+	local map = e.loc.fname and (maps["@" .. e.loc.fname] or maps["=" .. e.loc.fname]) or fallback;
 
-	if loc and map and map[loc.row] then
-		loc = map[loc.row];
+	if e.loc and map and map[e.loc.row] then
+		e.loc = map[e.loc.row];
 	end
 
-	return mapping.err_stringify(name, loc, msg);
+	return e;
 end
 
 --- @param name string
@@ -89,7 +90,7 @@ function mapping.map(name, line)
 	end
 end
 --- @param name string
---- @param map table<integer, std.compiler.loc>
+--- @param map table<integer, std.err.loc>
 function mapping.emit_map(name, map)
 	if maps[name] then return end
 	maps[name] = map;
