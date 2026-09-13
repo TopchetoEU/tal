@@ -55,7 +55,10 @@ end
 function c.strcmp(a, b)
 	return assert(tonumber(libc.strcmp(a, b)));
 end
-function c.strncmp(a, b, n)
+--- @param n integer
+--- @param n2? integer = n
+function c.strncmp(a, b, n, n2)
+	if n2 and n2 < n then n = n2 end
 	return assert(tonumber(libc.strncmp(a, b, n)));
 end
 function c.strchr(str, char)
