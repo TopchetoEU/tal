@@ -15,22 +15,22 @@ local comp_err = require "std.compiler.comp_err";
 --- @field labels table<string, node.label>
 
 local interop_funcs = {
-	[nodes.ops.POW] = syntax.parse_exp("math.pow", nil, true),
+	[nodes.ops.POW] = syntax.parse_exp("math.pow", "=<internal[^]>", true),
 
-	[nodes.ops.B_NEG] = syntax.parse_exp("bit.bnot", nil, true),
+	[nodes.ops.B_NEG] = syntax.parse_exp("bit.bnot", "=<internal[~]>", true),
 	[nodes.ops.IDIV] = syntax.parse_exp([[function (a, b)
 		return math.floor(a / b);
-	end]], nil, true), -- TODO: to be done
+	end]], "=<internal>", true), -- TODO: to be done
 
-	[nodes.ops.B_SHL] = syntax.parse_exp("bit.lshift", nil, true),
-	[nodes.ops.B_SHR] = syntax.parse_exp("bit.rshift", nil, true),
-	[nodes.ops.B_AND] = syntax.parse_exp("bit.band", nil, true),
-	[nodes.ops.B_OR] = syntax.parse_exp("bit.bor", nil, true),
-	[nodes.ops.B_XOR] = syntax.parse_exp("bit.bxor", nil, true),
+	[nodes.ops.B_SHL] = syntax.parse_exp("bit.lshift", "=<internal[<<]>", true),
+	[nodes.ops.B_SHR] = syntax.parse_exp("bit.rshift", "=<internal[>>]>", true),
+	[nodes.ops.B_AND] = syntax.parse_exp("bit.band", "=<internal[&]>", true),
+	[nodes.ops.B_OR] = syntax.parse_exp("bit.bor", "=<internal[|]>", true),
+	[nodes.ops.B_XOR] = syntax.parse_exp("bit.bxor", "=<internal[~]>", true),
 };
 local polyfills = {
-	getfenv = syntax.parse_exp("getfenv", nil, true),
-	setfenv = syntax.parse_exp("setfenv", nil, true),
+	getfenv = syntax.parse_exp("getfenv", "=<internal.getfenv>", true),
+	setfenv = syntax.parse_exp("setfenv", "=<internal.setfenv>", true),
 };
 
 --- @param self compiler.downgrade.ctx

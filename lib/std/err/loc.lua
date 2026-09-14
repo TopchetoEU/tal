@@ -8,7 +8,11 @@ loc.__metatable = "std.err.loc";
 
 function loc:__tostring()
 	local res = {};
-	table.insert(res, self.fname);
+	if self.fname and (self.fname:sub(1, 1) == "@" or self.fname:sub(1, 1) == "=") then
+		table.insert(res, self.fname:sub(2));
+	elseif self.fname then
+		table.insert(res, self.fname);
+	end
 	table.insert(res, self.row);
 	table.insert(res, self.col);
 	return table.concat(res, ":");
