@@ -205,7 +205,7 @@ local function stringify_int (obj, n, colors, passed, hit, max_line)
 
 		return res, res_len;
 	elseif kind == "string" then
-		local escaped, n = obj:gsub("[\x01-\x1F\"\\\x7F\xFF]", str_escape_codes);
+		local escaped, n = obj:gsub("[%z\x01-\x1F\"\\\x7F\xFF]", str_escape_codes);
 		if n > 4 and n > #obj / 80 then
 			local marker = obj:match "%](%=*)%]";
 
