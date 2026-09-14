@@ -4,15 +4,18 @@
 -- - The code, as low level as it may be, is concise, for what it does
 
 local io = require "std.io";
-local http = require "std.http";
 local loop = require "std.loop";
-local respond = require "std.http.respond";
 local path = require "std.path";
-local url = require "std.http.url";
+
 local fs = require "std.os.fs";
-local headers = require "std.http.headers";
 local net = require "std.os.net";
 local signal = require "std.os.signal";
+
+local http = require "std.proto.http";
+local respond = require "std.proto.http.respond";
+local headers = require "std.proto.http.headers";
+
+local url = require "std.path.url";
 
 local function send_dir(conn, get_path, file_path)
 	local res_f = http.write_res(conn, {

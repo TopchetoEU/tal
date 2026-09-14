@@ -1,12 +1,11 @@
-local url = require "std.http.url";
+local url = require "std.path.url";
 local net = require "std.os.net";
-local headers = require "std.http.headers";
-local http = require "std.http";
+local headers = require "std.proto.http.headers";
+local http = require "std.proto.http";
 local ssl = require "std.pipes.ssl";
 local sig = require "std.sig";
-local ffi = require "nat.ffi"
 
---- @param arg { url: string, method?: string, headers?: std.http.headers, body?: string | std.str | fun(): string? }
+--- @param arg { url: string, method?: string, headers?: std.proto.http.headers, body?: string | std.str | fun(): string? }
 return function (arg)
 	local parsed = url.parse(arg.url);
 	if not parsed.scheme then sig.error("arg.url", "scheme must be specified") end

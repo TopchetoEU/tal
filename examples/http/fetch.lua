@@ -1,5 +1,5 @@
-local headers = require "std.http.headers";
-local fetch = require "std.http.fetch";
+local headers = require "std.proto.http.headers";
+local fetch = require "std.proto.http.fetch";
 local io = require "std.io";
 local argp = require "std.argp";
 

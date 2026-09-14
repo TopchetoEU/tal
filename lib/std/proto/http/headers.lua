@@ -1,13 +1,13 @@
---- @class std.http.headers
+--- @class std.proto.http.headers
 --- @field _map table<string, string[]>
 local headers = {};
 headers.__index = headers;
-headers.__metatable = "std.http.headers";
+headers.__metatable = "std.proto.http.headers";
 
---- @return (fun(self: std.http.headers, prev?: string): string?, ...: string?), std.http.headers
+--- @return (fun(self: std.proto.http.headers, prev?: string): string?, ...: string?), std.proto.http.headers
 function headers:keys()
 	--- @param prev string?
-	--- @param self std.http.headers
+	--- @param self std.proto.http.headers
 	return function (self, prev)
 		return (next(self._map, prev));
 	end, self;

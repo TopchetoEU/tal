@@ -1,11 +1,11 @@
-local http = require "std.http";
-local headers = require "std.http.headers";
+local http = require "std.proto.http";
+local headers = require "std.proto.http.headers";
 local ffi = require "nat.ffi";
 
 --- @param conn std.str
 --- @param code? integer
---- @param hdrs? std.http.headers
---- @param req_hdrs? std.http.headers
+--- @param hdrs? std.proto.http.headers
+--- @param req_hdrs? std.proto.http.headers
 --- @param body? string | std.str | fun(): string?
 return function (conn, code, hdrs, body, req_hdrs)
 	hdrs = hdrs or headers.new();

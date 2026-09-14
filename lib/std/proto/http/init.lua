@@ -1,4 +1,4 @@
-local headers = require "std.http.headers";
+local headers = require "std.proto.http.headers";
 local buffer = require "string.buffer";
 local ffi = require "ffi";
 local str = require "std.str";
@@ -77,15 +77,15 @@ local codes_msgs = {
 	[511] = "Network Authentication Required",
 };
 
---- @class std.http.req
+--- @class std.proto.http.req
 --- @field method string
 --- @field path string
---- @field headers std.http.headers
+--- @field headers std.proto.http.headers
 --- @field body? std.str
 
---- @class std.http.res
+--- @class std.proto.http.res
 --- @field code integer
---- @field headers std.http.headers
+--- @field headers std.proto.http.headers
 --- @field body? std.str
 
 local http = {};
@@ -118,7 +118,7 @@ function http.read_headers(conn)
 	end
 end
 --- @param conn std.str
---- @param hdr std.http.headers
+--- @param hdr std.proto.http.headers
 --- @return std.str?
 function http.read_body(conn, hdr)
 	local len = tonumber((hdr:get "content-length"));
@@ -195,7 +195,7 @@ function http.read_body(conn, hdr)
 	end
 end
 --- @param conn std.str
---- @return std.http.req? head
+--- @return std.proto.http.req? head
 function http.read_req(conn)
 	local line = conn:readlineto(buffer.new()):get();
 	if #line == 0 then return nil end
@@ -210,7 +210,7 @@ function http.read_req(conn)
 	return { method = type, path = path, headers = hdr, body = body };
 end
 --- @param conn std.str
---- @return std.http.res? code
+--- @return std.proto.http.res? code
 function http.read_res(conn)
 	local line = conn:readlineto(buffer.new()):get();
 	if #line == 0 then return nil end
@@ -230,7 +230,7 @@ function http.read_res(conn)
 end
 
 --- @param conn std.str
---- @param hdr std.http.headers
+--- @param hdr std.proto.http.headers
 function http.write_headers(conn, hdr)
 	local txt = conn:to_text();
 	for key in hdr:keys() do
@@ -242,10 +242,10 @@ function http.write_headers(conn, hdr)
 	txt:write "\r\n";
 end
 --- @param conn std.str
---- @param hdr std.http.headers
+--- @param hdr std.proto.http.headers
 --- @param body? false
 --- @return std.str?
---- @overload fun(conn: std.str, hdr: std.http.headers, body: true): std.str
+--- @overload fun(conn: std.str, hdr: std.proto.http.headers, body: true): std.str
 function http.write_body(conn, hdr, body)
 	if not body then return nil end
 
@@ -303,10 +303,10 @@ function http.write_body(conn, hdr, body)
 	return self:setwbuff(nil, str.chunksize);
 end
 --- @param conn std.str
---- @param req std.http.req
+--- @param req std.proto.http.req
 --- @param body? boolean
 --- @return std.str?
---- @overload fun(conn: std.str, req: std.http.req, body: true): std.str
+--- @overload fun(conn: std.str, req: std.proto.http.req, body: true): std.str
 function http.write_req(conn, req, body)
 	req.body = http.write_body(conn, req.headers, body);
 
@@ -316,10 +316,10 @@ function http.write_req(conn, req, body)
 	return req.body;
 end
 --- @param conn std.str
---- @param res std.http.res
+--- @param res std.proto.http.res
 --- @param body? boolean
 --- @return std.str?
---- @overload fun(conn: std.str, res: std.http.res, body: true): std.str
+--- @overload fun(conn: std.str, res: std.proto.http.res, body: true): std.str
 function http.write_res(conn, res, body)
 	res.body = http.write_body(conn, res.headers, body);
 
