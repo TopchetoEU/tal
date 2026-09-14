@@ -68,10 +68,22 @@ function strtxt:lines(fmt, close)
 		end
 	end
 end
---- @param src std.strtxt
+--- @param src std.strtxt | std.str | string | string.buffer | fun(): string?
 --- @param close? boolean = false
 function strtxt:pipe(src, close)
-	self.str:pipe(src.str, close);
+	if is(src, "string") or is(src, "buffer") then
+		--- @cast src string
+		self:write(src);
+	elseif type(src) == "function" then
+		for part in src do
+			self:write(part);
+		end
+	elseif is(src, "std.strtxt") then
+		self.str:pipe(src.str, close);
+	else
+		self.str:pipe(src --[[@as std.str]], close);
+	end
+
 	return self;
 end
 --- @param mode vbuf

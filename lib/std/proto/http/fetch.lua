@@ -43,20 +43,7 @@ return function (arg)
 
 	if arg.body then
 		--- @cast body_out std.str
-
-		local txt_out = body_out:to_text();
-
-		if type(arg.body) == "string" then
-			txt_out:write(arg.body);
-		elseif type(arg.body) == "function" then
-			for el in arg.body do
-				txt_out:write(el);
-			end
-		else
-			body_out:pipe(arg.body);
-		end
-
-		body_out:close();
+		body_out:to_text():pipe(arg.body):close();
 	end
 
 	local res = assert(http.read_res(conn), "no response");

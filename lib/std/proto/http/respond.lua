@@ -43,23 +43,7 @@ return function (conn, code, hdrs, body, req_hdrs)
 
 	local body_out = http.write_res(conn, { code = code or 200, headers = hdrs }, body ~= nil);
 
-	if body then
-		--- @cast body_out std.str
-		local txt_out = body_out:to_text();
-
-		if type(body) == "string" or getmetatable(body) == "buffer" then
-			txt_out:write(body);
-		elseif type(body) == "function" then
-			for el in body do
-				txt_out:write(el);
-			end
-		else
-			body_out:pipe(body);
-			body:close();
-		end
-
-		body_out:close();
-	end
+	if body_out and body then body_out:to_text():pipe(body):close() end
 
 	conn:close();
 	return true;
