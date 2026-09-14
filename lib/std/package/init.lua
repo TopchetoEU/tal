@@ -9,6 +9,7 @@ local package = {
 	path = package.path,
 	cpath = package.cpath,
 	loaded = package.loaded,
+	weakloaded = setmetatable({}, { __index = package.loaded, __mode = "v" }),
 	preload = package.preload,
 	pathsep = pkgpath.sep,
 	pathrep = pkgpath.rep,
@@ -21,6 +22,8 @@ local package = {
 	--- @type array<string>
 	croots = table.mk {},
 	env = getfenv(0),
+
+	strongtag = require "std.package.strongtag",
 };
 
 --- @param name string
@@ -90,11 +93,15 @@ end
 
 --- @param name string
 function package.require(name)
-	if package.loaded[name] then return package.loaded[name] end
+	if package.weakloaded[name] then return package.weakloaded[name] end
 
 	local res, data = package.load(name);
 	if res then
-		package.loaded[name] = res;
+		if type(res) == "table" and res[package.strongtag] then
+			package.loaded[name] = res;
+		else
+			package.weakloaded[name] = res;
+		end
 		return res, data;
 	else
 		return error(data, 0);
@@ -123,6 +130,5 @@ if jit.os == "Windows" then
 else
 	package.cpath = package.overridepath(package.cpath, ";;@/lib?.so");
 end
-
 
 return package;
