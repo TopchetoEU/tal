@@ -55,7 +55,7 @@ ffi.cdef [[
 
 local ssl_field = table.field();
 
-local ssl = {};
+local ssl = { [require "std.package.strongtag"] = true };
 
 --- @class nat.libssl.ssl_ctx: ffi.cdata*
 local ssl_ctx = {};

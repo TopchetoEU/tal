@@ -81,7 +81,7 @@ ffi.cdef [[
 	void zcfree(void *opaque, void *ptr);
 ]];
 
-local zlib = {};
+local zlib = { [require "std.package.strongtag"] = true };
 
 --- @class nat.libz.stream: ffi.cdata*
 ---

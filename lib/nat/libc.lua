@@ -19,7 +19,7 @@ const char *strrchr(const char *str, char c);
 const char *memrchr(const char *str, char c, size_t n);
 ]];
 
-local c = {};
+local c = { [require "std.package.strongtag"] = true };
 
 c.NULL = ffi.cast("void*", 0);
 

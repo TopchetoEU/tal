@@ -1,11 +1,11 @@
 local sig = require "std.sig";
 local process_args = require "impl.process_args";
 local libyaooi = require "nat.libyaooi";
-local yo_fd  = require "impl.libyaooi.yo_fd";
-local yo_dir  = require "impl.libyaooi.yo_dir";
-local yo_iterenv  = require "impl.libyaooi.yo_iterenv";
-local yo_proc  = require "impl.libyaooi.yo_proc";
-local yo_server  = require "impl.libyaooi.yo_server";
+local yo_fd = require "impl.libyaooi.yo_fd";
+local yo_dir = require "impl.libyaooi.yo_dir";
+local yo_iterenv = require "impl.libyaooi.yo_iterenv";
+local yo_proc = require "impl.libyaooi.yo_proc";
+local yo_server = require "impl.libyaooi.yo_server";
 
 --- @class impl.libyaooi.impl: impl
 --- @field queue nat.libyaooi.queue

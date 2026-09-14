@@ -5,7 +5,7 @@ local err = require "std.err";
 local objects = require "nat.utils.objects";
 local sig = require "std.sig";
 
-local yaooi = {};
+local yaooi = { [require "std.package.strongtag"] = true };
 
 local libyaooi = ffi.load "yaooi";
 ffi.cdef [[
