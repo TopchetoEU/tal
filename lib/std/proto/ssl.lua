@@ -4,7 +4,7 @@ local cond = require "std.sync.cond";
 local str = require "std.str";
 local err = require "std.err";
 
---- @class std.io.ssl_opts
+--- @class std.proto.ssl_opts
 --- @field backend std.str The stream over which to do TLS
 --- @field host? string For clients, name of the server we are connecting to
 --- @field owned? boolean If set to true, closing the created stream will close the backend too
@@ -12,7 +12,7 @@ local err = require "std.err";
 --- @field cert? string Certificate to use. Only for servers
 --- @field key? string Private key to use. Only for servers
 
---- @class std.pipes.ssl: std.str
+--- @class std.proto.ssl: std.str
 --- @field hnd nat.libssl.ssl
 --- @field bin nat.libssl.bio
 --- @field bout nat.libssl.bio
@@ -25,9 +25,9 @@ local err = require "std.err";
 --- @field cond std.sync.cond
 local ssl_str = setmetatable({}, str);
 ssl_str.__index = ssl_str;
-ssl_str.__metatable = "std.pipes.ssl";
+ssl_str.__metatable = "std.proto.ssl";
 
-local function _doread(self)
+local function doread(self)
 	if self.reading then
 		-- A bit shitty, makes sure that we block on the current read, as if we did it
 		self.cond:wait();
@@ -53,7 +53,7 @@ local function _doread(self)
 	self.cond:signal(true);
 	return true;
 end
-local function _dowrite(self)
+local function dowrite(self)
 	if self.writting then
 		self.cond:wait();
 		return false;
@@ -96,7 +96,7 @@ function ssl_str:_read(ptr, n)
 		elseif err_code == 5 then
 			error(err.io);
 		elseif err_code == 2 then
-			if _dowrite(self) then _doread(self) end
+			if dowrite(self) then doread(self) end
 		elseif err_code ~= 3 then
 			error(err.io:new(libssl.err_msg(code)));
 		end
@@ -108,7 +108,7 @@ function ssl_str:_write(ptr, n)
 	while true do
 		local res_n, code = self.hnd:write(n, ptr);
 		if res_n then
-			_dowrite(self);
+			dowrite(self);
 			return res_n;
 		end
 
@@ -119,7 +119,7 @@ function ssl_str:_write(ptr, n)
 		elseif err_code == 5 then
 			return 0;
 		elseif err_code == 2 then
-			if _dowrite(self) then _doread(self) end
+			if dowrite(self) then doread(self) end
 		elseif err_code ~= 3 then
 			error(err.io:new(libssl.err_msg(code)));
 		end
@@ -127,7 +127,7 @@ function ssl_str:_write(ptr, n)
 end
 function ssl_str:_flush()
 	if not self.hnd then error(err.closed) end
-	_dowrite(self);
+	dowrite(self);
 end
 function ssl_str:_close()
 	if not self.str then return end
@@ -136,7 +136,7 @@ function ssl_str:_close()
 	self.str = nil;
 end
 
---- @param opts std.io.ssl_opts
+--- @param opts std.proto.ssl_opts
 function ssl_str.new(opts)
 	local owned = opts.owned or false;
 	local role = opts.role or "client";
