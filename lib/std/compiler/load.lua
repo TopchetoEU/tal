@@ -15,6 +15,7 @@ local load_raw = load;
 --- @param env? table
 --- @param no_map? boolean
 return function (chunk, name, mode, env, no_map, force_no_raw)
+	env = env or getfenv(2);
 	-- if not force_no_raw then return load_raw(chunk, name, mode, env, no_map) end
 
 	if type(chunk) == "function" then
@@ -29,7 +30,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 
 	if name == nil then name = chunk end
 	if mode == "b" or mode == "bt" then
-		local fun, err = load_raw(chunk, name, "b", env or getfenv(2));
+		local fun, err = load_raw(chunk, name, "b", env);
 		if fun then
 			return fun;
 		elseif mode == "b" then
@@ -42,7 +43,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 		ast = downgrade.walk_body(ast);
 		local str, map = stringify.all(ast);
 
-		local func, e = load_raw(str, name, "t", env or getfenv(2));
+		local func, e = load_raw(str, name, "t", env);
 		if not func then err.throw(mapping.err_map(e --[[@as string]], map)) end
 
 		if not no_map then
