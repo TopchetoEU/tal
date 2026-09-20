@@ -2,7 +2,7 @@ local url = require "std.path.url";
 local net = require "std.os.net";
 local headers = require "std.proto.http.headers";
 local http = require "std.proto.http";
-local ssl = require "std.pipes.ssl";
+local ssl = require "std.proto.ssl";
 local sig = require "std.sig";
 
 --- @param arg { url: string, method?: string, headers?: std.proto.http.headers, body?: string | std.str | fun(): string? }

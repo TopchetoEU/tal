@@ -1,12 +1,13 @@
-local ssl = require "std.pipes.ssl";
 local io = require "std.io";
 local loop = require "std.loop";
-local pipe = require "std.sync.pipe";
-local utils = require "examples.ssl.utils";
-local net = require "std.os.net";
-local json = require "std.fmt.json";
 local argp = require "std.argp";
+local json = require "std.fmt.json";
+local pipe = require "std.sync.pipe";
+local ssl = require "std.proto.ssl";
+local net = require "std.os.net";
 local signal = require "std.os.signal";
+
+local utils = require "examples.ssl.utils";
 
 return function (...)
 	signal.on "INT";
