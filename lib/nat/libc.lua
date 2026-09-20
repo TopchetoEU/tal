@@ -63,22 +63,23 @@ function c.strncmp(a, b, n, n2)
 end
 function c.strchr(str, char)
 	local ptr = libc.strchr(str, char);
-	if ptr == ffi.cast("void*", 0) then return nil end
+	if ptr == c.NULL then return nil end
 	return assert(tonumber(ptr - str));
 end
 function c.strnchr(str, char, n)
-	local ptr = libc.memchr(str, char, n);
-	if ptr == ffi.cast("void*", 0) then return nil end
-	return assert(tonumber(ptr - str));
+	local pstr = ffi.cast("const char *", str);
+	local ptr = libc.memchr(pstr, char, n);
+	if ptr == c.NULL then return nil end
+	return assert(tonumber(ptr - pstr));
 end
 function c.strrchr(str, char)
 	local ptr = libc.strrchr(str, char);
-	if ptr == ffi.cast("void*", 0) then return nil end
+	if ptr == c.NULL then return nil end
 	return assert(tonumber(ptr - str));
 end
 function c.strnrchr(str, char, n)
 	local ptr = libc.memrchr(str, char, n);
-	if ptr == ffi.cast("void*", 0) then return nil end
+	if ptr == c.NULL then return nil end
 	return assert(tonumber(ptr - str));
 end
 
