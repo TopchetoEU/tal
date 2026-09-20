@@ -4,17 +4,17 @@ local pkgpath = require "std.package.path";
 local path = require "std.path";
 local table = require "std.basic.table";
 local debug = require "std.basic.debug";
-local objects = require "nat.utils.objects"
+local objects = require "nat.utils.objects";
+
 --- @class debug.registry
 --- @field _FFI_PATH? string
 --- @field _FFI_APATH? string
 local reg = debug.registry;
 
-local ffi_over = ffi;
+local ffi_load = ffi.load;
 
-local old_load = ffi.load;
-
-function ffi_over.load(name, glob)
+---@diagnostic disable-next-line: duplicate-set-field
+function ffi.load(name, glob)
 	if ffi.static then
 		for i = 1, #ffi.static do
 			if ffi.static[i] == name then return ffi.C end
@@ -22,16 +22,16 @@ function ffi_over.load(name, glob)
 	end
 
 	local res, err = pkgpath.search(name, ffi.path, nil, nil, ffi.roots, function (path)
-		local ok, res = pcall(old_load, path, glob);
+		local ok, res = pcall(ffi_load, path, glob);
 		if not ok then return nil, "\t" .. res --[[@as string]] end
 		return res;
 	end);
 
 	if not res then
 		if not err then
-			return error("failed to load " .. name);
+			error("failed to load " .. name);
 		else
-			return error("failed to load " .. name .. ":\n" .. err);
+			error("failed to load " .. name .. ":\n" .. err);
 		end
 	else
 		return res;
