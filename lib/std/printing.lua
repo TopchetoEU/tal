@@ -89,6 +89,23 @@ local function stringify_int (obj, n, colors, passed, hit, max_line)
 	end
 
 	if kind == "table" then
+		local prefix = "";
+		local prefix_n = 0;
+
+		local rawmeta = debug.getmetatable(obj);
+		local meta = getmetatable(obj);
+
+		if rawmeta and rawmeta.__tostring then
+			if type(meta) == "string" then
+				prefix = prefix .. color "func" (meta) .. " ";
+				prefix_n = prefix_n + #meta + 1;
+			end
+
+			local str = tostring(obj);
+
+			return prefix .. str, prefix_n + #str;
+		end
+
 		if passed[obj] then
 			hit[obj] = true;
 			return color "ref" ("<circular " .. passed[obj] .. ">");
@@ -144,24 +161,15 @@ local function stringify_int (obj, n, colors, passed, hit, max_line)
 			end
 		end
 
-		local meta = getmetatable(obj);
 		if meta ~= nil and type(meta) ~= "string" then
 			local meta_str, meta_len = stringify_int(meta, n .. "    ", colors, passed, hit, max_line - 4);
 			res_len = res_len + 6 + 3 + meta_len + 1;
 			table.insert(parts, color "meta" ("<meta>") .. " = " .. meta_str .. ",");
 		end
 
-		local prefix = "";
-		local prefix_n = 0;
-
 		if hit[obj] ~= nil then
 			prefix = prefix .. color "ref" ("<ref " .. passed[obj] .. "> ");
 			prefix_n = prefix_n + 4 + #tostring(hit[obj]) + 2;
-		end
-
-		if type(meta) == "string" then
-			prefix = prefix .. color "func" (meta) .. " ";
-			prefix_n = prefix_n + #meta + 1;
 		end
 
 		if #parts == 0 then
@@ -281,9 +289,9 @@ end
 function printing.eprint(e, reason, write)
 	local res = {};
 
-	table.insert(res, "Unhandled error ");
+	table.insert(res, "Unhandled ");
 	if reason then table.insert(res, ("(" .. reason .. ") ")) end
-	if type(e) == "string" or is(e, "err") then
+	if type(e) == "string" or debug.getmetatable(e) and debug.getmetatable(e).__tostring then
 		table.insert(res, tostring(e));
 	else
 		table.insert(res, (printing.stringify(e)));
