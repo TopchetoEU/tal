@@ -57,7 +57,7 @@ function cli.repl(prefix, eot)
 				end
 			until done;
 
-			if e ~= nil then error(e, 0) end
+			if e ~= nil then error(errors.aggr(e), 0) end
 
 			return true;
 		end);
