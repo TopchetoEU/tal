@@ -1,7 +1,7 @@
 local impl = require "impl";
-local err = require "std.err";
+local errors = require "std.errors";
 local debug = require "std.basic.debug";
-local traced = require "std.err.traced";
+local traced_err = require "std.errors.traced_err";
 require "std.basic.coroutine";
 
 local loop = {};
@@ -32,7 +32,7 @@ local function process_handle(next, timeout, cb, ...)
 		-- An error from another thread, completely unrelated to ours could've thrown this.
 		-- This causes seemingly innocent IO operations to vomit out other threads' errors.
 		-- TODO: invent an 'elegant' way to avoid printing the IO op's stack trace
-		if not ok then err.throw(e) end
+		if not ok then errors.throw(e) end
 	end
 
 	return next();
@@ -81,9 +81,9 @@ end
 --- @return ...
 local function await_fin(status, ...)
 	if status == nil then
-		err.throw(...);
+		errors.throw(...);
 	elseif status == false then
-		err.throw(err.never:new "loop ended before main thread got invoked");
+		errors.throw(errors.never);
 	else
 		return ...;
 	end
@@ -113,7 +113,7 @@ end
 local function sync_ret_handle(ok, ...)
 	cancels[coroutine.running()] = nil;
 
-	if not ok then err.throw(...) end
+	if not ok then errors.throw(...) end
 	return ...;
 end
 
@@ -130,9 +130,9 @@ function loop.fork(main, ...)
 	local fork_trace = debug.traceback(nil, 2);
 
 	local th = coroutine.create(function (...)
-		local ok, e = traced.spcall(...);
+		local ok, err = errors.spcall(...);
 		if not ok then
-			err.throw(traced:new(e, "fork " .. fork_trace));
+			err.throw(traced_err.new(err, "fork", fork_trace));
 		end
 	end);
 

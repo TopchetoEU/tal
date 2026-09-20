@@ -1,6 +1,6 @@
 local ffi = require "ffi";
 local libc = require "nat.libc";
-local err = require "std.err";
+local errors = require "std.errors";
 
 local libz = ffi.load "z";
 ffi.cdef [[
@@ -99,13 +99,13 @@ local zlib = { [require "std.package.strongtag"] = true };
 --- @field zfree function
 
 local function zassert(code)
-	if code == libz.Z_ERRNO then return error(err.io:new "syscall error") end
-	if code == libz.Z_STREAM_ERROR then return error(err.badarg) end
-	if code == libz.Z_DATA_ERROR then return error(err.io) end
-	if code == libz.Z_MEM_ERROR then return error(err.nomem) end
-	if code == libz.Z_BUF_ERROR then return error(err.io:new "buffer exceeded") end
-	if code == libz.Z_VERSION_ERROR then return error(err.env:new "invalid zlib version") end
-	if code ~= libz.Z_OK then return error(err.env:new "unknown zlib error") end
+	if code == libz.Z_ERRNO then return error "syscall error" end
+	if code == libz.Z_STREAM_ERROR then return error "invalid parameters or state" end
+	if code == libz.Z_DATA_ERROR then return error "invalid data" end
+	if code == libz.Z_MEM_ERROR then return error(errors.nomem) end
+	if code == libz.Z_BUF_ERROR then return error "out of buffer room" end
+	if code == libz.Z_VERSION_ERROR then return error "invalid zlib version" end
+	if code ~= libz.Z_OK then return error "unknown zlib error" end
 
 	return code;
 end

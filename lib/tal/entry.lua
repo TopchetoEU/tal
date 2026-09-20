@@ -21,10 +21,9 @@ return function (entry_mod, ...)
 	-- setfenv(0, _G);
 	setfenv(1, env);
 
-	local err = require "std.err";
-	local traced = require "std.err.traced";
+	local errors = require "std.errors";
 
-	local ok, e = traced.spcall(function (...)
+	local ok, e = errors.spcall(function (...)
 		local package = require "std.package";
 		require = package.require;
 		package.env = env;
@@ -52,13 +51,13 @@ return function (entry_mod, ...)
 		end
 
 		local ok, e = loop.run();
-		if not ok then err.throw(e) end
+		if not ok then errors.throw(e) end
 
 		-- Run one more time to collect __gc tables
 		collectgarbage();
 
 		local ok, e = loop.run();
-		if not ok then err.throw(e) end
+		if not ok then errors.throw(e) end
 	end, ...);
 
 	if not ok then

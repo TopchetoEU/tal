@@ -1,7 +1,6 @@
-local comp_err = require "std.compiler.comp_err"
-local err = require "std.err";
-local loc = require "std.err.loc";
---- @type table<string, table<integer, std.err.loc>>
+local syntax_err = require "std.errors.syntax_err";
+local loc = require "std.errors.loc";
+--- @type table<string, table<integer, std.errors.loc>>
 local maps = {};
 
 local mapping = {};
@@ -18,7 +17,7 @@ function mapping.short_name(name)
 end
 
 --- @param name? string
---- @param loc? std.err.loc
+--- @param loc? std.errors.loc
 --- @param msg string
 function mapping.err_stringify(name, loc, msg)
 	local parts = {};
@@ -47,7 +46,7 @@ end
 function mapping.err_parse(e)
 	local i = 1;
 
-	if e:find "^%[" then return err:new(e) end
+	if e:find "^%[" then return e end
 
 	local name, name_l = e:match("^([^%[%]%:]+):()", i);
 	i = name_l or i;
@@ -61,14 +60,14 @@ function mapping.err_parse(e)
 	i = loc_i or i;
 
 	local msg = e:match("^ ?(.+)", i);
-	return comp_err:new(msg, row and loc.new(row, col or 1, name));
+	return syntax_err.new(msg, row and loc.new(row, col or 1, name));
 end
 
 --- @param err string
---- @param fallback? table<integer, std.err.loc>
+--- @param fallback? table<integer, std.errors.loc>
 function mapping.err_map(err, fallback)
 	local e = mapping.err_parse(err);
-	if e ~= comp_err then return e end
+	if e ~= syntax_err then return e end
 	if not e.loc then return e end
 
 	local map = e.loc.fname and (maps["@" .. e.loc.fname] or maps["=" .. e.loc.fname]) or fallback;
@@ -90,7 +89,7 @@ function mapping.map(name, line)
 	end
 end
 --- @param name string
---- @param map table<integer, std.err.loc>
+--- @param map table<integer, std.errors.loc>
 function mapping.emit_map(name, map)
 	if maps[name] then return end
 	maps[name] = map;

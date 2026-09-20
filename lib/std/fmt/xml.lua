@@ -1,5 +1,4 @@
 local sig = require "std.sig";
-local err = require "std.err";
 
 --- @alias xml_node_raw { tag: string, attribs: { [string]: string }, [integer]: xml_element }
 --- @alias xml_element string | std.fmt.xml_node
@@ -150,7 +149,7 @@ function xml_node:query(name)
 	if #res == 1 then
 		return res[1];
 	else
-		error("no single element with the query found", 2);
+		error "no single element with the query found";
 	end
 end
 
@@ -599,7 +598,7 @@ local function parse(raw, settings)
 		elseif part.type == "small" then
 			curr_node[#curr_node + 1] = xml_node.new { tag = part.tag, attribs = part.attribs };
 		else
-			error(err.never);
+			error(errors.never);
 		end
 	end
 

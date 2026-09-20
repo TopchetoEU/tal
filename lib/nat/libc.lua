@@ -1,5 +1,5 @@
 local ffi = require "nat.ffi";
-local err = require "std.err";
+local errors = require "std.errors";
 
 local libc = ffi.C;
 ffi.cdef [[
@@ -30,7 +30,7 @@ function c.strlen(ptr, n)
 end
 function c.malloc(n)
 	local res = libc.malloc(n);
-	if res == ffi.cast("void*", 0) then error(err.nomem) end
+	if res == ffi.cast("void*", 0) then error(errors.nomem) end
 	return res;
 end
 function c.malloc_gc(n)

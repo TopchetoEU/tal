@@ -2,7 +2,7 @@ local headers = require "std.proto.http.headers";
 local buffer = require "string.buffer";
 local ffi = require "ffi";
 local str = require "std.str";
-local err = require "std.err";
+local errors = require "std.errors";
 
 local codes_msgs = {
 	[100] = "Continue",
@@ -102,7 +102,7 @@ function http.read_headers(conn)
 		if line == "\r\n" or line == "\n" then return res end
 
 		local key, val = line:match "^(.-): ?(.-)\r?\n$";
-		if not key then error(err.io:new "bad HTTP header") end
+		if not key then error "bad HTTP header" end
 		key = key:lower();
 
 		-- if val:find ", " then
@@ -140,16 +140,16 @@ function http.read_body(conn, hdr)
 		local self = setmetatable({ str = conn, done = false, _rstack = {} }, str);
 
 		function self:_readchunk()
-			if not self.str then error(err.closed) end
+			if not self.str then error(errors.closed) end
 			if self.done then return 0 end
 
 			local buff = buffer.new();
 
 			local line = self.str:readlineto(buff):get();
-			if #line == 0 then error(err.io:new "pipe broken") end
+			if #line == 0 then error(errors.eof) end
 
 			local slen = line:match "^([%da-zA-Z]+)\r?\n$";
-			if not slen then error(err.io:new "malformed chunked encoding") end
+			if not slen then error "malformed chunked encoding" end
 
 			local len = tonumber(slen, 16);
 			if len == 0 then
@@ -161,8 +161,8 @@ function http.read_body(conn, hdr)
 			self.str:fullread(ptr, len);
 
 			local line = self.str:readlineto(buff):get();
-			if #line == 0 then error(err.io:new "pipe broken") end
-			if not line:find "^\r?\n$" then error(err.io:new "malformed chunked encoding") end
+			if #line == 0 then error(errors.eof) end
+			if not line:find "^\r?\n$" then error "malformed chunked encoding" end
 
 			return len, ptr;
 		end
@@ -176,7 +176,7 @@ function http.read_body(conn, hdr)
 		local self = setmetatable({ str = conn, done = false, n = len }, str);
 
 		function self:_read(ptr, n)
-			if not self.str then error(err.closed) end
+			if not self.str then error(errors.closed) end
 			if n > self.n then n = self.n end
 			if self.n == 0 then return 0 end
 
@@ -201,7 +201,7 @@ function http.read_req(conn)
 	if #line == 0 then return nil end
 
 	local type, path, version = line:match "^(%S-) (%S-) HTTP/(%S-)\r?\n$";
-	if not type then error(err.io:new "bad HTTP request") end
+	if not type then error "bad HTTP request" end
 	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
 	local hdr = assert(http.read_headers(conn), "bad HTTP headers");
@@ -216,8 +216,8 @@ function http.read_res(conn)
 	if #line == 0 then return nil end
 
 	local version, code = line:match "^HTTP/(%S-) (%S-) (.-)\r?\n$";
-	if not version then return error(err.io:new "bad HTTP response") end
-	if version ~= "1.1" and version ~= "1.0" then error(err.io:new("bad HTTP version " .. version)) end
+	if not version then return error "bad HTTP response" end
+	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
 	local hdr = assert(http.read_headers(conn), "bad HTTP headers");
 	local body = http.read_body(conn, hdr);
@@ -254,7 +254,7 @@ function http.write_body(conn, hdr, body)
 		local self = setmetatable({ str = conn, n = assert(tonumber(len)) }, str);
 
 		function self:_write(ptr, n)
-			if not self.str then error(err.closed) end
+			if not self.str then error(errors.closed) end
 			if n > self.n then n = self.n end
 			if n == 0 then return 0 end
 
@@ -263,7 +263,7 @@ function http.write_body(conn, hdr, body)
 			return n;
 		end
 		function self:_flush()
-			if not self.str then error(err.closed) end
+			if not self.str then error(errors.closed) end
 			return self.str:flush();
 		end
 		function self:_close()
@@ -278,7 +278,7 @@ function http.write_body(conn, hdr, body)
 	local self = setmetatable({ str = conn }, str);
 
 	function self:_write(ptr, n)
-		if self.str == nil then error(err.closed) end
+		if self.str == nil then error(errors.closed) end
 		if n == 0 then return 0 end
 
 		local txt = self.str:to_text();

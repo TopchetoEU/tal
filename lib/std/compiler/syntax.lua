@@ -1,8 +1,7 @@
 local lex = require "std.compiler.lex";
 local node = require "std.compiler.node";
-local comp_err = require "std.compiler.comp_err";
-local err = require "std.err";
-local aggr = require "std.err.aggr";
+local errors = require "std.errors";
+local syntax_err = require "std.errors.syntax_err";
 
 local OP_AND = lex.operators.AND;
 local OP_OR = lex.operators.OR;
@@ -120,7 +119,7 @@ local un_op_map = {
 
 --- @class syntax.ctx
 --- @field toks std.compiler.token[]
---- @field errs std.compiler.err[]
+--- @field errs std.errors.syntax[]
 --- @field scope? syntax.scope
 --- @field glob syntax.scope
 
@@ -136,7 +135,7 @@ local function syntax_error(ctx, i, msg)
 		loc = ctx.toks[i].loc;
 	end
 
-	table.insert(ctx.errs, comp_err:new(msg, loc:get()));
+	table.insert(ctx.errs, syntax_err.new(msg, loc:get()));
 end
 
 local function syntax_loc(ctx, i)
@@ -217,7 +216,7 @@ local function finish_labels(ctx)
 		if target then
 			gt.target = target;
 		else
-			table.insert(ctx.errs, comp_err:new("no visible label '" .. gt_name .. "'", gt.loc:get()));
+			table.insert(ctx.errs, syntax_err.new("no visible label '" .. gt_name .. "'", gt.loc:get()));
 		end
 	end
 end
@@ -1215,7 +1214,7 @@ local function parse_stm_wrap(src, fname, strip)
 	finish_labels(src);
 	scope_end(src);
 
-	if #src.errs > 0 then err.throw(aggr:new(src.errs)) end
+	if #src.errs > 0 then errors.throw(errors.aggr(src.errs)) end
 	return res;
 end
 --- @param src syntax.ctx | string
@@ -1236,7 +1235,7 @@ local function parse_exp_wrap(src, fname, strip)
 		table.insert(src.errs, { msg = "unexpected syntax", src[i].loc });
 	end
 
-	if #src.errs > 0 then err.throw(aggr:new(src.errs)) end
+	if #src.errs > 0 then errors.throw(errors.aggr(src.errs)) end
 	return res;
 end
 

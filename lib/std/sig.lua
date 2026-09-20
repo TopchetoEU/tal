@@ -1,12 +1,10 @@
-local err = require "std.err";
-
 local sig = {};
 
---- @class std.sig.err: err
+--- @class std.sig.err
 --- @field fname string
 --- @field arg string | integer
 --- @field msg string
-sig.err = setmetatable({}, err);
+sig.err = {};
 sig.__index = sig.err;
 sig.__metatable = "std.sig.err";
 
@@ -32,19 +30,17 @@ end
 --- @param i integer | string
 --- @param msg string
 --- @param level? integer
-function sig.err:new(i, msg, level)
+function sig.err.new(i, msg, level)
 	local info = debug.getinfo((level or 1) + 1, "n");
 	return setmetatable({ arg = i, msg = msg, fname = info and info.name }, sig.err);
 end
-
-sig.parent = err.badarg;
 
 --- @param i integer | string
 --- @param msg string
 --- @param level? integer
 --- @return ...
 function sig.error(i, msg, level)
-	return error(sig.err:new(i, msg, (level or 1) + 1));
+	return error(sig.err.new(i, msg, (level or 1) + 1));
 end
 
 --- @param i integer | string

@@ -13,12 +13,12 @@
 
 local lex = require "std.compiler.lex";
 local ffi = require "nat.ffi";
-local err = require "std.err";
-local comp_err = require "std.compiler.comp_err";
-local loc = require "std.err.loc";
+local errors = require "std.errors";
+local syntax_err = require "std.errors.syntax_err";
+local loc = require "std.errors.loc";
 
 local function throw(i, msg)
-	error(comp_err:new(msg, loc.new(i)));
+	error(syntax_err.new(msg, loc.new(i)));
 end
 
 local parse_table;
@@ -124,8 +124,8 @@ local function parse_str(src, i, eol)
 	-- TODO: expose module with generic whitespace-skippers and literal parsers, instead of doing *this*
 	local ok, j, res = spcall(lex.parse_string, { lines = { 1 }, n = i, src = ffi.cast("char*", src) }, i - 1);
 	if not ok then
-		local e = err.find(j, comp_err);
-		if e then throw(i, e.msg or "") end
+		local e = errors.firstof(j, "std.errors.syntax");
+		if e then throw(i, e.msg) end
 		error(j);
 	end
 
@@ -156,8 +156,8 @@ local function parse_num(src, i, eol)
 	-- TODO: expose module with generic whitespace-skippers and literal parsers, instead of doing *this*
 	local ok, j, kind, val = spcall(lex.parse_number, { lines = { 1 }, n = i, src = ffi.cast("char*", src) }, j - 1);
 	if not ok then
-		local e = err.find(j, comp_err);
-		if e then throw(i, e.msg or "") end
+		local e = errors.firstof(j, "std.errors.syntax");
+		if e then throw(i, e.msg) end
 		error(j);
 	end
 

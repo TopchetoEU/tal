@@ -4,7 +4,7 @@ local impl = require "impl";
 local collected = require "std.basic.table.collected";
 local str = require "std.str";
 local impl_str = require "std.os.fs.str";
-local err = require "std.err";
+local errors = require "std.errors";
 
 --- @class std.os.proc
 --- @field _fd impl.process
@@ -18,9 +18,9 @@ proc.__index = proc;
 proc.__metatable = "std.os.proc";
 
 
---- @class std.os.proc.err: err
+--- @class std.os.proc.err
 --- @field code integer
-proc.err = setmetatable({ parent = err.io }, err);
+proc.err = {};
 proc.err.__index = proc.err;
 proc.err.__metatable = "std.os.proc.err";
 
@@ -33,12 +33,12 @@ function proc.err:__tostring()
 end
 
 --- @param code integer
-function proc.err:new(code)
+function proc.err.new(code)
 	return setmetatable({ code = code }, proc.err);
 end
 
 function proc:wait()
-	if self._closed then error(err.closed) end
+	if self._closed then error(errors.closed) end
 
 	--- @type integer
 	local code = loop.sync_ret(self._fd:wait(coroutine.running()));
@@ -52,7 +52,7 @@ function proc:close()
 	if self._closed then return true end
 
 	local code = self:wait();
-	if code ~= 0 then error(proc.err:new(code)) end
+	if code ~= 0 then error(proc.err.new(code)) end
 
 	return true;
 end
@@ -61,11 +61,11 @@ function proc:to_stream()
 
 	local self = setmetatable({ _proc = self }, str);
 	function self:_read(ptr, n)
-		if not self._proc.stdout then error(err.notsupp) end
+		if not self._proc.stdout then error(errors.notsupp) end
 		return self._proc.stdout:read(ptr, n);
 	end
 	function self:_write(ptr, n)
-		if not self._proc.stdin then error(err.notsupp) end
+		if not self._proc.stdin then error(errors.notsupp) end
 		return self._proc.stdin:write(ptr, n);
 	end
 	function self:_flush()

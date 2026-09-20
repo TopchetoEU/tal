@@ -1,5 +1,4 @@
 local buffer = require "string.buffer";
-local err = require "std.err";
 
 ---@diagnostic disable: cast-local-type
 
@@ -105,7 +104,7 @@ local function raw_packet_reader(next_chunk)
 
 		repeat
 			local curr = read_byte();
-			if not curr then error(err.io:new "unexpected EOF") end
+			if not curr then error(errors.eof) end
 
 			len |= (curr & 0x7F) << n;
 			n += 7;
@@ -121,10 +120,10 @@ local function read_pk_connect(buff)
 	local i, name, version, flags, keepalive_max, client_id, will_topic, will_msg, username, password;
 
 	i, name = read_utf8(buff, 1);
-	if name ~= "MQIsdp" then error(err.io:new("protocol name is not 'MQIsdp', found '" .. name .. "' instead")) end
+	if name ~= "MQIsdp" then error("protocol name is not 'MQIsdp', found '" .. name .. "' instead") end
 
 	i, version = read_uint8(buff, i);
-	if version ~= 3 then error(err.io:new("protocol version is not '3', found '" .. version .. "' instead")) end
+	if version ~= 3 then error("protocol version is not '3', found '" .. version .. "' instead") end
 
 	i, flags = read_uint8(buff, i);
 

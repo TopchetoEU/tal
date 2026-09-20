@@ -2,8 +2,7 @@ local impl = require "impl";
 local loop = require "std.loop";
 local str = require "std.os.fs.str";
 local collected = require "std.basic.table.collected";
-local err = require "std.err";
-local aggr = require "std.err.aggr";
+local errors = require "std.errors";
 local net = {};
 
 --- @alias std.os.net.addrinfo_flags string
@@ -71,8 +70,8 @@ function net.nameconnect(name, port, protocol, flags)
 		table.insert(errs, res);
 	end
 
-	if #errs > 0 then error(aggr:new(errs)) end
-	error(err.net:new "unknown hostname");
+	if #errs > 0 then error(errors.aggr(errs)) end
+	error "unknown hostname";
 end
 --- @param name string
 --- @param flags std.os.net.addrinfo_flags

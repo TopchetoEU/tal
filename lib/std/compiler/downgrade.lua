@@ -1,7 +1,7 @@
 local nodes = require "std.compiler.node";
 local syntax = require "std.compiler.syntax";
 local walk = require "std.compiler.walk";
-local comp_err = require "std.compiler.comp_err";
+local syntax_err = require "std.errors.syntax_err";
 
 --- @class compiler.downgrade.continue
 --- @field used boolean
@@ -290,7 +290,7 @@ local walker = walk(
 			return node;
 		elseif node.type == "continue" then
 			if not ctx.scope.cont then
-				error(comp_err:new("continue used outside a loop", node.loc:get()));
+				error(syntax_err.new("continue used outside a loop", node.loc:get()));
 			end
 
 			ctx.scope.cont.used = true;

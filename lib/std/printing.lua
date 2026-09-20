@@ -1,6 +1,5 @@
 local debug = require "std.basic.debug";
-local err = require "std.err";
-local is = require "std.basic.is";
+local errors = require "std.errors";
 
 local default_colors = {
 	kw = "\x1B[34m",
@@ -245,7 +244,7 @@ local function stringify_int (obj, n, colors, passed, hit, max_line)
 	elseif kind == "cdata" then
 		return color "kw" (tostring(obj));
 	else
-		error(err.never);
+		error(errors.never);
 	end
 end
 

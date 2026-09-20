@@ -1,10 +1,10 @@
---- @class std.err.loc
+--- @class std.errors.loc
 --- @field row integer
 --- @field col? integer
 --- @field fname? string
 local loc = {};
 loc.__index = loc;
-loc.__metatable = "std.err.loc";
+loc.__metatable = "std.errors.loc";
 
 function loc:__tostring()
 	local res = {};

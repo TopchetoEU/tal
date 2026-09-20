@@ -42,7 +42,7 @@ local op_str_map = {
 --- @class stringify.ctx
 --- @field buff string.buffer
 --- @field lines integer
---- @field map table<integer, std.err.loc>
+--- @field map table<integer, std.errors.loc>
 local ctx_meta = {};
 ctx_meta.__index = ctx_meta;
 ctx_meta.__metatable = "compiler.stringify.ctx";
@@ -52,14 +52,14 @@ function ctx_meta:suffix(val)
 	self.buff:put(val);
 	return self;
 end
---- @param loc? std.compiler.loc_lazy | std.err.loc
+--- @param loc? std.compiler.loc_lazy | std.errors.loc
 --- @param val string
 function ctx_meta:emit(loc, val)
 	self.lines = self.lines + 1;
 	if loc and loc.get then
 		self.map[self.lines] = loc:get();
 	else
-		self.map[self.lines] = loc --[[@as std.err.loc]];
+		self.map[self.lines] = loc --[[@as std.errors.loc]];
 	end
 
 	if #self.buff == 0 then

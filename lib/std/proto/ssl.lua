@@ -2,7 +2,7 @@ local ffi = require "ffi";
 local libssl = require "nat.libssl";
 local cond = require "std.sync.cond";
 local str = require "std.str";
-local err = require "std.err";
+local errors = require "std.errors";
 
 --- @class std.proto.ssl_opts
 --- @field backend std.str The stream over which to do TLS
@@ -64,7 +64,7 @@ local function dowrite(self)
 	local buff = ffi.new "char[8192]";
 
 	while true do
-		if not self.str then error(err.closed) end
+		if not self.str then error(errors.closed) end
 
 		local n = self.bout:read(8192, buff);
 		if not n or n == 0 then break end
@@ -83,7 +83,7 @@ local function dowrite(self)
 end
 
 function ssl_str:_read(ptr, n)
-	if not self.hnd then error(err.closed) end
+	if not self.hnd then error(errors.closed) end
 
 	while true do
 		local curr_n, code = self.hnd:read(n, ptr);
@@ -94,16 +94,16 @@ function ssl_str:_read(ptr, n)
 		if err_code == 6 then
 			return 0;
 		elseif err_code == 5 then
-			error(err.io);
+			error(errors.io);
 		elseif err_code == 2 then
 			if dowrite(self) then doread(self) end
 		elseif err_code ~= 3 then
-			error(err.io:new(libssl.err_msg(code)));
+			error(libssl.err_msg(code));
 		end
 	end
 end
 function ssl_str:_write(ptr, n)
-	if not self.hnd then error(err.closed) end
+	if not self.hnd then error(errors.closed) end
 
 	while true do
 		local res_n, code = self.hnd:write(n, ptr);
@@ -115,18 +115,18 @@ function ssl_str:_write(ptr, n)
 		local err_code = self.hnd:get_error(0);
 
 		if err_code == 6 then
-			error(err.io:new "pipe broken");
+			error(errors.eof);
 		elseif err_code == 5 then
 			return 0;
 		elseif err_code == 2 then
 			if dowrite(self) then doread(self) end
 		elseif err_code ~= 3 then
-			error(err.io:new(libssl.err_msg(code)));
+			error(libssl.err_msg(code));
 		end
 	end
 end
 function ssl_str:_flush()
-	if not self.hnd then error(err.closed) end
+	if not self.hnd then error(errors.closed) end
 	dowrite(self);
 end
 function ssl_str:_close()

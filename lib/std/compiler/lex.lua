@@ -1,8 +1,8 @@
 local buffer = require "string.buffer";
 local ffi = require "ffi";
 local libc = require "nat.libc";
-local comp_err = require "std.compiler.comp_err";
-local loc = require "std.err.loc";
+local syntax_err = require "std.errors.syntax_err";
+local loc = require "std.errors.loc";
 local lexer = {};
 
 lexer.operators = {
@@ -247,7 +247,7 @@ local old_error = error;
 --- @param loc std.compiler.loc_lazy
 --- @param msg string
 local function error(loc, msg)
-	old_error(comp_err:new(msg, loc:get()));
+	old_error(syntax_err.new(msg, loc:get()));
 end
 
 --- @class lex.str: lex.tok_base
@@ -318,12 +318,12 @@ end
 --- @field lines integer[]
 --- @field i integer
 --- @field fname? string
---- @field _cache? std.err.loc
+--- @field _cache? std.errors.loc
 local lazy_loc = {};
 lazy_loc.__index = lazy_loc;
-lazy_loc.__metatable = "std.err.loc_lazy";
+lazy_loc.__metatable = "std.errors.loc_lazy";
 
---- @return std.err.loc
+--- @return std.errors.loc
 function lazy_loc:get()
 	if self._cache then return self._cache end
 

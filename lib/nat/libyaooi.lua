@@ -1,7 +1,7 @@
 local field = require "std.basic.table.field";
 local ffi = require "nat.ffi";
 local libc = require "nat.libc";
-local err = require "std.err";
+local errors = require "std.errors";
 local objects = require "nat.utils.objects";
 local sig = require "std.sig";
 
@@ -441,84 +441,25 @@ typedef enum {
 } yo_code_t;
 ]];
 local errmap = {
-	[libyaooi.YO_EPERM] = err.noperm,
-	[libyaooi.YO_ENOENT] = err.notfound:new "no such file or directory",
-	[libyaooi.YO_ESRCH] = err.notfound:new "no such process",
-	[libyaooi.YO_EINTR] = err.cancelled:new "interrupted system call",
-	[libyaooi.YO_ENXIO] = err.notfound:new "no such device or address",
-	[libyaooi.YO_E2BIG] = err.badrange:new "argument list too big",
-	[libyaooi.YO_EBADF] = err.badop:new "bad file descriptor",
-	[libyaooi.YO_ENOMEM] = err.nomem,
-	[libyaooi.YO_EACCES] = err.badaccess,
-	[libyaooi.YO_EFAULT] = err.badarg:new "bad address in system call argument",
-	[libyaooi.YO_EEXIST] = err.duplicate:new "file already exists",
-	[libyaooi.YO_EXDEV] = err.badop:new "cross-device link not permitted",
-	[libyaooi.YO_ENODEV] = err.notfound:new "no such device",
-	[libyaooi.YO_EINVAL] = err.badarg,
-	[libyaooi.YO_ENFILE] = err.env:new "file table overflow",
-	[libyaooi.YO_EMFILE] = err.env:new "too many open files",
-	[libyaooi.YO_ENOTTY] = err.badarg:new "inappropriate ioctl for device",
-	[libyaooi.YO_ETXTBSY] = err.env:new "text file is busy",
-	[libyaooi.YO_ESPIPE] = err.badop:new "invalid seek",
-	[libyaooi.YO_EROFS] = err.notsupp:new "readonly filesystem",
-	[libyaooi.YO_EPIPE] = err.eof,
-	[libyaooi.YO_EDOM] = err.badrange:new "numerical argument out of domain",
-	[libyaooi.YO_ERANGE] = err.badrange:new "result too large",
-	[libyaooi.YO_ENAMETOOLONG] = err.badrange:new "name too long",
-	[libyaooi.YO_ENOSYS] = err.notimpl,
-	[libyaooi.YO_EOVERFLOW] = err.badrange:new "value too large for defined data type",
-	[libyaooi.YO_ENOTUNIQ] = err.duplicate:new "name not unique on network",
-	[libyaooi.YO_ENOTSOCK] = err.badop:new "socket operation on non-socket",
-	[libyaooi.YO_EDESTADDRREQ] = err.badarg:new "destination address required",
-	[libyaooi.YO_EMSGSIZE] = err.badrange:new "message too long",
-	[libyaooi.YO_EPROTOTYPE] = err.badarg:new "protocol wrong type for socket",
-	[libyaooi.YO_ENOPROTOOPT] = err.notsupp:new "protocol not available",
-	[libyaooi.YO_EPROTONOSUPPORT] = err.notsupp:new "protocol not supported",
-	[libyaooi.YO_ESOCKTNOSUPPORT] = err.notsupp:new "socket type not supported",
-	[libyaooi.YO_ENOTSUP] = err.notsupp,
-	[libyaooi.YO_EPFNOSUPPORT] = err.notsupp:new "operation not supported on socket",
-	[libyaooi.YO_EAFNOSUPPORT] = err.notsupp:new "address family not supported",
-
-	[libyaooi.YO_ENETDOWN] = err.net:new "network is down",
-	[libyaooi.YO_EADDRINUSE] = err.net:new "address already in use",
-	[libyaooi.YO_EADDRNOTAVAIL] = err.net:new "address not available",
-	[libyaooi.YO_ENETUNREACH] = err.net:new "network is unreachable",
-	[libyaooi.YO_ECONNABORTED] = err.net:new "software caused connection abort",
-	[libyaooi.YO_ECONNRESET] = err.net:new "connection reset by peer",
-	[libyaooi.YO_ENOBUFS] = err.net:new "no buffer space available",
-	[libyaooi.YO_EISCONN] = err.badop:new "socket is already connected",
-	[libyaooi.YO_ENOTCONN] = err.badop:new "socket is not connected",
-	[libyaooi.YO_ESHUTDOWN] = err.eof:new "cannot send after transport endpoint shutdown",
-	[libyaooi.YO_ETIMEDOUT] = err.timeout,
-	[libyaooi.YO_ECONNREFUSED] = err.net:new "connection refused",
-	[libyaooi.YO_EHOSTDOWN] = err.net:new "host is down",
-	[libyaooi.YO_EHOSTUNREACH] = err.net:new "host is unreachable",
-	[libyaooi.YO_EALREADY] = err.net:new "no medium found",
-	[libyaooi.YO_EREMOTEIO] = err.net:new "remote I/O error",
-	[libyaooi.YO_ENOMEDIUM] = err.net:new "connection refused",
-	[libyaooi.YO_ECANCELED] = err.cancelled:new "io operation canceled",
-	[libyaooi.YO_EAI_BADFLAGS] = err.badarg:new "bad ai_flags value",
-	[libyaooi.YO_EAI_NONAME] = err.badarg:new "unknown node or service",
-	[libyaooi.YO_EAI_AGAIN] = err.net:new "temporary failure",
-	[libyaooi.YO_EAI_FAIL] = err.net:new "permanent failure",
-	[libyaooi.YO_EAI_NODATA] = err.badarg:new "no address",
-	[libyaooi.YO_EAI_FAMILY] = err.notsupp:new "ai_family not supported",
-	[libyaooi.YO_EAI_SOCKTYPE] = err.notsupp:new "socket type not supported",
-	[libyaooi.YO_EAI_SERVICE] = err.notsupp:new "service not available for socket type",
-	[libyaooi.YO_EAI_ADDRFAMILY] = err.notsupp:new "address family not supported",
-	[libyaooi.YO_EAI_MEMORY] = err.nomem,
-	[libyaooi.YO_EAI_CANCELED] = err.cancelled,
-	[libyaooi.YO_ECHARSET] = err.badarg:new "invalid unicode character",
-	[libyaooi.YO_EUNKNOWN] = err.env:new "unknown OS error",
+	[libyaooi.YO_EINTR] = errors.cancelled,
+	[libyaooi.YO_ENOMEM] = errors.nomem,
+	[libyaooi.YO_EPIPE] = errors.eof,
+	[libyaooi.YO_ENOSYS] = errors.notimpl,
+	[libyaooi.YO_EAI_MEMORY] = errors.nomem,
+	[libyaooi.YO_EAI_CANCELED] = errors.cancelled,
 };
 
 local function toerr(code)
-	return errmap[code] or err.io:new(ffi.string(libyaooi.yo_strerr(code)));
+	if errmap[code] then
+		return errmap[code];
+	else
+		return ffi.string(libyaooi.yo_strerr(code));
+	end
 end
 
 local function addrparse(ip)
 	local pres = ffi.new "yo_addr_t[1]";
-	if not libyaooi.yo_addrparse(ip, pres) then error(err.badarg:new "invalid address") end
+	if not libyaooi.yo_addrparse(ip, pres) then error "invalid address" end
 	return pres[0];
 end
 local function addrstr(addr)
@@ -583,7 +524,7 @@ end
 --- @return nat.libyaooi.req
 function yaooi.req.new(queue, udata)
 	local res = libyaooi.yo_req_new(queue);
-	if res == libc.NULL then error(err.nomem) end
+	if res == libc.NULL then error(errors.nomem) end
 
 	req_udata:set(tonumber(ffi.cast("size_t", res)), udata);
 	return res;
@@ -629,7 +570,7 @@ end
 --- @return nat.libyaooi.queue
 function yaooi.queue.new()
 	local res = libyaooi.yo_queue_new();
-	if res == libc.NULL then error(err.nomem) end
+	if res == libc.NULL then error(errors.nomem) end
 	return res;
 end
 
@@ -920,7 +861,7 @@ local enviter_type = ffi.metatype("struct yo_enviter", yaooi.enviter);
 --- @return nat.libyaooi.enviter
 function yaooi.enviter.new()
 	local res = libyaooi.yo_enviter_new();
-	if res == libc.NULL then error(err.nomem) end
+	if res == libc.NULL then error(errors.nomem) end
 	return res;
 end
 --- @return string? pair
