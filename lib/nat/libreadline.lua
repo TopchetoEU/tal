@@ -1,4 +1,5 @@
 local ffi = require "ffi";
+local libc = require "nat.libc";
 
 if ffi.os == "Windows" then
 	return function (prompt)
@@ -7,10 +8,8 @@ if ffi.os == "Windows" then
 	end
 end
 
-local readline = ffi.load "edit";
-local c = ffi.C;
+local libreadline = ffi.load "edit";
 
-ffi.cdef [[void free(void *ptr)]];
 ffi.cdef [[
 	char *readline(const char *prompt);
 	void add_history(const char *line);
@@ -18,11 +17,11 @@ ffi.cdef [[
 
 --- @param prompt? string
 return function (prompt)
-	local ptr = readline.readline(prompt or 0);
-	if ptr == 0 then return nil end
+	local ptr = libreadline.readline(prompt or libc.NULL);
+	if ptr == libc.NULL then return nil end
 
 	local res = ffi.string(ptr);
-	readline.add_history(ptr);
-	c.free(ptr);
+	libreadline.add_history(ptr);
+	libc.free(ptr);
 	return res;
 end
