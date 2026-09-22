@@ -47,9 +47,9 @@ function str.parsechmod(...)
 			local iarg = assert(tonumber(arg, 8), arg);
 
 			if op == "+" then
-				mode = mode | iarg;
+				mode = mode + iarg;
 			elseif op == "-" then
-				mode = mode & ~iarg;
+				mode = bit.band(mode, bit.bnot(iarg));
 			else
 				mode = iarg;
 			end
