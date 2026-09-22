@@ -6,6 +6,7 @@ local path = require "std.path";
 local table = require "std.basic.table";
 local debug = require "std.basic.debug";
 local objects = require "nat.utils.objects";
+local path_err= require "std.package.path_err"
 
 --- @class debug.registry
 --- @field _FFI_PATH? string
@@ -30,7 +31,7 @@ function ffi.load(name, glob)
 
 	if not ok then
 		package = package or require "std.package";
-		error(package.err.new(name, "library", errors.all(res)));
+		error(path_err.new(name, "library", errors.all(res)));
 	else
 		return namespace --[[@as ffi.namespace*]];
 	end

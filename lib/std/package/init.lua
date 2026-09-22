@@ -6,6 +6,7 @@ local pkgpath = require "std.package.path";
 local table = require "std.basic.table";
 local fs = require "std.os.fs";
 local errors = require "std.errors";
+local path_err = require "std.package.path_err";
 local error = errors.throw;
 
 --- @class packagelib
@@ -29,38 +30,6 @@ local package = {
 
 	strongtag = require "std.package.strongtag",
 };
-
---- @class std.package.err: errbox
---- @field children any[]
---- @field name string
---- @field kind string
-package.err = {};
-package.err.__index = package.err;
-package.err.__metatable = "std.package.err";
-
-function package.err:errors()
-	return self.children;
-end
-function package.err:__tostring()
-	local res = {};
-	local prefix = self.kind .. " '" .. self.name .. "' not found";
-
-	for i = 1, #self.children do
-		table.insert(res, tostring(self.children[i]));
-	end
-
-	if #res == 0 then
-		return prefix;
-	else
-		return prefix .. ":\n\t" .. table.concat(res, "\n\t");
-	end
-end
---- @param name string
---- @param kind string
---- @param errs any[]
-function package.err.new(name, kind, errs)
-	return setmetatable({ name = name, kind = kind, children = errors.flatten(errs) }, package.err);
-end
 
 --- @param name string
 function package.searchpreload(name)
@@ -115,7 +84,7 @@ function package.search(name)
 		table.insert(errs, res);
 	end
 
-	error(package.err.new(name, "package", errs));
+	error(path_err.new(name, "package", errs));
 end
 --- @param name string
 --- @return any package
