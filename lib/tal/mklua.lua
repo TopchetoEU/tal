@@ -270,7 +270,7 @@ local function resolve_lua(ctx, name)
 	local ok, path2 = pcall(package.searchpath, name, package.cpath, nil, nil, package.croots);
 	if ok then return "c", assert(path2) end
 
-	error(errors.aggr { path1, path2 });
+	error(package.err.new(name, "package", { path1, path2 }));
 end
 
 local function emit_map_emitter(name, map)
@@ -279,7 +279,7 @@ local function emit_map_emitter(name, map)
 	for k, v in pairs(map) do
 		-- TODO: somehow, thru some unholy ritual, a node ends up here. fix when less asleep
 		if v.row and v.col then
-			table.insert(res, "[" .. k .. "] = node.loc(" .. v.row .. ", " .. v.col .. ")");
+			table.insert(res, "[" .. k .. "] = loc.new(" .. v.row .. ", " .. v.col .. ")");
 		end
 	end
 
@@ -442,8 +442,8 @@ local function gen(ctx, out)
 
 		if #map_parts > 0 then
 			local map_src = [[
-				local mapping = require "std.debug.mapping";
-				local node = require "std.compiler.node";
+				local mapping = require "std.basic.debug.mapping";
+				local loc = require "std.errors.loc";
 			]] .. table.concat(map_parts, "\n");
 			-- TODO: fix when less asleep
 			emit_lua(ctx, "__map_loader", "<internal>", map_src, "=<internal>", { f = out.f }, passed, map_parts, 0);
