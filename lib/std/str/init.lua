@@ -1,6 +1,7 @@
 local ffi = require "nat.ffi"
 local libc = require "nat.libc";
 local errors = require "std.errors";
+local buffer = require "string.buffer";
 local text --[[ = require "std.str.text"]];
 
 --- @class std.io.stat
@@ -92,15 +93,16 @@ function str:read(ptr, n)
 	if self._read then
 		return self:_read(ptr, n);
 	elseif self._readchunk then
-		local chunk_n, chunk_ptr = self:_readchunk();
-		if chunk_n > n then
+		local buff = buffer.new();
+		local buff_n = self:_readchunk(buff);
+		if buff_n > n then
 			self._rstack = self._rstack or {};
-			table.insert(self._rstack, { f = n, l = chunk_n, data = chunk_ptr });
-			ffi.copy(ptr, chunk_ptr, n);
+			table.insert(self._rstack, { f = n, l = buff_n, data = ffi.cast("char*", buff), _keep = buff });
+			ffi.copy(ptr, buff, n);
 			return n;
 		else
-			ffi.copy(ptr, chunk_ptr, chunk_n);
-			return chunk_n;
+			ffi.copy(ptr, buff, buff_n);
+			return buff_n;
 		end
 	elseif self._readtext then
 		local chunk = self:_readtext();

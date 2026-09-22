@@ -139,7 +139,7 @@ function http.read_body(conn, hdr)
 	if chunked then
 		local self = setmetatable({ str = conn, done = false, _rstack = {} }, str);
 
-		function self:_readchunk()
+		function self:_readchunk(dst)
 			if not self.str then error(errors.closed) end
 			if self.done then return 0 end
 
@@ -157,14 +157,13 @@ function http.read_body(conn, hdr)
 				return 0;
 			end
 
-			local ptr = ffi.new("char[?]", len);
-			self.str:fullread(ptr, len);
+			self.str:fullread(dst:reserve(len), len);
 
 			local line = self.str:readlineto(buff):get();
 			if #line == 0 then error(errors.eof) end
 			if not line:find "^\r?\n$" then error "malformed chunked encoding" end
 
-			return len, ptr;
+			return len;
 		end
 		function self:_close()
 			self.str:close();

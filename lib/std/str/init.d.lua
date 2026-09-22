@@ -7,8 +7,9 @@ local std_backend = {};
 --- @param n integer
 --- @return integer
 function std_backend:_read(ptr, n) end
---- @return integer, ffi.cdata*
-function std_backend:_readchunk() end
+--- @param buff string.buffer
+--- @return integer
+function std_backend:_readchunk(buff) end
 --- @return string?
 function std_backend:_readtext() end
 
