@@ -2,7 +2,7 @@ local ffi = require "nat.ffi"
 local libc = require "nat.libc";
 local errors = require "std.errors";
 local buffer = require "string.buffer";
-local text --[[ = require "std.str.text"]];
+local text = require "std.str.text";
 
 --- @class std.io.stat
 --- @field type "file" | "dir" | "link" | "sock" | "fifo" | "char" | "blk"
@@ -378,7 +378,6 @@ function str:close()
 end
 
 function str:to_text()
-	text = text or require "std.str.text";
 	return text.new(self);
 end
 

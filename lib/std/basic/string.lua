@@ -43,7 +43,7 @@ function string:quote()
 end
 --- @param self string
 function string:unquote()
-	lex = lex or require "std.compiler.lex";
+	lex = lex or require_alt "std.compiler.lex";
 	-- Although we use the parser, this *should* be safe, as we don't execute any code
 	-- However, the solution and hand is really stupid
 	-- TODO: figure out something less stupid

@@ -1,7 +1,7 @@
-require "std.basic.string";
 local fs --[[= require "std.os.fs"]];
 local errors = require "std.errors";
 local error = errors.throw;
+local require_alt = require;
 
 local path = {
 	sep = ".",
@@ -64,7 +64,7 @@ end
 function path.search(name, p, sep, rep, roots, func)
 	if not func then
 		function func(p)
-			fs = fs or require "std.os.fs";
+			fs = fs or require_alt "std.os.fs";
 			local stat, err = fs.stat(p);
 			if not stat then error(err .. ", stat " .. p) end
 		end

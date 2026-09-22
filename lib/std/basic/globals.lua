@@ -25,6 +25,9 @@ eprint = printing.eprint;
 
 exit = os.exit;
 require = package.require;
+--- Use this when untying recursive loops
+--- Helps out mklua
+require_alt = package.require;
 unpack = table.unpack;
 
 assert = errs.assert;

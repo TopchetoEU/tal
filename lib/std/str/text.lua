@@ -1,7 +1,6 @@
 local buffer = require "string.buffer";
 local sig = require "std.sig";
 local ffi = require "nat.ffi";
-local str = require "std.str";
 local objects = require "nat.utils.objects";
 
 --- @class std.strtxt
@@ -9,6 +8,8 @@ local objects = require "nat.utils.objects";
 local strtxt = {};
 strtxt.__index = strtxt;
 strtxt.__metatable = "std.strtxt";
+
+strtxt.chunksize = 8192;
 
 function strtxt:read(mode)
 	if type(mode) == "string" and (mode:sub(1, 1) == "l" or mode:sub(1, 1) == "L") then
@@ -22,7 +23,7 @@ function strtxt:read(mode)
 	elseif mode == "a" then
 		return self.str:readto(buffer.new()):get();
 	elseif mode == "c" then
-		local res = self.str:readto(buffer.new(), str.chunksize);
+		local res = self.str:readto(buffer.new(), strtxt.chunksize);
 		if #res == 0 then return nil end
 		return res:get();
 	elseif type(mode) == "number" then
