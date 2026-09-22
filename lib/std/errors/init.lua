@@ -21,23 +21,32 @@ function errors.aggr(errs)
 	if #errs == 1 then return errs[1] end
 	return aggr.new(errs);
 end
+
 --- @param err any
---- @return any[]
-function errors.all(err)
-	local res = {};
-	local stack = { err };
-
-	while #stack > 0 do
-		local curr = table.remove(stack);
-		table.insert(res, curr);
-
-		if type(curr.errors) == "function" then
-			local children = curr:errors();
-			table.move(children, 1, #children, #res + 1, res);
-			table.move(children, 1, #children, #stack + 1, stack);
+--- @param full boolean?
+--- @param dst any[]
+local function err_all_impl(err, full, dst)
+	if type(err.errors) == "function" then
+		if full then
+			table.insert(dst, err);
 		end
-	end
 
+		local children = err:errors();
+
+		for i = 1, #children do
+			err_all_impl(children[i], full, dst);
+		end
+	else
+		table.insert(dst, err);
+	end
+end
+
+--- @param err any
+--- @param full? boolean = false If true, includes errboxes as well
+--- @return any[]
+function errors.all(err, full)
+	local res = {};
+	err_all_impl(err, full, res);
 	return res;
 end
 --- @generic T
@@ -45,7 +54,7 @@ end
 --- @param val `T`
 --- @return T[]
 function errors.allof(err, val)
-	local raw = errors.all(err);
+	local raw = errors.all(err, true);
 	local res = {};
 
 	for i = 1, #raw do
@@ -69,12 +78,15 @@ end
 --- @param ... any
 --- @return boolean
 function errors.is(a, ...)
-	local errs = errors.all(a);
+	local err_map = {};
+	local errs = errors.all(a, true);
 	for i = 1, #errs do
-		for j = 1, select("#", ...) do
-			if errs[i] == select(j, ...) then
-				return true;
-			end
+		err_map[errs[i]] = true;
+	end
+
+	for j = 1, select("#", ...) do
+		if err_map[select(j, ...)] then
+			return true;
 		end
 	end
 
