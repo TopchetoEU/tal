@@ -122,7 +122,7 @@ local function parse_str(src, i, eol)
 	if not src:match("^['\"]", j) then return i end
 
 	-- TODO: expose module with generic whitespace-skippers and literal parsers, instead of doing *this*
-	local ok, j, res = spcall(lex.parse_string, { lines = { 1 }, n = i, src = ffi.cast("char*", src) }, i - 1);
+	local ok, j, res = spcall(lex.parse_string, { lines = { 1 }, n = #src, src = ffi.cast("char*", src) }, i - 1);
 	if not ok then
 		local e = errors.firstof(j, "std.errors.syntax");
 		if e then throw(i, e.msg) end
@@ -154,7 +154,7 @@ local function parse_num(src, i, eol)
 	end
 
 	-- TODO: expose module with generic whitespace-skippers and literal parsers, instead of doing *this*
-	local ok, j, kind, val = spcall(lex.parse_number, { lines = { 1 }, n = i, src = ffi.cast("char*", src) }, j - 1);
+	local ok, j, kind, val = spcall(lex.parse_number, { lines = { 1 }, n = #src, src = ffi.cast("char*", src) }, j - 1);
 	if not ok then
 		local e = errors.firstof(j, "std.errors.syntax");
 		if e then throw(i, e.msg) end

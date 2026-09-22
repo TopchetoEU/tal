@@ -6,7 +6,7 @@
 return function (obj, name)
 	if obj == nil then return nil end
 	if type(obj) == name then return obj end
-	if obj.__is and obj:__is(name) then return obj end
+	if type(obj) == "table" and obj.__is and obj:__is(name) then return obj end
 
 	while obj ~= nil do
 		if getmetatable(obj) == name then return obj end

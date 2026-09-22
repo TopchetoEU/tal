@@ -1,7 +1,7 @@
 local buffer = require "string.buffer";
 local sig = require "std.sig";
 
---- @class url
+--- @class std.path.url
 --- @field scheme? string
 --- @field username? string
 --- @field password? string
@@ -111,7 +111,7 @@ function url.parse_path(raw)
 end
 
 --- @param raw string
---- @return url
+--- @return std.path.url
 function url.parse(raw)
 	local scheme, username, password, host, port, path, params;
 
@@ -175,7 +175,7 @@ function url.parse(raw)
 	};
 end
 
---- @param parsed url
+--- @param parsed std.path.url
 function url.stringify(parsed)
 	local res = buffer.new();
 
