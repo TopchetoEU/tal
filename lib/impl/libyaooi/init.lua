@@ -1,6 +1,7 @@
 local sig = require "std.sig";
 local process_args = require "impl.process_args";
 local libyaooi = require "nat.libyaooi";
+local is = require "std.basic.is";
 local yo_fd = require "impl.libyaooi.yo_fd";
 local yo_dir = require "impl.libyaooi.yo_dir";
 local yo_iterenv = require "impl.libyaooi.yo_iterenv";
@@ -132,8 +133,7 @@ local function next_processargs(req, ok, ...)
 	if not req then return nil end
 	local udata = req:udata();
 
-
-	if getmetatable(udata) == process_args.tag then
+	if is(udata, process_args.tag) then
 		if not ok then return udata.udata, false, ... end
 		return udata.udata, true, udata.process_args(...);
 	else

@@ -2,6 +2,7 @@ local buffer = require "string.buffer";
 local sig = require "std.sig";
 local ffi = require "nat.ffi";
 local objects = require "nat.utils.objects";
+local is = require "std.basic.is";
 
 --- @class std.strtxt
 --- @field str std.str
@@ -39,7 +40,7 @@ end
 function strtxt:write(...)
 	for i = 1, select("#", ...) do
 		local val = select(i, ...);
-		if type(val) ~= "string" and getmetatable(val) ~= "buffer" then
+		if type(val) ~= "string" and not is(val, "buffer") then
 			val = tostring(val);
 		end
 
