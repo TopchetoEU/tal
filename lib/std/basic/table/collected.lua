@@ -1,5 +1,7 @@
 local loop = require "std.loop";
 local cond = require "std.sync.cond";
+local errors = require "std.errors";
+local is = require "std.basic.is";
 require "std.basic.coroutine";
 
 local queue = {};
@@ -10,7 +12,7 @@ local th = loop.fork(function ()
 		while #queue > 0 do
 			local func, obj = table.unpack(table.remove(queue));
 			loop.fork(function (func, obj)
-				local ok, err = spcall(func, obj);
+				local ok, err = errors.spcall(func, obj);
 				if not ok then eprint(err, "in finalizer") end
 			end, func, obj);
 		end

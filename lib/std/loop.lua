@@ -2,6 +2,7 @@ local impl = require "impl";
 local errors = require "std.errors";
 local debug = require "std.basic.debug";
 local traced_err = require "std.errors.traced_err";
+local error = errors.throw;
 require "std.basic.coroutine";
 
 local loop = {};
@@ -32,7 +33,7 @@ local function process_handle(next, timeout, cb, ...)
 		-- An error from another thread, completely unrelated to ours could've thrown this.
 		-- This causes seemingly innocent IO operations to vomit out other threads' errors.
 		-- TODO: invent an 'elegant' way to avoid printing the IO op's stack trace
-		if not ok then errors.throw(e) end
+		if not ok then error(e) end
 	end
 
 	return next();
@@ -132,7 +133,7 @@ function loop.fork(main, ...)
 	local th = coroutine.create(function (...)
 		local ok, err = errors.spcall(...);
 		if not ok then
-			err.throw(traced_err.new(err, "fork", fork_trace));
+			errors.throw(traced_err.new(err, "fork", fork_trace));
 		end
 	end);
 
