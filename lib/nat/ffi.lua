@@ -1,5 +1,6 @@
 --- @class ffilib
 local ffi = require "ffi";
+local package --[[ = require "std.package" ]];
 local pkgpath = require "std.package.path";
 local path = require "std.path";
 local table = require "std.basic.table";
@@ -28,6 +29,7 @@ function ffi.load(name, glob)
 	end);
 
 	if not ok then
+		package = package or require "std.package";
 		error(package.err.new(name, "library", errors.all(res)));
 	else
 		return namespace --[[@as ffi.namespace*]];
