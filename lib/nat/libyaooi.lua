@@ -564,7 +564,7 @@ function yaooi.queue:poll(deadline)
 	if code == 0 then
 		return req, true, req_getres:get(tonumber(ffi.cast("size_t", req)))();
 	else
-		return req, false, errmap[code], code;
+		return req, false, toerr(code), code;
 	end
 end
 --- @return nat.libyaooi.queue

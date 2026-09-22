@@ -38,9 +38,16 @@ function ffi.load(name, glob)
 	end
 end
 
+--- This does NOT pin `str` to the produced pointr
+--- Thus, call this only if you can ensure that you hold `str` during the lifetime of the returned pointer
+--- @param str string | string.buffer
+--- @return ffi.cdata*, integer
 function ffi.toptr_unsafe(str)
 	return ffi.cast("char*", str), #str;
 end
+--- This function pins `str` to a global table. Use this only if the returned pointer will outlive `str`
+--- @param str string | string.buffer
+--- @return ffi.cdata*, integer
 function ffi.toptr(str)
 	local ptr = ffi.cast("char*", str);
 	local str_key = objects.add { str };
