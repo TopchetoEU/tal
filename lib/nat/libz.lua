@@ -4,7 +4,7 @@ local errors = require "std.errors";
 
 local libz = ffi.load "z";
 ffi.cdef [[
-	enum {
+	typedef enum {
 		Z_NO_FLUSH,
 		Z_PARTIAL_FLUSH,
 		Z_SYNC_FLUSH,
@@ -12,8 +12,8 @@ ffi.cdef [[
 		Z_FINISH,
 		Z_BLOCK,
 		Z_TREES,
-	} flush_type;
-	enum {
+	} z_flush_type;
+	typedef enum {
 		Z_OK = 0,
 		Z_STREAM_END = 1,
 		Z_NEED_DICT = 2,
@@ -24,24 +24,24 @@ ffi.cdef [[
 		Z_BUF_ERROR = -5,
 		Z_VERSION_ERROR = -6,
 	} z_errno;
-	enum {
+	typedef enum {
 		Z_DEFAULT_STRATEGY,
 		Z_FILTERED,
 		Z_HUFFMAN_ONLY,
 		Z_RLE,
 		Z_FIXED,
 	} z_strategy;
-	enum {
+	typedef enum {
 		Z_DEFLATED = 8,
 	} z_method;
-	enum {
+	typedef enum {
 		Z_BINARY,
 		Z_TEXT,
 		Z_UNKNOWN,
 	} z_datatype;
 
-	typedef void *(*alloc_func)(void *opaque, uInt items, uInt size);
-	typedef void (*free_func)(void *opaque, void *address);
+	typedef void *(*z_alloc_func)(void *opaque, unsigned items, unsigned size);
+	typedef void (*z_free_func)(void *opaque, void *address);
 
 	typedef struct {
 		unsigned char *next_in;
@@ -55,36 +55,60 @@ ffi.cdef [[
 		char *msg;
 		void *state;
 
-		alloc_func zalloc;
-		free_func zfree;
+		z_alloc_func zalloc;
+		z_free_func zfree;
 		void *opaque;
 
 		int data_type;
 
 		unsigned long adler;
 		unsigned long reserved;
-	} z_stream;
+	} z_stream, *z_streamp;
 
-	typedef struct { z_stream str; } z_istream, *z_istreamp;
-	typedef struct { z_stream str; } z_dstream, *z_dstreamp;
+	int inflateInit2_(z_streamp strm, int windowBits, const char *version, int stream_size);
+	int inflateEnd(z_streamp strm);
+	int inflate(z_streamp strm, z_flush_type flush);
 
-	int inflateInit2_(z_istreamp strm, int windowBits, const char *version, int stream_size);
-	int inflateEnd(z_istreamp strm);
-	int inflate(z_istreamp strm, flush_type flush);
-
-	int deflateInit2_(z_dstreamp strm, int level, int method, int windowBits, int memLevel, int strategy, const char *version, int stream_size);
-	int deflateEnd(z_dstreamp strm);
-	int deflate(z_dstreamp strm, flush_type flush);
-
-	// These are very internal and very not safe for usage, but its much better than passing a lua callback
-	void *zcalloc(void *opaque, unsigned items, unsigned size);
-	void zcfree(void *opaque, void *ptr);
+	int deflateInit2_(z_streamp strm, int level, int method, int windowBits, int memLevel, int strategy, const char *version, int stream_size);
+	int deflateEnd(z_streamp strm);
+	int deflate(z_streamp strm, z_flush_type flush);
 ]];
 
 local zlib = { [require "std.package.strongtag"] = true };
 
+--- @class nat.libz.inflate_opts
+--- @field format? "detect" | "zlib" | "gzip" | "raw"
+--- @field window? integer
+
+--- @class nat.libz.deflate_opts
+--- @field format? "detect" | "zlib" | "gzip" | "raw"
+--- @field window? integer
+--- @field level? integer
+--- @field strategy? "filtered" | "rle" | "huffman" | "fixed"
+
+local function zalloc(opaque, items, size)
+	return libc.malloc(items * size);
+end
+local function zfree(opaque, ptr)
+	return libc.free(ptr);
+end
+
+local zalloc_cb = ffi.cast("z_alloc_func", zalloc);
+local zfree_cb = ffi.cast("z_free_func", zfree);
+
+local function zassert(code)
+	if code == libz.Z_ERRNO then return error "syscall error" end
+	if code == libz.Z_STREAM_ERROR then return error "invalid parameters or state" end
+	if code == libz.Z_DATA_ERROR then return error "invalid data" end
+	if code == libz.Z_MEM_ERROR then return error(errors.nomem) end
+	if code == libz.Z_BUF_ERROR then return error "out of buffer room" end
+	if code == libz.Z_VERSION_ERROR then return error "invalid zlib version" end
+	if code < 0 then return error "unknown zlib error" end
+
+	return code;
+end
+
 --- @class nat.libz.stream: ffi.cdata*
----
 --- @field next_in ffi.cdata*
 --- @field avail_in integer
 --- @field total_in integer
@@ -95,52 +119,48 @@ local zlib = { [require "std.package.strongtag"] = true };
 ---
 --- @field msg ffi.cdata*
 ---
---- @field zalloc function
---- @field zfree function
+--- @field zalloc ffi.cdata*
+--- @field zfree ffi.cdata*
+local zlib_stream = {}
+zlib_stream.__index = zlib_stream;
+zlib_stream.__metatable = "nat.libz.stream";
+local zlib_stream_type = ffi.metatype("z_stream", zlib_stream);
 
-local function zassert(code)
-	if code == libz.Z_ERRNO then return error "syscall error" end
-	if code == libz.Z_STREAM_ERROR then return error "invalid parameters or state" end
-	if code == libz.Z_DATA_ERROR then return error "invalid data" end
-	if code == libz.Z_MEM_ERROR then return error(errors.nomem) end
-	if code == libz.Z_BUF_ERROR then return error "out of buffer room" end
-	if code == libz.Z_VERSION_ERROR then return error "invalid zlib version" end
-	if code ~= libz.Z_OK then return error "unknown zlib error" end
-
-	return code;
-end
-
---- @class nat.libz.istream: ffi.cdata*
---- @field str nat.libz.stream
-local zlib_istream = {}
-zlib_istream.__index = zlib_istream;
-zlib_istream.__metatable = "nat.libz.istream";
-local zlib_istream_type = ffi.metatype("z_istream", zlib_istream);
-
-function zlib_istream:__gc()
+function zlib_stream:__gc()
 	libz.inflateEnd(self);
 end
 
+--- @param kind "inflate" | "deflate"
 --- @param dst ffi.cdata*
 --- @param dst_n integer
 --- @param src ffi.cdata*
 --- @param src_n integer
+--- @param eof? boolean = false
 --- @return integer write_n
 --- @return integer read_n
-function zlib_istream:next(dst, dst_n, src, src_n)
-	self.str.next_in = src;
-	self.str.avail_in = src_n;
+function zlib_stream:next(kind, dst, dst_n, src, src_n, eof)
+	self.next_in = src;
+	self.avail_in = src_n;
 
-	self.str.next_out = dst;
-	self.str.avail_out = dst_n;
+	self.next_out = dst;
+	self.avail_out = dst_n;
 
-	zassert(libz.inflate(self, src_n == 0 and libz.Z_FINISH or libz.Z_NO_FLUSH));
+	local icode;
+	if kind == "inflate" then
+		icode = libz.inflate(self, eof and libz.Z_FINISH or libz.Z_NO_FLUSH);
+	else
+		icode = libz.deflate(self, eof and libz.Z_FINISH or libz.Z_NO_FLUSH);
+	end
 
-	return number.new(dst_n - self.str.avail_out), number.new(src_n - self.str.avail_in);
+	if icode ~= libz.Z_BUF_ERROR then zassert(icode) end
+
+	return
+		number.new(dst_n - self.avail_out),
+		number.new(src_n - self.avail_in);
 end
 
---- @param opts? zlib.inflate_opts
-function zlib_istream.new(opts)
+--- @param opts? nat.libz.inflate_opts
+function zlib_stream.new_inflate(opts)
 	local window = opts and opts.window or 15;
 	local format = opts and opts.format or "detect";
 
@@ -148,47 +168,16 @@ function zlib_istream.new(opts)
 	if format == "gzip" then window = window + 16 end
 	if format == "raw" then window = -window end
 
-	local res = ffi.cast("z_istreamp", libc.malloc(ffi.sizeof(zlib_istream_type))) --[[@as nat.libz.istream]];
-	res.str.zalloc = libz.zcalloc;
-	res.str.zfree = libz.zfree;
+	local res = ffi.cast("z_streamp", libc.malloc(ffi.sizeof(zlib_stream_type))) --[[@as nat.libz.stream]];
+	res.zalloc = zalloc_cb;
+	res.zfree = zfree_cb;
 
-	zassert(libz.inflateInit2_(res, window, "1.3.2", ffi.sizeof(zlib_istream_type)));
+	zassert(libz.inflateInit2_(res, window, "1.3.2", ffi.sizeof(zlib_stream_type)));
 
 	return res;
 end
-
---- @class nat.libz.dstream: ffi.cdata*
---- @field str nat.libz.stream
-local zlib_dstream = {}
-zlib_dstream.__index = zlib_dstream;
-zlib_dstream.__metatable = "nat.libz.dstream";
-local zlib_dstream_type = ffi.metatype("z_dstream", zlib_dstream);
-
-function zlib_dstream:__gc()
-	libz.deflateEnd(self);
-end
-
---- @param dst ffi.cdata*
---- @param dst_n integer
---- @param src ffi.cdata*
---- @param src_n integer
---- @return integer write_n
---- @return integer read_n
-function zlib_dstream:next(dst, dst_n, src, src_n)
-	self.str.next_in = src;
-	self.str.avail_in = src_n;
-
-	self.str.next_out = dst;
-	self.str.avail_out = dst_n;
-
-	zassert(libz.deflate(self, src_n == 0 and libz.Z_FINISH or libz.Z_NO_FLUSH));
-
-	return number.new(dst_n - self.str.avail_out), number.new(src_n - self.str.avail_in);
-end
-
-
---- @param opts? zlib.deflate_opts
-function zlib_dstream.new(opts)
+--- @param opts? nat.libz.deflate_opts
+function zlib_stream.new_deflate(opts)
 	local window = opts and opts.window or 15;
 	local format = opts and opts.format or "zlib";
 	local strategy = opts and opts.strategy or nil;
@@ -203,16 +192,13 @@ function zlib_dstream.new(opts)
 	if strategy == "huffman" then istrategy = libz.Z_HUFFMAN_ONLY end
 	if strategy == "fixed" then istrategy = libz.Z_FIXED end
 
-	local res = ffi.cast("z_dstreamp", libc.malloc(ffi.sizeof(zlib_dstream_type))) --[[@as nat.libz.dstream]];
-	res.str.zalloc = libz.zcalloc;
-	res.str.zfree = libz.zfree;
+	local res = ffi.cast("z_streamp", libc.malloc(ffi.sizeof(zlib_stream_type))) --[[@as nat.libz.stream]];
+	res.zalloc = zalloc_cb;
+	res.zfree = zfree_cb;
 
-	zassert(libz.deflateInit2_(res, level, libz.Z_DEFLATE, window, 8, istrategy, "1.3.2", ffi.sizeof(zlib_istream_type)));
+	zassert(libz.deflateInit2_(res, level, libz.Z_DEFLATED, window, 8, istrategy, "1.3.2", ffi.sizeof(zlib_stream_type)));
 
 	return res;
 end
 
-zlib.istream = zlib_istream;
-zlib.dstream = zlib_dstream;
-
-return zlib;
+return zlib_stream;
