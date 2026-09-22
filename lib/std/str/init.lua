@@ -92,17 +92,17 @@ function str:read(ptr, n)
 
 	if self._read then
 		return self:_read(ptr, n);
-	elseif self._readchunk then
+	elseif self._readto then
 		local buff = buffer.new();
-		local buff_n = self:_readchunk(buff);
-		if buff_n > n then
+		self:_readto(buff);
+		if #buff > n then
 			self._rstack = self._rstack or {};
-			table.insert(self._rstack, { f = n, l = buff_n, data = ffi.cast("char*", buff), _keep = buff });
+			table.insert(self._rstack, { f = n, l = #buff, data = ffi.cast("char*", buff), _keep = buff });
 			ffi.copy(ptr, buff, n);
 			return n;
 		else
-			ffi.copy(ptr, buff, buff_n);
-			return buff_n;
+			ffi.copy(ptr, buff, #buff);
+			return #buff;
 		end
 	elseif self._readtext then
 		local chunk = self:_readtext();

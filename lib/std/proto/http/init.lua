@@ -139,7 +139,7 @@ function http.read_body(conn, hdr)
 	if chunked then
 		local self = setmetatable({ str = conn, done = false, _rstack = {} }, str);
 
-		function self:_readchunk(dst)
+		function self:_readto(dst)
 			if not self.str then error(errors.closed) end
 			if self.done then return 0 end
 

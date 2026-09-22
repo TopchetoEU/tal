@@ -8,8 +8,7 @@ local std_backend = {};
 --- @return integer
 function std_backend:_read(ptr, n) end
 --- @param buff string.buffer
---- @return integer
-function std_backend:_readchunk(buff) end
+function std_backend:_readto(buff) end
 --- @return string?
 function std_backend:_readtext() end
 
