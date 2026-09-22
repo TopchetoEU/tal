@@ -26,7 +26,7 @@ local ssl_str = setmetatable({}, str);
 ssl_str.__index = ssl_str;
 ssl_str.__metatable = "std.pipes.ssl";
 
-local function _doread(self)
+local function doread(self)
 	if self.reading then
 		-- A bit shitty, makes sure that we block on the current read, as if we did it
 		self.cond:wait();
@@ -52,7 +52,7 @@ local function _doread(self)
 	self.cond:signal(true);
 	return true;
 end
-local function _dowrite(self)
+local function dowrite(self)
 	if self.writting then
 		self.cond:wait();
 		return false;
@@ -95,7 +95,7 @@ function ssl_str:_read(ptr, n)
 		elseif err_code == 5 then
 			ierror "syscall";
 		elseif err_code == 2 then
-			if _dowrite(self) then _doread(self) end
+			if dowrite(self) then doread(self) end
 		elseif err_code ~= 3 then
 			ierror(libssl.err_msg(code));
 		end
@@ -107,7 +107,7 @@ function ssl_str:_write(ptr, n)
 	while true do
 		local res_n, code = self.hnd:write(n, ptr);
 		if res_n then
-			_dowrite(self);
+			dowrite(self);
 			return res_n;
 		end
 
@@ -118,7 +118,7 @@ function ssl_str:_write(ptr, n)
 		elseif err_code == 5 then
 			return 0;
 		elseif err_code == 2 then
-			if _dowrite(self) then _doread(self) end
+			if dowrite(self) then doread(self) end
 		elseif err_code ~= 3 then
 			ierror(libssl.err_msg(code));
 		end
@@ -126,7 +126,7 @@ function ssl_str:_write(ptr, n)
 end
 function ssl_str:_flush()
 	if not self.hnd then ierror "closed" end
-	_dowrite(self);
+	dowrite(self);
 end
 function ssl_str:_close()
 	if not self.str then return end

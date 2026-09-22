@@ -1,7 +1,7 @@
 local buffer = require "string.buffer";
 local ffi = require "ffi";
 local libc = require "nat.libc";
-local errors = require "std.errors"
+local errors = require "std.errors";
 local lexer = {};
 
 lexer.operators = {
@@ -249,32 +249,24 @@ local op_map = {
 		{ "~", lexer.operators.B_XOR },
 	},
 
-	[chars.bang] = {
-		{ "!=", lexer.operators.NEQ },
-		{ "!", lexer.operators.NOT },
-	},
+	["||"] = lexer.operators.OR,
+	["&&"] = lexer.operators.AND,
+	["!"] = lexer.operators.NOT,
 
-	[chars.dot] = {
-		{ "...",  lexer.operators.SPREAD },
-		{ "..",  lexer.operators.CONCAT },
-		{ ".",  lexer.operators.DOT },
-	},
+	[".."] = lexer.operators.CONCAT,
+	["**"] = lexer.operators.POW,
+	["//"] = lexer.operators.IDIV,
+	["+"] = lexer.operators.ADD,
+	["-"] = lexer.operators.SUB,
+	["*"] = lexer.operators.MUL,
+	["/"] = lexer.operators.DIV,
+	["%"] = lexer.operators.MOD,
+	["#"] = lexer.operators.LENGTH,
 
-	[chars.colon] = {
-		{ "::", lexer.operators.LABEL },
-		{ ":", lexer.operators.COLON },
-	},
-
-	[chars.hash] = lexer.operators.LENGTH,
-	[chars.comma] = lexer.operators.COMMA,
-	[chars.semicolon] = lexer.operators.SEMICOLON,
-
-	[chars.paren_open] = lexer.operators.PAREN_OPEN,
-	[chars.paren_close] = lexer.operators.PAREN_CLOSE,
-	[chars.bracket_open] = lexer.operators.BRACKET_OPEN,
-	[chars.bracket_close] = lexer.operators.BRACKET_CLOSE,
-	[chars.brace_open] = lexer.operators.BRACE_OPEN,
-	[chars.brace_close] = lexer.operators.BRACE_CLOSE,
+	["&"] = lexer.operators.B_AND,
+	["|"] = lexer.operators.B_OR,
+	["^"] = lexer.operators.POW,
+	["~"] = lexer.operators.B_XOR,
 };
 local err_meta = { __metatable = "lex.error" };
 
@@ -393,34 +385,34 @@ end
 local function parse_longlit(ctx, i)
 	local j = i;
 
-	if ctx.src[j] ~= chars.bracket_open then return j end
+	if j >= ctx.n or ctx.src[j] ~= chars.bracket_open then return j end
 	j = j + 1;
 
 	local eq = ctx.src + j;
 	local eq_n = 0;
 
-	while ctx.src[j] == chars.equals do
+	while j < ctx.n and ctx.src[j] == chars.equals do
 		j = j + 1;
 		eq_n = eq_n + 1;
 	end
 
-	if ctx.src[j] ~= chars.bracket_open then return j end
+	if j >= ctx.n or ctx.src[j] ~= chars.bracket_open then return j end
 	j = j + 1;
 
 	local first = ctx.src + j;
 
 	while true do
-		local find_i = libc.strchr(ctx.src + j, chars.bracket_close);
-		if not find_i then lex_error(find_loc(ctx, ctx.n), "expected ']]'") end
+		local find_i = libc.strnchr(ctx.src + j, chars.bracket_close, ctx.n - j);
+		if not find_i or find_i + 1 >= ctx.n then lex_error(find_loc(ctx, ctx.n), "expected ']]'") end
 
 		j = j + find_i;
 		local n = ctx.src + j - first;
 		j = j + 1;
 
-		if libc.strncmp(ctx.src + j, eq, eq_n) == 0 then
+		if j + eq_n < ctx.n and libc.strncmp(ctx.src + j, eq, eq_n) == 0 then
 			j = j + eq_n;
 
-			if ctx.src[j] == chars.bracket_close then
+			if j < ctx.n and ctx.src[j] == chars.bracket_close then
 				j = j + 1;
 				return j, first, n;
 			end
@@ -434,7 +426,7 @@ local function parse_hex(ctx, i)
 	local res = 0;
 	local any = false;
 
-	while true do
+	while j < ctx.n do
 		local c = ctx.src[j];
 		if c >= chars.zero and c <= chars.nine then
 			res = res * 16 + c - chars.zero;
@@ -461,7 +453,7 @@ local function parse_dec(ctx, i)
 	local res = 0;
 	local any = false;
 
-	while true do
+	while j < ctx.n do
 		local c = ctx.src[j];
 		if c >= chars.zero and c <= chars.nine then
 			res = res * 10 + c - chars.zero;
@@ -483,7 +475,7 @@ local function parse_fract(ctx, i)
 	local any = false;
 	local exp = 1;
 
-	while true do
+	while j < ctx.n do
 		local c = ctx.src[j];
 		if c >= chars.zero and c <= chars.nine then
 			res = res * 10 + c - chars.zero;
@@ -505,7 +497,7 @@ local function parse_bin(ctx, i)
 	local res = 0;
 	local any = false;
 
-	while true do
+	while j < ctx.n do
 		local c = ctx.src[j];
 		if c == chars.zero or c == chars.one then
 			res = res * 2 + c - chars.zero;
@@ -556,32 +548,33 @@ local function parse_escape_char(ctx, i, buff)
 		buff:put(string.char(val));
 		return i;
 	elseif ctx.src[i] == chars.u then
-		i = i + 1;
+		local j = i + 1;
 
-		if ctx.src[i] ~= chars.brace_open then lex_error(find_loc(ctx, i), "expected '{'") end
+		if j >= ctx.n or ctx.src[j] ~= chars.brace_open then lex_error(find_loc(ctx, i), "expected '{'") end
+		j = j + 1;
 
-		local i, val = parse_hex(ctx, i);
+		local j, val = parse_hex(ctx, j);
 		if not val then lex_error(find_loc(ctx, i), "expected a hex number") end
 
-		if ctx.src[i] ~= chars.brace_open then lex_error(find_loc(ctx, i), "expected '}'") end
-		i = i + 1;
+		if j >= ctx.n or ctx.src[j] ~= chars.brace_close then lex_error(find_loc(ctx, i), "expected '}'") end
+		j = j + 1;
 
 		if val < 128 then
 			buff:put(string.char(val));
-			return i;
+			return j;
 		end
 
 		lex_error(find_loc(ctx, i), "unicode escape sequences not supported yet");
 		-- return j, utf8.char(tonumber(val, 16));
 	elseif ctx.src[i] >= chars.zero and ctx.src[i] <= chars.nine then
-		local i, val = parse_dec(ctx, i);
+		local j, val = parse_dec(ctx, i);
 		assert(val);
 
 		if val >= 256 then lex_error(find_loc(ctx, i), "decimal escape too large") end
 		buff:put(string.char(val));
-		return i;
+		return j;
 	elseif ctx.src[i] == chars.z then
-		while true do
+		while i < ctx.n do
 			if
 				ctx.src[i] ~= chars.space and
 				ctx.src[i] ~= chars.tab and
@@ -591,11 +584,15 @@ local function parse_escape_char(ctx, i, buff)
 
 			i = i + 1;
 		end
-	else
+	elseif
+		ctx.src[i] == chars.quote or
+		ctx.src[i] == chars.dbquote or
+		ctx.src[i] == chars.backslash
+	then
 		buff:put(string.char(ctx.src[i]));
 		return i + 1;
-	-- else
-	-- 	lex_error(find_loc(ctx, i), "illegal escape sequence in string");
+	else
+		lex_error(find_loc(ctx, i), "illegal escape sequence in string");
 	end
 end
 --- @param i integer
@@ -617,25 +614,25 @@ local function parse_string(ctx, i)
 
 	local res = buffer.new();
 
-	while true do
+	while i < ctx.n do
 		if ctx.src[i] == quote then
 			i = i + 1;
 			return i, res:tostring();
 		elseif ctx.src[i] == chars.backslash then
 			i = parse_escape_char(ctx, i + 1, res);
-		elseif ctx.src[i] then
-			res:put(string.char(ctx.src[i]));
-			i = i + 1;
 		else
-			lex_error(find_loc(ctx, i), "unterminated string literal");
+			res:putcdata(ctx.src + i, 1);
+			i = i + 1;
 		end
 	end
+
+	lex_error(find_loc(ctx, i), "unterminated string literal");
 end
 --- @param i integer
 local function parse_number(ctx, i)
 	local j = i;
 
-	if ctx.src[j] == chars.zero then
+	if j + 1 < ctx.n and ctx.src[j] == chars.zero then
 		if ctx.src[j + 1] == chars.x or ctx.src[j + 1] == chars.x then
 			j = j + 2;
 			local j, hex = parse_hex(ctx, j);
@@ -653,7 +650,6 @@ local function parse_number(ctx, i)
 		end
 	end
 
-
 	local whole, fract, e, e_neg;
 
 	j, whole = parse_dec(ctx, j);
@@ -663,7 +659,9 @@ local function parse_number(ctx, i)
 		j, fract = parse_fract(ctx, j);
 	end
 
-	if (whole or fract) and ctx.src[j] == chars.e then
+	if j < ctx.n and (whole or fract) and ctx.src[j] == chars.e then
+		j = j + 1;
+
 		if ctx.src[j] == chars.plus then
 			j = j + 1;
 		elseif ctx.src[j] == chars.dash then
@@ -671,7 +669,6 @@ local function parse_number(ctx, i)
 			j = j + 1;
 		end
 
-		j = j + 1;
 		j, e = parse_dec(ctx, j);
 		if not e then lex_error(find_loc(ctx, j), "malformed number") end
 	end
@@ -710,7 +707,7 @@ local function parse_id(ctx, i)
 	local n = 0;
 
 	local first = true;
-	while true do
+	while i < ctx.n do
 		local c = ctx.src[i];
 		if not (
 			c >= chars.a and c <= chars.z or
@@ -730,18 +727,19 @@ local function parse_id(ctx, i)
 end
 --- @param i integer
 local function parse_op(ctx, i)
-	local res = op_map[ctx.src[i]];
-	if not res then return i end
+	local j = i;
+	local res;
 
-	if type(res) == "number" then return i + 1, res --[[@as number]] end
+	while j < ctx.n do
+		local new_res = op_map[ffi.string(ctx.src + i, j - i + 1)];
+		if not new_res then break end
 
-	for j = 1, #res do
-		if libc.strncmp(ctx.src + i, res[j][1], #res[j][1]) == 0 then
-			return i + #res[j][1], res[j][2] --[[@as number]];
-		end
+		j = j + 1;
+		res = new_res;
 	end
 
-	return i;
+	if not res then return i end
+	return j, res;
 end
 
 local function mktok(type, loc, val)
@@ -752,38 +750,27 @@ end
 --- @param i integer
 --- @return integer
 local function skip_white(ctx, i)
-	while true do
-		local c = ctx.src[i];
-
-		if
-			c == chars.space or
-			c == chars.tab or
-			c == chars.newl or
-			c == chars.bad_newl
-		then
+	while i < ctx.n do
+		if libc.strnchr(" \t\n\r", ctx.src[i], 4) then
 			i = i + 1;
 		elseif
-			c == chars.hash and
-			libc.strncmp(ctx.src + i, "--", 2) == 0 or
-			i == 0 and libc.strncmp(ctx.src, "#!", 2) == 0
+			i == 0 and libc.strncmp(ctx.src, "#!", ctx.n - i, 2) == 0
 		then
-			local find_i = libc.strchr(ctx.src + i + 2, chars.newl);
+			local find_i = libc.strnchr(ctx.src + i + 2, chars.newl, ctx.n - i - 2);
 			if not find_i then return ctx.n end
 			i = i + 2 + find_i;
-		elseif c == chars.dash then
-			if libc.strncmp(ctx.src + i, "--[[", 4) == 0 then
-				i = parse_longlit(ctx, i + 2);
-			elseif libc.strncmp(ctx.src + i, "--", 2) == 0 then
-				local find_i = libc.strchr(ctx.src + i + 2, chars.newl);
-				if not find_i then return ctx.n end
-				i = i + 2 + find_i;
-			else
-				return i;
-			end
+		elseif libc.strncmp(ctx.src + i, "--[[", ctx.n - i, 4) == 0 then
+			i = parse_longlit(ctx, i + 2);
+		elseif libc.strncmp(ctx.src + i, "--", ctx.n - i, 2) == 0 then
+			local find_i = libc.strnchr(ctx.src + i + 2, chars.newl, ctx.n - i - 2);
+			if not find_i then return ctx.n end
+			i = i + 2 + find_i;
 		else
 			return i;
 		end
 	end
+
+	return i;
 end
 
 local function parse_one(ctx, i, strip)

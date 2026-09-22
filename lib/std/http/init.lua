@@ -1,7 +1,7 @@
 local headers = require "std.http.headers";
 local buffer = require "string.buffer";
 local ffi = require "ffi";
-local str = require "std.str"
+local str = require "std.str";
 
 local codes_msgs = {
 	[100] = "Continue",

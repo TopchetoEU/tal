@@ -4,7 +4,6 @@ local headers = require "std.http.headers";
 local http = require "std.http";
 local ssl = require "std.pipes.ssl";
 local sig = require "std.sig";
-local ffi = require "nat.ffi"
 
 --- @param arg { url: string, method?: string, headers?: std.http.headers, body?: string | std.str | fun(): string? }
 return function (arg)

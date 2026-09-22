@@ -144,7 +144,7 @@ end
 --- @return xml_node
 function xml_node:query(name)
 	local res = self:query_all(name);
-	if #res == 1 then
+	if #res >= 1 then
 		return res[1];
 	else
 		error("no single element with the query found", 2);
@@ -152,7 +152,7 @@ function xml_node:query(name)
 end
 
 --- @param name string
---- @return xml_node
+--- @return xml_node?
 function xml_node:query_first(name)
 	local res = self:query_all(name);
 	if #res >= 1 then

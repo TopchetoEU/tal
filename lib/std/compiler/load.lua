@@ -2,7 +2,6 @@ local syntax = require "std.compiler.syntax";
 local downgrade = require "std.compiler.downgrade";
 local stringify = require "std.compiler.stringify";
 local mapping = require "std.basic.debug.mapping";
-local loading = {};
 
 local load_raw = load;
 
@@ -12,6 +11,7 @@ local load_raw = load;
 --- @param env? table
 --- @param no_map? boolean
 return function (chunk, name, mode, env, no_map, force_no_raw)
+	env = env or getfenv(2);
 	-- if not force_no_raw then return load_raw(chunk, name, mode, env, no_map) end
 
 	if type(chunk) == "function" then
@@ -26,7 +26,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 
 	if name == nil then name = chunk end
 	if mode == "b" or mode == "bt" then
-		local fun, err = load_raw(chunk, name, "b", env or getfenv(2));
+		local fun, err = load_raw(chunk, name, "b", env);
 		if fun then
 			return fun;
 		elseif mode == "b" then
@@ -57,5 +57,5 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 		mapping.emit_map(name, map);
 	end
 
-	return fun;
+	return fun --[[@as function]];
 end
