@@ -292,8 +292,29 @@ end
 --- @param src? string
 --- @param out tal.mklua.out
 --- @param passed table<string, string>
-local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_parts)
+local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_parts, depth)
+	if type(passed[name]) == "number" then
+		local recursive = {};
+
+		for key, val in pairs(passed) do
+			if type(val) == "number" then
+				table.insert(recursive, key);
+			end
+		end
+
+		table.sort(recursive, function (a, b) return passed[a] < passed[b] end);
+
+		while recursive[1] and recursive[1] ~= name do
+			table.remove(recursive, 1);
+		end
+
+		table.insert(recursive, name);
+
+		error("recursive requires: " .. table.concat(recursive, " -> "));
+	end
 	if passed[name] then return end
+	local funcname = "talb_open_" .. name:gsub("[%.%-]", "_");
+	passed[name] = depth;
 
 	local lua_deps = {};
 	local c_deps = {};
@@ -307,6 +328,7 @@ local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_pa
 
 	find_deps(src,
 		function (dep)
+			if int_libs[dep] then return end
 			local kind, path = resolve_lua(ctx, dep);
 
 			if out.deps then
@@ -315,12 +337,10 @@ local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_pa
 
 			if kind == "lua" then
 				table.insert(lua_deps, dep);
-				emit_lua(ctx, dep, path --[[@as string]], nil, "@" .. path, out, passed, map_parts);
+				emit_lua(ctx, dep, path --[[@as string]], nil, "@" .. path, out, passed, map_parts, depth + 1);
 			elseif kind == "c" then
 				table.insert(c_deps, dep);
 				passed[dep] = "luaopen_" .. dep:gsub("[%.%-]", "_");
-			elseif not kind and not int_libs[dep] then
-				io.stderr:write("Module '" .. dep .. "' could not be resolved!\n");
 			end
 		end,
 		function (dep)
@@ -344,8 +364,6 @@ local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_pa
 		table.insert(map_parts, emit_map_emitter(map_name, map));
 	end
 
-	local funcname = "talb_open_" .. name:gsub("[%.%-]", "_");
-
 	local bc = string.dump(func, not ctx.debug);
 
 	if out.f then
@@ -367,7 +385,6 @@ local function emit_lua(ctx, name, filename, src, chunkname, out, passed, map_pa
 		out.f:write ("\treturn 1;\n");
 		out.f:write ("}\n");
 	end
-
 	passed[name] = funcname;
 end
 
@@ -378,7 +395,7 @@ end
 local function emit_luaopen(ctx, name, out, passed, map_parts)
 	local kind, path = resolve_lua(ctx, name);
 	if kind == "lua" then
-		emit_lua(ctx, name, path --[[@as string]], nil, "@" .. path, out, passed, map_parts);
+		emit_lua(ctx, name, path --[[@as string]], nil, "@" .. path, out, passed, map_parts, 0);
 		passed[name] = "talb_open_" .. name:gsub("[%.%-]", "_");
 	elseif kind == "c" then
 		passed[name] = "luaopen_" .. name:gsub("[%.%-]", "_");
@@ -429,11 +446,11 @@ local function gen(ctx, out)
 				local node = require "std.compiler.node";
 			]] .. table.concat(map_parts, "\n");
 			-- TODO: fix when less asleep
-			emit_lua(ctx, "__map_loader", "<internal>", map_src, "=<internal>", { f = out.f }, passed, map_parts);
+			emit_lua(ctx, "__map_loader", "<internal>", map_src, "=<internal>", { f = out.f }, passed, map_parts, 0);
 			map_loader_call = passed["__map_loader"] .. "(ctx)";
 		end
 
-		emit_lua(ctx, "__err_handle", "<internal>", "return debug.traceback", "=<internal>", { f = out.f }, passed, map_parts);
+		emit_lua(ctx, "__err_handle", "<internal>", "return debug.traceback", "=<internal>", { f = out.f }, passed, map_parts, 0);
 
 		local ffi_static_calls = {};
 		if ctx.ffi_genstat then
