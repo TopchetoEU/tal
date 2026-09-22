@@ -1,6 +1,6 @@
 local argp = require "std.argp";
 local mklua = require "tal.mklua";
-local spawn = require "std.os.proc";
+local proc = require "std.os.proc";
 local ffi = require "ffi";
 
 local help_msg = [[tal bundle by TopchetoEU
@@ -136,17 +136,15 @@ return function (...)
 
 			template_lib(lib_cmd, lj_lib);
 
-			local comp_proc = spawn {
+			local comp_proc = proc.new {
 				argv = compiler_cmd,
-				stdin = "pipe",
+				stdin = true,
 				env = { PATH = os.getenv "PATH" or "" }
-			};
+			}:to_stream():to_text();
 
-			mklua.gen(mklua_ctx, { f = comp_proc.stdin --[[@as file*]] });
+			mklua.gen(mklua_ctx, { f = comp_proc --[[@as file*]] });
 
-			comp_proc.stdin:close();
-			local code = comp_proc:wait();
-			if code ~= 0 then error("compiler exited with code " .. code) end
+			comp_proc:close();
 		elseif output then
 			local f, close = mklua.open_w(output);
 			mklua.gen(mklua_ctx, { f = f, libdeps = {} });
