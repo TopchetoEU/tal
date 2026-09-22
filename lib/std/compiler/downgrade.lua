@@ -304,6 +304,7 @@ local walker = walk(
 
 return {
 	--- @param body node.stm[]
+	--- @return node.stm[]
 	walk_body = function (body)
 		local ctx = ctx_meta.new();
 		local res = walker.walk_body(walker, body, ctx);
@@ -311,6 +312,7 @@ return {
 	end,
 	--- @param exp node.exp
 	--- @param target compiler.walk.target
+	--- @return node.exp
 	walk_exp = function (exp, target)
 		return walker.walk_exp(walker, exp, target, ctx_meta.new());
 	end

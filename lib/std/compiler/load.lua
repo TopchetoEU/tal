@@ -11,6 +11,8 @@ local load_raw = load;
 --- @param mode? loadmode
 --- @param env? table
 --- @param no_map? boolean
+--- @return function? func
+--- @return any? e
 return function (chunk, name, mode, env, no_map, force_no_raw)
 	env = env or getfenv(2);
 	-- if not force_no_raw then return load_raw(chunk, name, mode, env, no_map) end
@@ -31,7 +33,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 		if fun then
 			return fun;
 		elseif mode == "b" then
-			return nil, err;
+			return nil, mapping.err_parse(err or "");
 		end
 	end
 
