@@ -4,7 +4,7 @@ local libc = require "nat.libc";
 local errors = require "std.errors";
 local objects = require "nat.utils.objects";
 local sig = require "std.sig";
-local error = require "std.errors".throw;
+local error = errors.throw;
 
 local yaooi = { [require "std.package.strongtag"] = true };
 

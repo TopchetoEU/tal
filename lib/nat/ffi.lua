@@ -5,7 +5,8 @@ local path = require "std.path";
 local table = require "std.basic.table";
 local debug = require "std.basic.debug";
 local objects = require "nat.utils.objects";
-local path_err= require "std.package.path_err"
+local path_err = require "std.package.path_err";
+local errors = require "std.errors";
 
 --- @class debug.registry
 --- @field _FFI_PATH? string

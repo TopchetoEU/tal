@@ -1,3 +1,5 @@
+local errors = require "std.errors";
+
 --- @class std.err: errbox
 --- @field children any[]
 --- @field name string
