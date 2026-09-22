@@ -9,8 +9,6 @@ local path_err = require "std.package.path_err";
 local errors = require "std.errors";
 
 --- @class debug.registry
---- @field _FFI_PATH? string
---- @field _FFI_APATH? string
 local reg = debug.registry;
 
 local ffi_load = ffi.load;

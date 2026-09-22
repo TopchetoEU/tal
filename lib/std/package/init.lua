@@ -4,10 +4,8 @@ local buffer = require "string.buffer";
 local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
 local table = require "std.basic.table";
-local fs = require "std.os.fs";
-local errors = require "std.errors";
 local path_err = require "std.package.path_err";
-local error = errors.throw;
+local error = error;
 
 --- @class packagelib
 local package = {
@@ -42,12 +40,12 @@ end
 --- @param name string
 function package.searchlua(name)
 	local file, f = package.searchpath(name, package.path, nil, nil, package.roots, function (p)
-		local ok, res = pcall(fs.open, p, "r");
-		if not ok then error(res .. ", open " .. p) end
+		local res, err = io.open(p, "r");
+		if not res then error(err .. ", open " .. p) end
 		return res;
 	end);
 
-	local src = f:readto(buffer.new()):get();
+	local src = f:read "a";
 	f:close();
 
 	local res, err = load(src, "@" .. file, "t", package.env);
@@ -135,5 +133,8 @@ if jit.os == "Windows" then
 else
 	package.cpath = package.overridepath(package.cpath, ";;@/lib?.so");
 end
+
+local errors = package.require "std.errors";
+error = errors.throw;
 
 return package;
