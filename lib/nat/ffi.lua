@@ -21,20 +21,16 @@ function ffi.load(name, glob)
 		end
 	end
 
-	local res, err = pkgpath.search(name, ffi.path, nil, nil, ffi.roots, function (path)
+	local ok, res, namespace = pcall(pkgpath.search, name, ffi.path, nil, nil, ffi.roots, function (path)
 		local ok, res = pcall(ffi_load, path, glob);
-		if not ok then return nil, "\t" .. res --[[@as string]] end
+		if not ok then return error(res --[[@as string]]) end
 		return res;
 	end);
 
-	if not res then
-		if not err then
-			error("failed to load " .. name);
-		else
-			error("failed to load " .. name .. ":\n" .. err);
-		end
+	if not ok then
+		error(package.err.new(name, "library", errors.all(res)));
 	else
-		return res;
+		return namespace --[[@as ffi.namespace*]];
 	end
 end
 

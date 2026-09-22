@@ -1,6 +1,9 @@
 require "std.basic.string";
+local fs --[[= require "std.os.fs"]];
+local errors = require "std.errors";
+local error = errors.throw;
 
-local package = {
+local path = {
 	sep = ".",
 	rep = require "std.path".sep,
 };
@@ -31,7 +34,7 @@ local function override_one(old, override)
 end
 
 --- @param ... string
-function package.override(...)
+function path.override(...)
 	local n = select("#", ...);
 	if n < 2 then return ... or "" end
 
@@ -50,47 +53,49 @@ end
 --- (useful for a more ergonomic path specification API)
 --- @generic T
 --- @param name string
---- @param path string
+--- @param p string
 --- @param sep? string
 --- @param rep? string
 --- @param roots? string[]
---- @param func? fun(path: string): T?, string?
---- @return T? filename
---- @return string? errmsg
-function package.search(name, path, sep, rep, roots, func)
+--- @param func? fun(p: string): T
+--- @return string filename
+--- @return T data
+--- @overload fun(name: string, p: string, sep?: string, rep?: string, roots?: string[]): string
+function path.search(name, p, sep, rep, roots, func)
 	if not func then
-		function func(path)
-			local f = io.open(path, "r");
-			if f then
-				f:close();
-				return path;
-			end
-
-			return nil, "\tno file '" .. path .. "'";
+		function func(p)
+			fs = fs or require "std.os.fs";
+			local stat, err = fs.stat(p);
+			if not stat then error(err .. ", stat " .. p) end
 		end
 	end
 
-	local lines = {};
+	local errs = {};
 
-	for _, part in path:split ";" do
-		local real_path = part:gsub("%?", function () return (name:gsub("%" .. (sep or package.sep), rep or package.rep)) end);
+	for part in p:gmatch "[^;]+" do
+		local real_path = part:gsub("%?", function () return (name:gsub("%" .. (sep or path.sep), rep or path.rep)) end);
 
 		if real_path:find "@" then
 			if roots then
 				for i = 1, #roots do
-					local res, err = func(real_path:gsub("@", roots[i]));
-					if res then return res end
-					if err then table.insert(lines, err) end
+					local realer_path = real_path:gsub("@", roots[i]);
+					local ok, res = pcall(func, realer_path);
+					if ok then return realer_path, res end
+					table.insert(errs, res);
 				end
 			end
 		else
-			local res, err = func(real_path);
-			if res then return res end
-			if err then table.insert(lines, err) end
+			local ok, res = pcall(func, real_path);
+			if ok then return real_path, res end
+			table.insert(errs, res);
 		end
 	end
 
-	return nil, table.concat(lines, "\n");
+	if #errs == 0 then
+		error "path string is empty";
+	else
+		error(errors.aggr(errs));
+	end
 end
 
-return package;
+return path;

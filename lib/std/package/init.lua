@@ -1,8 +1,12 @@
 --- @diagnostic disable: duplicate-set-field
 
+local buffer = require "string.buffer";
 local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
 local table = require "std.basic.table";
+local fs = require "std.os.fs";
+local errors = require "std.errors";
+local error = errors.throw;
 
 --- @class packagelib
 local package = {
@@ -26,32 +30,64 @@ local package = {
 	strongtag = require "std.package.strongtag",
 };
 
+--- @class std.package.err: errbox
+--- @field children any[]
+--- @field name string
+--- @field kind string
+package.err = {};
+package.err.__index = package.err;
+package.err.__metatable = "std.package.err";
+
+function package.err:errors()
+	return self.children;
+end
+function package.err:__tostring()
+	local res = {};
+	local prefix = self.kind .. " '" .. self.name .. "' not found";
+
+	for i = 1, #self.children do
+		table.insert(res, tostring(self.children[i]));
+	end
+
+	if #res == 0 then
+		return prefix;
+	else
+		return prefix .. ":\n\t" .. table.concat(res, "\n\t");
+	end
+end
+--- @param name string
+--- @param kind string
+--- @param errs any[]
+function package.err.new(name, kind, errs)
+	return setmetatable({ name = name, kind = kind, children = errors.flatten(errs) }, package.err);
+end
+
 --- @param name string
 function package.searchpreload(name)
 	if package.preload[name] then
 		return package.preload[name], ":preload:";
 	else
-		return "\tno field package.preload['" .. name .. "']";
+		return "no field package.preload['" .. name .. "']";
 	end
 end
 --- @param name string
 function package.searchlua(name)
-	local file, err = package.searchpath(name, package.path, nil, nil, package.roots);
-	if not file then return err end
+	local file, f = package.searchpath(name, package.path, nil, nil, package.roots, function (p)
+		local ok, res = pcall(fs.open, p, "r");
+		if not ok then error(res .. ", open " .. p) end
+		return res;
+	end);
 
-	local f = assert(io.open(file, "r"));
-	local src = f:read "a";
+	local src = f:readto(buffer.new()):get();
 	f:close();
 
 	local res, err = load(src, "@" .. file, "t", package.env);
-	if not res then error(err, 0) end
+	if not res then return err end
 	return res, file;
 end
 --- @param name string
 function package.searchc(name)
-	local file, err = package.searchpath(name, package.cpath, nil, nil, package.croots);
-	if not file then return err end
-
+	local file = package.searchpath(name, package.cpath, nil, nil, package.croots);
 	local funcname = name:match("^.*%-(.*)") or name;
 	funcname = "luaopen_" .. funcname:gsub("%.", "_");
 
@@ -59,53 +95,52 @@ function package.searchc(name)
 end
 
 --- @param name string
---- @return (fun(name: string, data?: any): any)?
---- @return string | any err_or_data
+--- @return fun(name: string, data?: any): any loader
+--- @return any data
 function package.search(name)
 	if package.loaded[name] then return package.loaded[name] end
 
 	local errs = {};
 
 	for i = 1, #package.loaders do
-		local res, data = package.loaders[i](name);
-		if type(res) == "string" or res == nil then
-			if res then table.insert(errs, res) end
-		else
-			return res, data;
+		local ok, res, data = pcall(package.loaders[i], name);
+		if ok and data ~= nil then
+			if data ~= nil then
+				return res --[[@as function]], data;
+			elseif res then
+				table.insert(errs, res);
+			end
 		end
+
+		table.insert(errs, res);
 	end
 
-	if #errs > 0 then
-		return nil, "module '" .. name .. "' not found:\n" .. table.concat(errs, "\n");
-	else
-		return nil, "module '" .. name .. "' not found";
-	end
+	error(package.err.new(name, "package", errs));
 end
 --- @param name string
---- @return any?
---- @return string | any err_or_data
+--- @return any package
+--- @return any data
 function package.load(name)
 	local loader, data = package.search(name);
-	if not loader then return nil, data end
-
-	return loader(name, data) or true, data;
+	return loader(name, data), data;
 end
 
 --- @param name string
 function package.require(name)
+	if package.weakloaded[name] == false then error("previous error or cyclical dependency with package '" .. name .. "'") end
 	if package.weakloaded[name] then return package.weakloaded[name] end
 
+	package.loaded[name] = false;
 	local res, data = package.load(name);
-	if res then
-		if type(res) == "table" and res[package.strongtag] then
-			package.loaded[name] = res;
-		else
-			package.weakloaded[name] = res;
-		end
-		return res, data;
+	package.loaded[name] = nil;
+
+	if type(res) == "table" and res[package.strongtag] then
+		package.loaded[name] = res;
 	else
-		return error(data, 0);
+		package.weakloaded[name] = res or true;
 	end
+
+	return res, data;
 end
 
 package.roots:insertall(debug.getregistry()._LUA_ROOTS or {});
@@ -121,6 +156,7 @@ end
 package.roots:insert(".");
 package.croots:insert(".");
 
+--- @type (fun(name: string): function | string, any?)[]
 package.loaders = { package.searchpreload, package.searchlua, package.searchc };
 package.searchers = package.loaders;
 package.path = package.overridepath(package.path, ";;@" .. pkgpath.rep .. "?.lua;@" .. pkgpath.rep .. "?" .. pkgpath.rep .. "init.lua");

@@ -261,14 +261,16 @@ end
 
 --- @param ctx tal.mklua.ctx
 --- @param name string
+--- @return "lua" | "c"? kind
+--- @return string path
 local function resolve_lua(ctx, name)
-	local path = package.searchpath(name, package.path, nil, nil, package.roots);
-	if path then return "lua", path end
+	local ok, path1 = pcall(package.searchpath, name, package.path, nil, nil, package.roots);
+	if ok then return "lua", assert(path1) end
 
-	local path = package.searchpath(name, package.cpath, nil, nil, package.croots);
-	if path then return "c", path end
+	local ok, path2 = pcall(package.searchpath, name, package.cpath, nil, nil, package.croots);
+	if ok then return "c", assert(path2) end
 
-	return nil;
+	error(errors.aggr { path1, path2 });
 end
 
 local function emit_map_emitter(name, map)
