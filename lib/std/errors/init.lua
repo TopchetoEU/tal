@@ -49,6 +49,16 @@ function errors.all(err, full)
 	err_all_impl(err, full, res);
 	return res;
 end
+--- @param errs any[]
+--- @param full? boolean = false If true, includes errboxes as well
+--- @return any[]
+function errors.flatten(errs, full)
+	local res = {};
+	for i = 1, #errs do
+		err_all_impl(errs[i], full, res);
+	end
+	return res;
+end
 --- @generic T
 --- @param err any
 --- @param val `T`
