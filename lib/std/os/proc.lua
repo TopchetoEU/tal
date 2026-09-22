@@ -127,6 +127,7 @@ function proc.new(opts)
 	end
 
 	if opts.path and not opts.argv[1]:find "[/\\%.]" then
+		--- @diagnostic disable-next-line: param-type-mismatch
 		for _, part in opts.path:split ";" do
 			local filename = path.join(part, opts.argv[1]);
 			local f = io.open(path.join(part, opts.argv[1]), "r");

@@ -146,7 +146,7 @@ end
 --- @return std.fmt.xml_node
 function xml_node:query(name)
 	local res = self:query_all(name);
-	if #res == 1 then
+	if #res >= 1 then
 		return res[1];
 	else
 		error "no single element with the query found";
@@ -154,7 +154,7 @@ function xml_node:query(name)
 end
 
 --- @param name string
---- @return std.fmt.xml_node
+--- @return std.fmt.xml_node?
 function xml_node:query_first(name)
 	local res = self:query_all(name);
 	if #res >= 1 then

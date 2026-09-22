@@ -1,3 +1,4 @@
+--- @diagnostic disable: assign-type-mismatch
 local str = require "std.str";
 
 --- @class std.str.cross: std.str
