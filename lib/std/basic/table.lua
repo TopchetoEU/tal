@@ -9,7 +9,6 @@ tablelib.__metatable = "table";
 
 tablelib.clear = require "table.clear";
 tablelib.new = require "table.new";
-tablelib.field = require "std.basic.table.field";
 tablelib.unpack = unpack or tablelib.unpack;
 
 function tablelib.pack(...)
@@ -93,6 +92,20 @@ function tablelib.find(self, val, rev, first, last)
 	end
 
 	return nil;
+end
+--- @generic T
+--- @param iter fun(self, i): T?
+--- @param self? any
+--- @param init? any
+--- @return T[]
+function tablelib.from(iter, self, init)
+	local res = {};
+
+	for el in iter, self, init do
+		table.insert(res, el);
+	end
+
+	return res;
 end
 
 --- @generic T

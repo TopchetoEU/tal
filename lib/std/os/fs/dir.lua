@@ -1,5 +1,5 @@
 local loop = require "std.loop";
-local collected = require "std.basic.table.collected";
+local collected = require "std.collected";
 
 --- @class std.os.fs.dir
 --- @field hnd impl.dir

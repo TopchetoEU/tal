@@ -1,7 +1,7 @@
 local impl = require "impl";
 local loop = require "std.loop";
 local str = require "std.os.fs.str";
-local collected = require "std.basic.table.collected";
+local collected = require "std.collected";
 local errors = require "std.errors";
 local net = {};
 

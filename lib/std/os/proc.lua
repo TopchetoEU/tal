@@ -1,7 +1,7 @@
 local loop = require "std.loop";
 local path = require "std.path";
 local impl = require "impl";
-local collected = require "std.basic.table.collected";
+local collected = require "std.collected";
 local str = require "std.str";
 local impl_str = require "std.os.fs.str";
 local errors = require "std.errors";
@@ -128,7 +128,7 @@ function proc.new(opts)
 
 	if opts.path and not opts.argv[1]:find "[/\\%.]" then
 		--- @diagnostic disable-next-line: param-type-mismatch
-		for _, part in opts.path:split ";" do
+		for part in opts.path:split ";" do
 			local filename = path.join(part, opts.argv[1]);
 			local f = io.open(path.join(part, opts.argv[1]), "r");
 			if f then

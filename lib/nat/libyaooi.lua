@@ -1,4 +1,4 @@
-local field = require "std.basic.table.field";
+local field = require "std.field";
 local ffi = require "nat.ffi";
 local libc = require "nat.libc";
 local errors = require "std.errors";

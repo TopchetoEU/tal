@@ -1,5 +1,6 @@
 local ffi = require "ffi";
 local objects = require "nat.utils.objects";
+local field = require "std.field";
 
 local libssl = ffi.load "ssl";
 ffi.cdef [[
@@ -53,7 +54,7 @@ ffi.cdef [[
 
 ]];
 
-local ssl_field = table.field();
+local ssl_field = field();
 
 local ssl = { [require "std.package.strongtag"] = true };
 
