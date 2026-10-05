@@ -3,34 +3,31 @@ local lex;
 
 --- @param self string
 --- @param sep? string
---- @return string[]
-function string:splitarr(sep)
-	local res = {};
-
-	for _, el in self:split(sep) do
-		table.insert(res, el);
-	end
-
-	return res;
-end
---- @param self string
---- @param sep? string
 function string:split(sep)
 	sep = sep or "";
 
-	--- @param self string
-	--- @param i? integer
-	local function splitter(self, i)
-		if not i or i > #self then return nil end
+	local i = 1;
 
-		local sep_f, sep_l = self:find(sep, i + 1);
-		if not sep_f then
-			return #self + 1, self:sub(i + 1);
+	--- @param self string
+	local function splitter(self)
+		if i > #self then return nil end
+
+		local sep_f, sep_l = self:find(sep, i);
+		if sep_f and sep_l then
+			local res = self:sub(i, sep_f - 1);
+			if sep_l < sep_f then
+				i = sep_f + 1;
+			else
+				i = sep_l + 1;
+			end
+			return res;
 		else
-			return sep_l, self:sub(i + 1, sep_f - 1);
+			local res = self:sub(i);
+			i = #self + 1;
+			return res;
 		end
 	end
-	return splitter, self, 0;
+	return splitter, self;
 end
 --- @param self string
 function string:at(i)
