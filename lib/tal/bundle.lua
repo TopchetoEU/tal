@@ -11,16 +11,28 @@ Flags:
 
 <entry> - the name of a lua module to be bundled
 
---compile-cmd (-C) ... - specifies the rest of the arguments as a compiler, to be used to produce the executable.
-	The static libraries, used by the lua module will be appended to the arguments.
-	The contents of the generated C file will be piped in stdin
---compiler (-c) - sets compile-cmd to a preexisting compile command preset:
-	- gcc - A gcc-like command (uses cc for clang compat)
-	- msvc - An msvc-like command. Not tested, not recommended
-	If --output is specified in conjunction with this, it will translate to an output flag for the compile command.
+--bootstrap <module> - specifies a module that starts tal. Defaults to "tal.entry", change this only if you know what you're doing
 
---output (-o) <file> - specifies the file to which the C source should be written
---bootstrap <module> - specifies an alternative to "tal.entry" that will bootstrap the compiled module
+Modes:
+--gen (-G) - generate a single bundle that executes the entry
+	--lib-cmd (-S) ... - specifies the arguments, used to include a static library, `%` will be replaced by the argument. Defaults to ["%"]
+	--compile-cmd (-C) ... - specifies the rest of the arguments as a compiler, to be used to produce the executable.
+		The static libraries, used by the lua module will be templated into the argument list using --lib-cmd
+		The contents of the generated C file will be piped in stdin
+	--compiler (-c) <name> - sets compile-cmd to a preexisting compile command preset:
+		- gcc - A gcc-like command (uses cc for clang compat)
+		- msvc - An msvc-like command. Not tested, not recommended
+		If --output is specified in conjunction with this, it will translate to an output flag for the compile command.
+	--output (-o) <file> - specifies the file to which the C source should be written
+	--debug (-g) - includes debug data in the resulting executable
+--deps (-D) - output a list of files, required to build the program
+--libs (-L) - output a list of ffi libraries, required to build the program
+
+Variadic lists:
+<arg> - an argument to be appended to the variadic list
+--stop (-s) - ends the variadic list. If not included, the whole remainder of argv will be consumed
+--escape (-e) <arg> - treats the next argument as a literal argument. Useful when escaping `-s` and `-e` args
+--escape-all (-E) <args...> - consumes the rest of the argv as literal arguments, ignoring `-s`, `-e` and `-E`
 ]]
 
 return function (...)
@@ -40,6 +52,8 @@ return function (...)
 				break;
 			elseif isopt and (arg == "--escape" or arg == "-e") then
 				table.insert(res, argv:pop());
+			elseif isopt and (arg == "--escape-all" or arg == "-E") then
+				table.insertall(res, { argv:poprest() });
 			else
 				table.insert(res, arg);
 			end
@@ -65,6 +79,8 @@ return function (...)
 				debug = true;
 			elseif arg == "--output" or arg == "-o" then
 				output = argv:pop();
+			elseif arg == "--bootstrap" then
+				bootstrap = argv:pop();
 
 			elseif arg == "--compiler" or arg == "-c" then
 				local compiler = argv:pop();
@@ -107,8 +123,15 @@ return function (...)
 		return io.stderr:write "error: an entry must be specified\n";
 	end
 
+	local entries = {};
+
+	if bootstrap ~= "-" then
+		table.insert(entries, bootstrap);
+	end
+	table.insert(entries, entry);
+
 	local mklua_ctx = {
-		entries = { bootstrap or "tal.entry", entry },
+		entries = entries,
 		args = { entry },
 		path = package.path,
 		cpath = package.cpath,
