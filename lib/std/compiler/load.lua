@@ -53,7 +53,7 @@ return function (chunk, name, mode, env, no_map, force_no_raw)
 	end);
 	if not ok then
 		local errs = errors.allof(func, "std.errors.syntax");
-		if #errs > 0 then return nil, errs end
+		if #errs > 0 then return nil, errors.aggr(errs) end
 
 		errors.throw(func);
 	end
