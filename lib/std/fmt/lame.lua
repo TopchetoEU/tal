@@ -157,8 +157,12 @@ local function parse_num(src, i, eol)
 	local ok, j, kind, val = spcall(lex.parse_number, { lines = { 1 }, n = #src, src = ffi.cast("char*", src) }, j - 1);
 	if not ok then
 		local e = errors.firstof(j, "std.errors.syntax");
-		if e then throw(i, e.msg) end
-		error(j);
+		if e then
+			if e.msg == "malformed number" then return i end
+			throw(i, e.msg);
+		else
+			error(j);
+		end
 	end
 
 	j = j + 1;
@@ -352,6 +356,11 @@ end
 
 --- @param src string
 return function (src)
-	local _, res = parse_table(src, 1, nil);
+	local ok, err, res = spcall(parse_table, src, 1, nil);
+	if not ok then
+		local e = errors.firstof(err, "std.errors.syntax");
+		if e then e.loc = loc.from_src(src, e.loc.fname, e.loc.row) end
+		error(e);
+	end
 	return res;
 end
