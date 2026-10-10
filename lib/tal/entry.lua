@@ -1,6 +1,5 @@
 local stderr = io.stderr;
 local has_dbg, dbg = pcall(require, "lldebugger");
-local printing = require "std.printing";
 
 return function (entry_mod, ...)
 	require "ffi";
@@ -22,6 +21,7 @@ return function (entry_mod, ...)
 	setfenv(1, env);
 
 	local errors = require "std.errors";
+	local printing = require "std.curses.printing";
 
 	local ok, e = errors.spcall(function (...)
 		local package = require "std.package";
