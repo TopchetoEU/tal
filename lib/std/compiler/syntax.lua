@@ -1077,6 +1077,7 @@ local function finish_assign_targets(ctx, i, target)
 			return finish_assign_values(ctx, j, targets);
 		else
 			syntax_error(ctx, j, "expected ',' or '='");
+			return i;
 		end
 	end
 end
