@@ -52,7 +52,7 @@ end
 --- @return string
 function prog:finish()
 	self._mut:lock();
-	self._backend:write(ansi.gen_pos_move(self._max_i + 1 - self._cursor, 0), "\n");
+	self._backend:write(ansi.gen_pos_move(self._max_i - self._cursor, 0), "\n");
 	self._mut:unlock();
 end
 
