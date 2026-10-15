@@ -6,7 +6,7 @@ DST := dst
 
 all:
 
-install: $(PREFIX)/bin/tal all
+install: dst/bin/tal all
 	mkdir -p "$(PREFIX)/lib/lua"
 	mkdir -p "$(PREFIX)/bin"
 
@@ -16,8 +16,8 @@ install: $(PREFIX)/bin/tal all
 clean:
 	rm -rf dst
 
-dst/tal:
+dst/bin/tal:
 	mkdir -p $(dir $@)
 	echo '#!/usr/bin/env sh' > $@
-	echo '"$(PREFIX)/bin/luajit" "$(PREFIX)/lib/lua/tal.lua" "$$@"' >> $@
+	echo 'luajit "$(PREFIX)/lib/lua/tal.lua" "$$@"' >> $@
 	chmod +x $@
