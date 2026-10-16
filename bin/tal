@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+DIRNAME="$(realpath "$(dirname "$0")"/..)"
+exec luajit "$DIRNAME/lib/lua/tal.lua" "$@"
