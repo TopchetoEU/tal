@@ -7,8 +7,8 @@ export LUA_CROOTS="$ROOT/.prefix/lib/lua;$LUA_CROOTS"
 export LUA_ROOTS="$ROOT/deps/luajit/src;$LUA_ROOTS"
 export LUA_PATH="$ROOT/deps/luajit/src/?.lua;$ROOT/deps/luajit/src/?/init.lua;$LUA_PATH;;"
 
-LUAJIT="$ROOT/deps/luajit/src/luajit"
-# LUAJIT=luajit
+# LUAJIT="$ROOT/deps/luajit/src/luajit"
+LUAJIT=luajit
 
 if [ "$1" = "--gdb" ]; then
 	shift 1
