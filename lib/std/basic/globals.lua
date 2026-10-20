@@ -43,6 +43,7 @@ io = require "std.io";
 os = require "std.os";
 jit = require "jit";
 bit = require "bit";
+utf8 = require "std.fmt.utf8";
 string = require "std.basic.string";
 number = require "std.basic.number";
 boolean = require "std.basic.boolean";
@@ -56,6 +57,7 @@ package.loaded.debug = debug;
 package.loaded.string = string;
 package.loaded.coroutine = coroutine;
 package.loaded.table = table;
+package.loaded.utf8 = utf8;
 
 function loadfile(filename, mode, env)
 	return load(io.lines(filename, "c"), "@" .. filename, mode, env);

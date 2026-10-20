@@ -3,6 +3,7 @@ local libc = require "nat.libc";
 local errors = require "std.errors";
 local buffer = require "string.buffer";
 local text = require "std.str.text";
+local utf8 = require "std.fmt.utf8";
 
 --- @class std.io.stat
 --- @field type "file" | "dir" | "link" | "sock" | "fifo" | "char" | "blk"
@@ -302,6 +303,19 @@ function str:writebyte(c)
 	local buff = ffi.new("char[1]", c);
 	self:write(buff, 1);
 	return self;
+end
+
+--- @return integer? code_point
+--- @return string? text
+--- @return boolean? good
+function str:readutf8()
+	return utf8.read(self);
+end
+--- @param c integer
+function str:writeutf8(c)
+	local data = utf8.encode(c);
+	local buff = ffi.new("char[?]", #data, data);
+	return self:write(buff, #data);
 end
 
 --- Returns a function, which, when called, calls :read(buff, n)
