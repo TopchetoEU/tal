@@ -35,7 +35,7 @@ function cli.repl(prefix, eot)
 				local done = false;
 				local f;
 
-				local line = require "nat.libreadline"(src == "" and (prefix .. "> ") or "... ");
+				local line = require "nat.libedit"(src == "" and (prefix .. "> ") or "... ");
 				if line == eot then
 					cont = false;
 					return;

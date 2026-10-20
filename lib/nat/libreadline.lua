@@ -1,3 +1,6 @@
+-- This file, as an exception, is licensed under GPL (due to )
+-- Copyright TopchetoEU
+
 local ffi = require "ffi";
 local libc = require "nat.libc";
 
@@ -8,7 +11,7 @@ if ffi.os == "Windows" then
 	end
 end
 
-local libreadline = ffi.load "edit";
+local libreadline = ffi.load "readline";
 
 ffi.cdef [[
 	char *readline(const char *prompt);
