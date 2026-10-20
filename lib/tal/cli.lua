@@ -174,9 +174,16 @@ function cli.main(...)
 		local root = path.dirname(file);
 		package.roots:insert(root);
 
-		local f = assert(io.open(file));
-		local src = f:read "a";
-		f:close();
+		local src;
+
+		if file == "-" then
+			src = io.stdin:read "a";
+		else
+			local f = assert(io.open(file));
+			src = f:read "a";
+			f:close();
+		end
+
 
 		assert(load(src, "@" .. file, "t"))(table.unpack(args));
 
