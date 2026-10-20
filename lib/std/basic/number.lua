@@ -5,6 +5,7 @@ number.__index = number;
 number.__metatable = "number";
 
 --- @param val any
+--- @return number
 function number.new(val, base)
 	return assert(tonumber(val, base), "not convertable to number");
 end

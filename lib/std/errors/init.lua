@@ -107,9 +107,7 @@ function errors.throw(e)
 end
 ---@generic T
 ---@param val? T
----@param ... any
----@return T
----@return any ...
+---@return T, ...
 function errors.assert(val, ...)
 	if not val then
 		return errors.throw((...));
