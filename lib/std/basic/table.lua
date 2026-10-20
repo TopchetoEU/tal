@@ -92,6 +92,22 @@ function tablelib.find(self, val, rev, first, last)
 
 	return nil;
 end
+--- ALternative to table.from, which puts the second element of `iter` to the table
+--- Useful for iterators with a state variable (example is `ipairs` although doing `table.ifrom(ipairs {1, 2, 3})` is kinda useless)
+--- @generic T
+--- @param iter fun(self, i): T?
+--- @param self? any
+--- @param init? any
+--- @return T[]
+function tablelib.ifrom(iter, self, init)
+	local res = {};
+
+	for _, el in iter, self, init do
+		table.insert(res, el);
+	end
+
+	return res;
+end
 --- @generic T
 --- @param iter fun(self, i): T?
 --- @param self? any
