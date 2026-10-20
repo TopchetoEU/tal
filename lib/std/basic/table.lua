@@ -15,11 +15,10 @@ function tablelib.pack(...)
 	return { n = select("#", ...), ... };
 end
 
+--- @param self string | table
 --- @param i? integer
---- @param def integer
-function tablelib.absindex(self, i, def)
-	if not i then i = def end
-	if i < 0 then i = #self + i end
+function tablelib.absindex(self, i)
+	if i < 0 then i = #self + i + 1 end
 	return i;
 end
 --- @param self table
@@ -27,7 +26,7 @@ end
 --- @param maxn? integer
 --- @param rev? boolean
 function tablelib.delete(self, val, maxn, rev)
-	maxn = tablelib.absindex(self, maxn, 1);
+	maxn = tablelib.absindex(self, maxn or 1);
 	local n = 0;
 
 	if rev then
@@ -62,7 +61,7 @@ function tablelib.deleteall(self, other, maxn, rev)
 	local n = 0;
 
 	for i = 1, #other do
-		n = n + table.delete(self, other[i], tablelib.absindex(self, maxn, 1), rev);
+		n = n + table.delete(self, other[i], tablelib.absindex(self, maxn or 1), rev);
 	end
 
 	return n;
@@ -78,8 +77,8 @@ end
 --- @param first? integer
 --- @param last? integer
 function tablelib.find(self, val, rev, first, last)
-	first = table.absindex(self, first, 1);
-	last = table.absindex(self, last, -1);
+	first = table.absindex(self, first or 1);
+	last = table.absindex(self, last or -1);
 
 	if rev then
 		for i = last or #self, first or 1, -1 do
