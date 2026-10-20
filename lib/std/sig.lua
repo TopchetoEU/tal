@@ -47,7 +47,11 @@ end
 --- @param typename string
 --- @return ...
 function sig.error_type(val, i, typename)
-	return sig.error(i, typename .. " expected, got " .. type(val));
+	local val_typename = getmetatable(val) --[[@as string]];
+	if type(val_typename) ~= "string" then
+		val_typename = type(val);
+	end
+	return sig.error(i, typename .. " expected, got " .. val_typename);
 end
 
 --- @param i integer | string
