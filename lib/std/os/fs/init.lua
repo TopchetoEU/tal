@@ -5,6 +5,7 @@ local str = require "std.str";
 local sig = require "std.sig";
 local loop = require "std.loop";
 local p = require "std.path";
+local is = require "std.basic.is";
 local dir = require "std.os.fs.dir";
 
 local fs = {};
@@ -137,6 +138,19 @@ end
 function fs.path(type)
 	type = sig.str(type, "type");
 	return impl:getpath(type or "cwd");
+end
+
+--- @param fd? std.str
+function fs.ttyraw(fd)
+	if not fd then fd = fs.stdin end
+	local fd = is(fd, "std.os.fs.impl.file") or is(fd, "std.os.fs.impl.str");
+	if not fd then sig.error_type(fd, "fd", "std.os.fs.impl.[file|str]") end
+
+	local raw = impl:ttyraw(fd._backend);
+
+	return function ()
+		raw:close();
+	end;
 end
 
 return fs;

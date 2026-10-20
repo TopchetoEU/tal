@@ -594,6 +594,23 @@ function yaooi.tty_err()
 	return pres[0];
 end
 
+--- @class nat.libyaooi.tty_raw: ffi.cdata*
+yaooi.tty_raw = {};
+yaooi.tty_raw.__index = yaooi.tty_raw;
+yaooi.tty_raw.__metatable = "libyaooi.tty_raw";
+local tty_raw_type = ffi.metatype("struct yo_tty_raw", yaooi.tty_raw);
+
+--- @param fd nat.libyaooi.fd
+--- @return nat.libyaooi.tty_raw
+function yaooi.tty_raw.new(fd)
+	local pres = ffi.new "yo_tty_raw_t[1]";
+	yo_assert(libyaooi.yo_tty_raw(fd, pres));
+	return pres[0];
+end
+function yaooi.tty_raw:close()
+	yo_assert(libyaooi.yo_tty_rawend(self));
+end
+
 --- @class nat.libyaooi.fd: ffi.cdata*
 yaooi.fd = {};
 yaooi.fd.__index = yaooi.fd;

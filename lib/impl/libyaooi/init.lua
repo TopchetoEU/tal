@@ -7,6 +7,7 @@ local yo_dir = require "impl.libyaooi.yo_dir";
 local yo_iterenv = require "impl.libyaooi.yo_iterenv";
 local yo_proc = require "impl.libyaooi.yo_proc";
 local yo_server = require "impl.libyaooi.yo_server";
+local yo_ttyraw = require "impl.libyaooi.yo_ttyraw";
 
 --- @class impl.libyaooi.impl: impl
 --- @field queue nat.libyaooi.queue
@@ -143,6 +144,13 @@ end
 
 function yo_impl:next(timeout)
 	return next_processargs(self.queue:poll(timeout));
+end
+
+function yo_impl:ttyraw(fd)
+	local fd = is(fd, "impl.libyaooi.fd");
+	assert(fd, "fd must be from libyaooi");
+
+	return yo_ttyraw(self.queue, fd.fd);
 end
 
 return function ()

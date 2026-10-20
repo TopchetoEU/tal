@@ -76,6 +76,10 @@ function process:wait(udata) end
 -- TODO: add close()
 -- function process:close() end
 
+--- @class impl.ttyraw
+local ttyraw = {};
+function ttyraw:close() end
+
 --- @class impl
 --- @field stdin impl.fd
 --- @field stdout impl.fd
@@ -178,6 +182,10 @@ function impl:env_get(name) end
 function impl:env_set(name, val) end
 --- @return impl.iterenv
 function impl:iterenv() end
+
+--- @param fd impl.fd
+--- @return impl.ttyraw
+function impl:ttyraw(fd) end
 
 --- Returns a callback + arguments to be called if successful
 --- Returns nil
