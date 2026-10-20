@@ -283,6 +283,27 @@ function str:readto(buff, n)
 	end
 end
 
+function str:readbyte()
+	local buff = ffi.new "char[1]";
+	local res = self:read(buff, 1);
+	if res == 1 then
+		return number.new(buff[0]);
+	else
+		return nil;
+	end
+end
+--- @param c integer
+function str:unreadbyte(c)
+	local buff = ffi.new("char[1]", c);
+	return self:unread(buff, 1);
+end
+--- @param c integer
+function str:writebyte(c)
+	local buff = ffi.new("char[1]", c);
+	self:write(buff, 1);
+	return self;
+end
+
 --- Returns a function, which, when called, calls :read(buff, n)
 --- If :read returns 0, the given function returns nil instead (to conform with the for-in protocol)
 --- @param buff ffi.cdata*
