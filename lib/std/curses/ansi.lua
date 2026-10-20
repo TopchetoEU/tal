@@ -1,6 +1,3 @@
-local ffi = require "nat.ffi";
-local str = require "std.str";
-
 --- @class std.curses.colors
 local ansi = {};
 
@@ -15,10 +12,12 @@ local colors = {
 	white = 7,
 };
 
+ansi.csi = "\27[";
+
 --- @param cmd string
 --- @param ... integer | string
 function ansi.gen_seq(cmd, ...)
-	return "\27[" .. table.concat({ ... }, ";") .. cmd;
+	return ansi.csi .. table.concat({ ... }, ";") .. cmd;
 end
 
 --- @param foreground boolean
