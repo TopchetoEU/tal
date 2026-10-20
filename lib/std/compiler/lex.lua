@@ -60,7 +60,7 @@ lexer.operators = {
 	ASSIGN_BOR = 81,
 	ASSIGN_BXOR = 82,
 	ASSIGN_SHL = 83,
-	ASSIGN_SHR = 83,
+	ASSIGN_SHR = 84,
 
 	END = 99,
 
