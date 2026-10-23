@@ -288,7 +288,7 @@ function str:readbyte()
 	local buff = ffi.new "char[1]";
 	local res = self:read(buff, 1);
 	if res == 1 then
-		return number.new(buff[0]);
+		return (assert(tonumber(buff[0])));
 	else
 		return nil;
 	end
@@ -305,15 +305,14 @@ function str:writebyte(c)
 	return self;
 end
 
---- @return integer? code_point
---- @return string? text
---- @return boolean? good
-function str:readutf8()
-	return utf8.read(self);
+--- @param lax? boolean = false
+function str:readutf8(lax)
+	return utf8.read(self, lax);
 end
 --- @param c integer
-function str:writeutf8(c)
-	local data = utf8.encode(c);
+--- @param lax? boolean = false
+function str:writeutf8(c, lax)
+	local data = utf8.encode(c, lax);
 	local buff = ffi.new("char[?]", #data, data);
 	return self:write(buff, #data);
 end
