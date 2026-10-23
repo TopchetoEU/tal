@@ -1,4 +1,4 @@
---- @class std.curses.colors
+--- @class std.con.colors
 local ansi = {};
 
 local colors = {

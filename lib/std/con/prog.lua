@@ -1,7 +1,7 @@
-local ansi = require "std.curses.ansi";
+local ansi = require "std.con.ansi";
 local mutex = require "std.sync.mutex";
 
---- @class std.curses.prog
+--- @class std.con.prog
 --- @field private _backend std.strtxt
 --- @field private _lines boolean[]
 --- @field private _cursor integer
@@ -9,7 +9,7 @@ local mutex = require "std.sync.mutex";
 --- @field private _mut std.sync.mutex
 local prog = {};
 prog.__index = prog;
-prog.__metatable = "std.curses.prog";
+prog.__metatable = "std.con.prog";
 
 --- Allocate a line, create new if no sparce line exists
 --- @return integer

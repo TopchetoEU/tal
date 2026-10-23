@@ -21,7 +21,7 @@ return function (entry_mod, ...)
 	setfenv(1, env);
 
 	local errors = require "std.errors";
-	local printing = require "std.curses.printing";
+	local printing = require "std.con.printing";
 
 	local ok, e = errors.spcall(function (...)
 		local package = require "std.package";

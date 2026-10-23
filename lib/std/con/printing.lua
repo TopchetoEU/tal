@@ -1,7 +1,7 @@
 local debug = require "std.basic.debug";
 local errors = require "std.errors";
-local ansi = require "std.curses.ansi";
-local no_ansi = require "std.curses.noansi";
+local ansi = require "std.con.ansi";
+local no_ansi = require "std.con.noansi";
 
 local str_escape_codes = {
 	["\x00"] = "\\0",

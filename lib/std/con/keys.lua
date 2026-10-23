@@ -1,19 +1,19 @@
 local fs = require "std.os.fs"
-local ansi = require "std.curses.ansi";
+local ansi = require "std.con.ansi";
 
---- @class std.curses.keys.evn
---- @class std.curses.keys.evn
+--- @class std.con.keys.evn
+--- @class std.con.keys.evn
 --- @field evn "down" | "up" | "repeat"
 --- @field key? integer Key code that was pressed
 --- @field chr? integer UTF-8 codepoint which was inputted
 --- @field mod integer
 
---- @class std.curses.keys
+--- @class std.con.keys
 --- @field _rawend fun()
---- @field _queue std.curses.keys.evn[]
+--- @field _queue std.con.keys.evn[]
 local keys = {};
 keys.__index = keys;
-keys.__metatable = "std.curses.keys";
+keys.__metatable = "std.con.keys";
 
 keys.codes = {
 	ESCAPE = 27,
@@ -188,7 +188,7 @@ local translations = {
 	S = keys.codes.F4,
 };
 
---- @return std.curses.keys.evn?
+--- @return std.con.keys.evn?
 function keys:read()
 	local c;
 
@@ -231,7 +231,7 @@ function keys:read()
 				end
 			end
 
-			--- @type std.curses.keys.evn
+			--- @type std.con.keys.evn
 			local evn = {
 				evn = "down",
 				mod = 0,
@@ -362,7 +362,7 @@ function keys:read()
 	end
 
 	table.insert(self._queue, { evn = "up", chr = chr, key = key, mod = mod });
-	--- @type std.curses.keys.evn
+	--- @type std.con.keys.evn
 	return { evn = "down", chr = chr, key = key, mod = mod };
 end
 

@@ -9,7 +9,7 @@ require = package.require;
 -- Then, we import our ffi, to add our custom load function (without it, everything breaks)
 require "nat.ffi";
 
-local printing = require "std.curses.printing";
+local printing = require "std.con.printing";
 local errs = require "std.errors";
 
 errors = errs;

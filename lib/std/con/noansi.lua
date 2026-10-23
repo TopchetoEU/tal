@@ -1,7 +1,7 @@
 local ffi = require "nat.ffi";
 local str = require "std.str";
 
---- @type std.curses.colors
+--- @type std.con.colors
 local ansi = {};
 
 local colors = {
