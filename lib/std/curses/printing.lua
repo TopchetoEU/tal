@@ -236,21 +236,25 @@ function printing.stringify(obj, colors)
 	return stringify_int(obj, "", codes, { next = 0 }, {}, 120);
 end
 
+local stderr = io.stderr;
+
 function printing.print(...)
-	if select("#", ...) == 0 then
-		return;
-	elseif select("#", ...) == 1 then
-		assert(io.stderr:write(tostring(...), "\n"));
+	if select("#", ...) == 0 then return end
+
+	assert(stderr:write((tostring((...)):gsub("\r?\n", "\r\n"))));
+	if select("#", ...) > 1 then
+		assert(stderr:write "\t");
 	else
-		assert(io.stderr:write(tostring(...), "\t"));
-		return print(select(2, ...));
+		assert(stderr:write "\r\n");
 	end
+
+	return printing.print(select(2, ...));
 end
 
 function printing.pprint(...)
 	if select("#", ...) == 0 then return end
 
-	local function fix (...)
+	local function fix(...)
 		if select("#", ...) == 0 then
 			return;
 		else
@@ -258,7 +262,7 @@ function printing.pprint(...)
 		end
 	end
 
-	print(fix(...));
+	printing.print(fix(...));
 end
 
 function printing.eprint(e, reason, write)
@@ -272,7 +276,7 @@ function printing.eprint(e, reason, write)
 		table.insert(res, (printing.stringify(e, true)));
 	end
 
-	(write or print)(table.concat(res));
+	(write or printing.print)(table.concat(res));
 end
 
 return printing;

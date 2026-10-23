@@ -20,6 +20,7 @@ newproxy = newproxy;
 getfenv = getfenv;
 setfenv = setfenv;
 
+print = printing.print;
 pprint = printing.pprint;
 eprint = printing.eprint;
 
