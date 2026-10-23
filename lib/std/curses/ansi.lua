@@ -87,6 +87,9 @@ function ansi.gen_clear(mode)
 	end
 end
 
+ansi.keycode_begin = ansi.gen_seq("u", ">" .. 31);
+ansi.keycode_end = ansi.gen_seq("u", "<");
+
 ansi.reset = ansi.gen_seq("m", 0);
 ansi.bold = ansi.gen_seq("m", 1);
 ansi.dim = ansi.gen_seq("m", 2);
