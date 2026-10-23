@@ -41,7 +41,6 @@ function prog:free(i)
 end
 --- Print text at the given line
 --- @param i integer
---- @return string
 function prog:print(i, text)
 	self._mut:lock();
 	self._backend:write(ansi.gen_pos_move(i - self._cursor, 0), ansi.gen_clear("line"), text, "\n");
@@ -49,7 +48,6 @@ function prog:print(i, text)
 	self._mut:unlock();
 end
 --- Finish the progress tracker, move the cursor after the last line
---- @return string
 function prog:finish()
 	self._mut:lock();
 	self._backend:write(ansi.gen_pos_move(self._max_i - self._cursor, 0), "\n");
