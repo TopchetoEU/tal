@@ -94,21 +94,22 @@ function utf8.decode(str, i, lax)
 
 	return res;
 end
---- @param c? integer
+--- @param c integer
 --- @param lax? boolean = false If true, c may be bigger than 2^21, and it will be encoded with 5+ bytes
 function utf8.encode(c, lax)
 	if c < 0 then sig.error("c", "out of range") end
+	if c < 0x80 then return string.char(c) end
 
 	local res = {};
 	local n = 0;
-	local addmask = 0x80;
-	local overlay = 0x00;
+	local addmask = 0x40;
+	local overlay = 0x80;
 
 	while c >= 0x80 do
 		-- We phyiscally cannot encode larger codepoints
 		if addmask == 0 then error "encoded char too long" end
 
-		table.insert(res, 1, string.byte((c & 0x3f) | 0x80));
+		table.insert(res, 1, string.char((c & 0x3f) | 0x80));
 		c >>= 6;
 		overlay |= addmask;
 		addmask >>= 1;
@@ -117,7 +118,7 @@ function utf8.encode(c, lax)
 
 	if n > 3 and not lax then error "encoded char too long" end
 
-	table.insert(res, 1, c | overlay);
+	table.insert(res, 1, string.char(c | overlay));
 
 	return table.concat(res);
 end
@@ -224,13 +225,8 @@ function utf8.tcodepoint(str, f, l, lax)
 			if n ~= -1 and not lax then error "expected utf8 continuation byte" end
 			i += 1;
 
-			pprint(n, curr, i);
-
-			pprint(res);
 			res <<= 6;
-			pprint(res);
 			res |= curr;
-			pprint(res);
 		end
 
 		table.insert(parts, res);
