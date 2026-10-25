@@ -48,8 +48,16 @@ function ansi.gen_color(foreground, col)
 		error(errors.never);
 	end
 end
-function ansi.gen_pos_set(row, column)
-	return ansi.gen_seq("H", row, column);
+--- @param row? integer
+--- @param col? integer
+function ansi.gen_pos_set(row, col)
+	if not row or not col then
+		if col then return ansi.gen_seq("G", col) end
+		if row then return ansi.gen_seq("h", row) end
+		return "";
+	end
+
+	return ansi.gen_seq("H", row, col);
 end
 --- @param row_ch integer
 --- @param col_ch integer
