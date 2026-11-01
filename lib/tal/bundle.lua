@@ -2,6 +2,7 @@ local argp = require "std.argp";
 local mklua = require "tal.mklua";
 local proc = require "std.os.proc";
 local ffi = require "ffi";
+local path_err = require "std.package.path_err";
 
 local help_msg = [[tal bundle by TopchetoEU
 
@@ -143,12 +144,23 @@ return function (...)
 
 	if mode == "gen" then
 		if compiler_cmd then
-			local lj_lib, err_a, err_so;
-			lj_lib, err_a = package.searchpath("luajit", ffi.apath, nil, nil, ffi.roots);
-			if not lj_lib then lj_lib, err_so = package.searchpath("luajit", ffi.path, nil, nil, ffi.roots) end
-			if not lj_lib then
-				io.stderr:write("luajit not found in ffi path:\n" .. err_a .. "\n" .. err_so);
-				return;
+			local ok_a1, lj_a1 = pcall(package.searchpath, "luajit", ffi.apath, "!", nil, ffi.roots);
+			local ok_a2, lj_a2 = pcall(package.searchpath, "luajit-5.1", ffi.apath, "!", nil, ffi.roots);
+			local ok_so1, lj_so1 = pcall(package.searchpath, "luajit", ffi.path, "!", nil, ffi.roots);
+			local ok_so2, lj_so2 = pcall(package.searchpath, "luajit-5.1", ffi.path, "!", nil, ffi.roots);
+
+			local lj_lib;
+
+			if ok_a1 then
+				lj_lib = lj_a1;
+			elseif ok_a2 then
+				lj_lib = lj_a2;
+			elseif ok_so1 then
+				lj_lib = lj_so1;
+			elseif ok_so2 then
+				lj_lib = lj_so2;
+			else
+				error(path_err.new("luajit", "library", { lj_a1, lj_a2, lj_so1, lj_so2 }));
 			end
 
 			local function template_lib(templ, fname)
