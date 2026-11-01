@@ -2,6 +2,7 @@ local argp = require "std.argp";
 local ffi = require "ffi";
 local lex = require "std.compiler.lex";
 local mapping = require "std.basic.debug.mapping";
+local path_err = require "std.package.path_err";
 
 --- @class tal.mklua.ctx
 --- @field entries string[]
@@ -270,7 +271,7 @@ local function resolve_lua(ctx, name)
 	local ok, path2 = pcall(package.searchpath, name, package.cpath, nil, nil, package.croots);
 	if ok then return "c", assert(path2) end
 
-	error(package.err.new(name, "package", { path1, path2 }));
+	error(path_err.new(name, "package", { path1, path2 }));
 end
 
 local function emit_map_emitter(name, map)
