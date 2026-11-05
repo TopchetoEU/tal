@@ -1,45 +1,7 @@
 local sig = require "std.sig";
-local ffi = require "nat.ffi";
 local buffer = require "string.buffer";
 
 local utf8 = {};
--- /*
--- ** $Id: lutf8lib.c $
--- ** Standard library for UTF-8 manipulation
--- ** See Copyright Notice in lua.h
--- */
-
--- #define lutf8lib_c
--- #define LUA_LIB
-
--- #include "lprefix.h"
-
-
--- #include <limits.h>
--- #include <stdlib.h>
--- #include <string.h>
-
--- #include "lua.h"
-
--- #include "lauxlib.h"
--- #include "lualib.h"
--- #include "llimits.h"
-
-
--- #define MAXUNICODE	0x10FFFFu
-local MAXUNICODE = 0x10FFFF;
--- #define MAXUTF		0x7FFFFFFFu
-local MAXUTF = 0x7FFFFFFF;
-
-
-local MSGInvalid = "invalid UTF-8 code";
-
-
--- #define iscont(c)	(((c) & 0xC0) == 0x80)
---- @param c integer
-local function iscont(c)
-	return (c & 0xC0) == 0x80;
-end
 
 --- For a given non-continuation byte, returns the amount of following bytes required to complete the byte to a valid utf8 sequence
 --- @param c integer
