@@ -107,7 +107,7 @@ function str:read(ptr, n)
 		end
 	elseif self._readtext then
 		local chunk = self:_readtext();
-		if not chunk then return 0 end
+		if not chunk then error(errors.eof) end
 
 		if #chunk > n then
 			self._rstack = self._rstack or {};
@@ -193,10 +193,18 @@ end
 --- Performs consequtive reads until either an EOF is reached or the provided buffer is filled
 function str:fullread(ptr, n)
 	local res = 0;
+	local eof = false;
 
 	while true do
-		local curr_n = self:read(ptr, n);
-		if curr_n == 0 then break end
+		local ok, curr_n = errors.spcall(self.read, self, ptr, n);
+		if not ok then
+			if errors.is(curr_n, errors.eof) then
+				eof = true;
+				break;
+			else
+				error(curr_n);
+			end
+		end
 
 		res = res + curr_n;
 		ptr = ptr + curr_n;
@@ -204,16 +212,25 @@ function str:fullread(ptr, n)
 		if n <= 0 then break end
 	end
 
+	if eof and res == 0 then error(errors.eof) end
 	return res;
 end
 --- Performs consequtive writes until the whole buffer is written
 --- Usually, this isn't necessary
 function str:fullwrite(ptr, n)
 	local res = 0;
+	local eof = false;
 
 	while true do
-		local curr_n = self:write(ptr, n);
-		if curr_n == 0 then break end
+		local ok, curr_n = errors.spcall(self.write, self, ptr, n);
+		if not ok then
+			if errors.is(curr_n, errors.eof) then
+				eof = true;
+				break;
+			else
+				error(curr_n);
+			end
+		end
 
 		res = res + curr_n;
 		ptr = ptr + curr_n;
@@ -221,6 +238,7 @@ function str:fullwrite(ptr, n)
 		if n <= 0 then break end
 	end
 
+	if eof and res == 0 then error(errors.eof) end
 	return res;
 end
 --- Reads until `char` is encountered, the buffer is filled or EOF is reached
@@ -231,7 +249,7 @@ end
 ---@return integer n
 ---@return boolean has_c If true, the output was trimmed to the newline char
 function str:readline(ptr, n, char)
-	n = self:read(ptr, n);
+	n = self:fullread(ptr, n);
 
 	local c_i = libc.strnchr(ptr, char, n);
 	if c_i then
@@ -246,10 +264,21 @@ end
 ---@param buff string.buffer
 ---@param char? integer = 0x0A
 function str:readlineto(buff, char)
+	local eof = true;
 	repeat
 		local ptr, ptr_n = buff:reserve(str.chunksize);
-		local n, has_c = self:readline(ptr, ptr_n, char or 0x0A);
+		local ok, n, has_c = errors.spcall(self.readline, self, ptr, ptr_n, char or 0x0A);
+		if not ok then
+			if errors.is(n, errors.eof) then
+				if eof then error(errors.eof) end
+				break;
+			end
+
+			error(n);
+		end
+
 		buff:commit(n);
+		eof = false;
 	until n == 0 or has_c;
 
 	return buff;
@@ -259,12 +288,16 @@ end
 ---@param n? integer If nil, reads the whole file
 function str:readto(buff, n)
 	if not buff then
-
 		if not n then
 			local buff = ffi.new("char[?]", str.chunksize);
-			repeat
-				local n = self:read(buff, str.chunksize);
-			until n == 0;
+
+			while true do
+				local ok, err = errors.spcall(self.read, self, buff, str.chunksize);
+				if not ok then
+					if errors.is(err, errors.eof) then break end
+					error(err);
+				end
+			end
 		else
 			local buff = ffi.new("char[?]", n);
 			self:read(buff, n);
@@ -273,7 +306,12 @@ function str:readto(buff, n)
 		if not n then
 			repeat
 				local ptr, n = buff:reserve(str.chunksize);
-				local res_n = self:read(ptr, n);
+				local ok, res_n = errors.spcall(self.read, self, ptr, n);
+				if not ok then
+					if errors.is(res_n, errors.eof) then break end
+					error(res_n);
+				end
+
 				buff:commit(res_n);
 			until res_n == 0;
 		else
@@ -286,12 +324,8 @@ end
 
 function str:readbyte()
 	local buff = ffi.new "char[1]";
-	local res = self:read(buff, 1);
-	if res == 1 then
-		return (assert(tonumber(buff[0])));
-	else
-		return nil;
-	end
+	self:read(buff, 1);
+	return (assert(tonumber(buff[0])));
 end
 --- @param c integer
 function str:unreadbyte(c)
@@ -318,17 +352,22 @@ function str:writeutf8(c, lax)
 end
 
 --- Returns a function, which, when called, calls :read(buff, n)
---- If :read returns 0, the given function returns nil instead (to conform with the for-in protocol)
+--- If :read throws errors.eof, the given function returns nil instead (to conform with the for-in protocol)
 --- @param buff ffi.cdata*
 --- @param n integer
 --- @param close? boolean = false If true, closes the stream after an EOF has been received
 function str:iter(buff, n, close)
 	return function ()
-		local res = self:read(buff, n);
-		if res == 0 then
-			if close then self:close() end
-			return nil;
+		local ok, res = errors.spcall(self.read, self, buff, n);
+		if not ok then
+			if errors.is(res, errors.eof) then
+				if close then self:close() end
+				return nil;
+			end
+
+			error(res);
 		end
+
 		return res;
 	end
 end
@@ -341,13 +380,9 @@ function str:pipe(src, close)
 
 	local buff = ffi.new("char[?]", str.chunksize);
 
-	while true do
-		local read_n = src:read(buff, str.chunksize);
-		if read_n == 0 then break end
+	for read_n in src:iter(buff, str.chunksize, close) do
 		self:fullwrite(buff, read_n);
 	end
-
-	if close then src:close() end
 
 	return self;
 end

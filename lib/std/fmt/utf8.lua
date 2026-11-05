@@ -295,7 +295,6 @@ end
 --- @param lax? boolean = false
 function utf8.read(f, lax)
 	local b = f:readbyte();
-	if not b then return nil end
 
 	local n, res = utf8.parsebyte(b, lax);
 	if n == -1 and not lax then error "invalid utf8 sequence" end
@@ -303,16 +302,11 @@ function utf8.read(f, lax)
 	for _ = 1, n do
 		b = f:readbyte();
 
-		if not b then
-			if lax then res <<= 6 end
-			error(errors.eof);
-		else
-			local n, curr = utf8.parsebyte(b, lax);
-			if n ~= -1 and not lax then error "expected utf8 continuation byte" end
+		local n, curr = utf8.parsebyte(b, lax);
+		if n ~= -1 and not lax then error "expected utf8 continuation byte" end
 
-			res <<= 6;
-			res |= curr;
-		end
+		res <<= 6;
+		res |= curr;
 	end
 
 	return res;
