@@ -42,4 +42,12 @@ function time.timer(delay)
 	end
 end
 
+--- Cancels the given thread at the given timestamp
+--- @param ts number
+--- @param th? thread = coroutine.running()
+function time.deadline(ts, th)
+	th = th or coroutine.running();
+	loop.wait_until(ts, loop.cancel, th);
+end
+
 return time;
