@@ -9,11 +9,9 @@ local loop = {};
 
 local fork_i = 1;
 
---- @type table<thread, fun()>
-local cancels = {};
---- @type { cb: thread, n: integer, [integer]: ... }[]
-local tasks = {};
---- @type { time: number, cb: thread, n: integer, [integer]: ... }[]
+--- @type { cb: thread | function, n: integer, [integer]: ... }[]
+local queue = {};
+--- @type { time: number, cb: thread | function, n: integer, [integer]: ... }[]
 local sleeps = {};
 --- @type thread?
 local loop_th;
@@ -27,7 +25,12 @@ local function process_handle(next, timeout, cb, ...)
 		return true, ...;
 	else
 		loop_th = coroutine.running();
-		local ok, e = coroutine.resume(cb, ...);
+		local ok, e;
+		if type(cb) == "function" then
+			ok, e = errors.spcall(cb, ...);
+		else
+			ok, e = cb:resume(...);
+		end
 		loop_th = nil;
 
 		-- An error from another thread, completely unrelated to ours could've thrown this.
@@ -38,27 +41,58 @@ local function process_handle(next, timeout, cb, ...)
 
 	return next();
 end
+local function has_non_daemons()
+	for i = 1, #sleeps do
+		if type(sleeps[i].cb) == "thread" and not sleeps[i].cb:is_daemon() then
+			return true;
+		end
+	end
+
+	for i = 1, #queue do
+		if type(queue[i].cb) == "thread" and not queue[i].cb:is_daemon() then
+			return true;
+		end
+	end
+
+	for th in pairs(coroutine.get_cancels()) do
+		th:cancel();
+	end
+
+	return false;
+end
 
 local function task_next()
-	local task = table.remove(tasks, 1);
+	local task = table.remove(queue, 1);
 	if task then
 		return process_handle(task_next, nil, task.cb, table.unpack(task, 1, task.n));
 	end
 
-	if next(cancels) then
-		local timeout;
-		if #sleeps > 0 then timeout = sleeps[#sleeps].time end
+	local timeout;
+	if #sleeps > 0 then timeout = sleeps[#sleeps].time end
 
-		return process_handle(run_loop, timeout, impl:next(timeout));
-	end
-
-	return false;
+	return process_handle(run_loop, timeout, impl:next(timeout));
 end
 function run_loop()
 	local now = impl:time "mono";
 
 	local f, l = 1, #sleeps;
 	local result = nil;
+
+	if not non_daemons then
+		for i = 1, #sleeps do
+			if type(sleeps[i].cb) == "thread" then
+				sleeps[i].cb:cancel();
+			end
+		end
+		for i = 1, #queue do
+			if type(queue[i].cb) == "thread" then
+				queue[i].cb:cancel();
+			end
+		end
+		for th in pairs(coroutine.get_cancels()) do
+			th:cancel();
+		end
+	end
 
 	while f <= l do
 		local mid = math.floor((f + l) / 2)
@@ -72,7 +106,7 @@ function run_loop()
 
 	if result then
 		for i = #sleeps, result, -1 do
-			table.insert(tasks, table.remove(sleeps, i));
+			table.insert(queue, table.remove(sleeps, i));
 		end
 	end
 
@@ -94,7 +128,7 @@ end
 function loop.push(task, ...)
 	local pack = table.pack(...);
 	pack.cb = task;
-	table.insert(tasks, pack);
+	table.insert(queue, pack);
 end
 function loop.rest()
 	loop.push((coroutine.running()));
@@ -112,8 +146,7 @@ function loop.await()
 end
 
 local function sync_ret_handle(ok, ...)
-	cancels[coroutine.running()] = nil;
-
+	coroutine.set_cancel(nil, nil);
 	if not ok then errors.throw(...) end
 	return ...;
 end
@@ -123,7 +156,7 @@ end
 --- @return any ...
 function loop.sync_ret(cancel, ...)
 	if not cancel then return ... end
-	cancels[coroutine.running()] = cancel;
+	coroutine.set_cancel(nil, cancel);
 	return sync_ret_handle(loop.await());
 end
 
@@ -133,6 +166,7 @@ function loop.fork(main, ...)
 	local th = coroutine.create(function (...)
 		local ok, err = errors.spcall(...);
 		if not ok then
+			if errors.is(err, errors.cancelled) then return end
 			errors.throw(traced_err.new(err, "fork", fork_trace));
 		end
 	end);
@@ -146,6 +180,7 @@ function loop.fork(main, ...)
 	return th;
 end
 --- @param ts number
+--- @param cb thread | function If a function is passed, it will be called with ... in the loop thread
 function loop.wait_until(ts, cb, ...)
 	local f, l = 1, #sleeps;
 

@@ -3,6 +3,7 @@ local sig = require "std.sig";
 local ffi = require "nat.ffi";
 local objects = require "nat.utils.objects";
 local is = require "std.basic.is";
+local errors = require "std.errors";
 
 --- @class std.strtxt
 --- @field str std.str
@@ -14,8 +15,12 @@ strtxt.chunksize = 8192;
 
 function strtxt:read(mode)
 	if type(mode) == "string" and (mode:sub(1, 1) == "l" or mode:sub(1, 1) == "L") then
-		local res = self.str:readlineto(buffer.new(), mode:sub(2):byte());
-		if #res == 0 then return nil end
+		local ok, res = pcall(self.str.readlineto, self.str, buffer.new(), mode:sub(2):byte());
+		if not ok then
+			if errors.is(res, errors.eof) then return nil end
+			error(res);
+		end
+
 		if mode:sub(1, 1) == "l" then
 			return res:get(#res - 1);
 		else
@@ -24,14 +29,23 @@ function strtxt:read(mode)
 	elseif mode == "a" then
 		return self.str:readto(buffer.new()):get();
 	elseif mode == "c" then
-		local res = self.str:readto(buffer.new(), strtxt.chunksize);
+		local ok, res = pcall(self.str.readto, self.str, buffer.new(), strtxt.chunksize);
+		if not ok then
+			if errors.is(res, errors.eof) then return nil end
+			error(res);
+		end
+
 		if #res == 0 then return nil end
 		return res:get();
 	elseif type(mode) == "number" then
 		local buff = buffer.new();
-		buff:commit(self.str:fullread(buff:reserve(mode), mode));
+		local ok, n = pcall(self.str.fullread, self.str, buff:reserve(mode), mode);
+		if not ok then
+			if errors.is(n, errors.eof) then return nil end
+			error(n);
+		end
 
-		if #buff == 0 then return nil end
+		buff:commit(n);
 		return buff:get();
 	else
 		sig.error("mode", "must be an integer, 'l[char]', 'L[char]', 'c' or 'a'");
