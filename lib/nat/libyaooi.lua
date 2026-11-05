@@ -359,9 +359,7 @@ local errmap = {
 };
 
 local function toerr(code)
-	if errmap[code] == false then
-		return false;
-	elseif errmap[code] then
+	if errmap[code] then
 		return errmap[code];
 	else
 		return ffi.string(libyaooi.yo_strerr(code));
@@ -389,12 +387,7 @@ local function timenum(time)
 end
 
 local function yo_assert(code)
-	if code == 0 then return end
-
-	local err = toerr(code);
-	if not err then return end
-
-	error(err);
+	if code ~= 0 then error(toerr(code)) end
 end
 
 --- @class nat.libyaooi.req: ffi.cdata*
@@ -405,13 +398,10 @@ yaooi.req.__metatable = "nat.libyaooi.req";
 local req_type = ffi.metatype("struct yo_req", yaooi.req);
 local req_udata = field();
 local req_getres = field();
-local req_geteof = field();
 
 --- @param getres fun(): ...
---- @param geteof? fun(): ...
-local function req_prep(req, getres, geteof)
+local function req_prep(req, getres)
 	req_getres:set(tonumber(ffi.cast("size_t", req)), getres);
-	req_geteof:set(tonumber(ffi.cast("size_t", req)), geteof);
 	return req;
 end
 
@@ -483,12 +473,7 @@ function yaooi.queue:poll(deadline)
 	if code == 0 then
 		return req, true, req_getres:get(tonumber(ffi.cast("size_t", req)))();
 	else
-		local err = toerr(code);
-		if err == errors.eof then
-			local geteof = req_geteof:get(tonumber(ffi.cast("size_t", req)));
-			if geteof then return req, true, geteof() end
-		end
-		return req, false, err, code;
+		return req, false, toerr(code), code;
 	end
 end
 --- @return nat.libyaooi.queue
@@ -554,16 +539,10 @@ function yaooi.fd:read(req, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_read, req_prep(req,
-		function ()
-			objects.del(hnd);
-			return tonumber(pn[0]);
-		end,
-		function ()
-			objects.del(hnd);
-			return 0;
-		end
-	), self, buff, pn);
+	return yo_sync_call(libyaooi.yoa_read, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn);
 end
 --- @param req nat.libyaooi.req
 --- @param n integer
@@ -575,16 +554,10 @@ function yaooi.fd:write(req, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_write, req_prep(req,
-		function ()
-			objects.del(hnd);
-			return tonumber(pn[0]);
-		end,
-		function ()
-			objects.del(hnd);
-			return 0;
-		end
-	), self, buff, pn);
+	return yo_sync_call(libyaooi.yoa_write, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn);
 end
 --- @param req nat.libyaooi.req
 --- @param offset integer
@@ -597,16 +570,10 @@ function yaooi.fd:pread(req, offset, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_file_read, req_prep(req,
-		function ()
-			objects.del(hnd);
-			return tonumber(pn[0]);
-		end,
-		function ()
-			objects.del(hnd);
-			return 0;
-		end
-	), self, buff, pn, offset);
+	return yo_sync_call(libyaooi.yoa_file_read, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn, offset);
 end
 --- @param req nat.libyaooi.req
 --- @param offset integer
@@ -619,16 +586,10 @@ function yaooi.fd:pwrite(req, offset, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_file_write, req_prep(req,
-		function ()
-			objects.del(hnd);
-			return tonumber(pn[0]);
-		end,
-		function ()
-			objects.del(hnd);
-			return 0;
-		end
-	), self, buff, pn, offset);
+	return yo_sync_call(libyaooi.yoa_file_write, req_prep(req, function ()
+		objects.del(hnd);
+		return tonumber(pn[0]);
+	end), self, buff, pn, offset);
 end
 
 --- @param req nat.libyaooi.req
