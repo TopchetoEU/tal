@@ -6,452 +6,362 @@ local objects = require "nat.utils.objects";
 local sig = require "std.sig";
 local error = errors.throw;
 
-local yaooi = { [require "std.package.strongtag"] = true };
+local has_lib, libyaooi = pcall(ffi.load, "yaooi");
+if has_lib then
+	ffi.cdef [[
+	typedef int yo_code_t;
+	typedef int yo_signo_t;
 
-local libyaooi = ffi.load "yaooi";
-ffi.cdef [[
-typedef int yo_code_t;
-typedef int yo_signo_t;
+	#line 8 yaooi/addr.h
+	typedef enum {
+		YO_ADDR_IPV4,
+		YO_ADDR_IPV6,
+		// TODO: bluetooth maybe?
+	} yo_addr_type_t;
+	typedef struct {
+		yo_addr_type_t type;
+		union {
+			uint8_t v4[4];
+			uint16_t v6[8];
+		};
+	} yo_addr_t;
 
-#line 8 yaooi/addr.h
-typedef enum {
-	YO_ADDR_IPV4,
-	YO_ADDR_IPV6,
-	// TODO: bluetooth maybe?
-} yo_addr_type_t;
-typedef struct {
-	yo_addr_type_t type;
-	union {
-		uint8_t v4[4];
-		uint16_t v6[8];
-	};
-} yo_addr_t;
-
-// Parses the string to an IP address (ipv4/6 auto-detected)
-bool yo_addrparse(const char *str, yo_addr_t *pres);
-// Returns true if both addresses are equal
-bool yo_addrcmp(yo_addr_t a, yo_addr_t b);
+	// Parses the string to an IP address (ipv4/6 auto-detected)
+	bool yo_addrparse(const char *str, yo_addr_t *pres);
+	// Returns true if both addresses are equal
+	bool yo_addrcmp(yo_addr_t a, yo_addr_t b);
 
 
-#line 8 yaooi/time.h
-typedef struct {
-	int64_t sec;
-	uint32_t nsec;
-} yo_time_t;
+	#line 8 yaooi/time.h
+	typedef struct {
+		int64_t sec;
+		uint32_t nsec;
+	} yo_time_t;
 
-// Adds the two times together
-yo_time_t yo_timeadd(yo_time_t a, yo_time_t b);
-// Subtracts the two times
-yo_time_t yo_timesub(yo_time_t a, yo_time_t b);
-// Compares both timestamps, in a strcmp fashion
-int yo_timecmp(yo_time_t a, yo_time_t b);
-// Converts the time to a millisecond count
-int64_t yo_timems(yo_time_t time);
+	// Adds the two times together
+	yo_time_t yo_timeadd(yo_time_t a, yo_time_t b);
+	// Subtracts the two times
+	yo_time_t yo_timesub(yo_time_t a, yo_time_t b);
+	// Compares both timestamps, in a strcmp fashion
+	int yo_timecmp(yo_time_t a, yo_time_t b);
+	// Converts the time to a millisecond count
+	int64_t yo_timems(yo_time_t time);
 
-typedef enum {
-	YO_CLOCK_REAL,
-	YO_CLOCK_MONO,
-	YO_CLOCK_CPU,
-} yo_clock_t;
+	typedef enum {
+		YO_CLOCK_REAL,
+		YO_CLOCK_MONO,
+		YO_CLOCK_CPU,
+	} yo_clock_t;
 
-// Gets the current monotonic time
-yo_time_t yo_time(yo_clock_t clock);
-// Blocks until the monotonic time is greater than `until`
-void yo_timesleep(yo_time_t until);
+	// Gets the current monotonic time
+	yo_time_t yo_time(yo_clock_t clock);
+	// Blocks until the monotonic time is greater than `until`
+	void yo_timesleep(yo_time_t until);
 
-#line 108 yaooi/errno.h
-// Converts the error code to a human-readable string
-const char *yo_strerr(yo_code_t code);
+	#line 108 yaooi/errno.h
+	// Converts the error code to a human-readable string
+	const char *yo_strerr(yo_code_t code);
 
-#line 9 yaooi/queue.h
-// Used to deploy a sync workload in an ev-managed thread
-typedef int (*yo_worker_t)(void *pargs);
+	#line 9 yaooi/queue.h
+	// Used to deploy a sync workload in an ev-managed thread
+	typedef int (*yo_worker_t)(void *pargs);
 
-// A structure, keeping track of all pending operations and results
-typedef struct yo_queue *yo_queue_t;
-// A generic request in the queue
-typedef struct yo_req *yo_req_t;
+	// A structure, keeping track of all pending operations and results
+	typedef struct yo_queue *yo_queue_t;
+	// A generic request in the queue
+	typedef struct yo_req *yo_req_t;
 
-yo_queue_t yo_queue_new();
-// Cancels all requests and frees all associated resources
-void yo_queue_free(yo_queue_t queue);
-// Gets the next completed request in the queue, or blocks until one is available
-// - If `pdeadline` is not NULL, limits the block time until the monotonic time is reached
-// - If `pdeadline` was reached before a result was pushed, NULL is stored in pres
-// - If `pdeadline` is before the current moment, returns immediatly.
-// A good way to non-blockingly poll is to pass yo_monotime() to `pdeadline`
-yo_code_t yo_queue_poll(yo_queue_t queue, const yo_time_t *pdeadline, yo_req_t *preq, yo_code_t *pcode);
+	yo_queue_t yo_queue_new();
+	// Cancels all requests and frees all associated resources
+	void yo_queue_free(yo_queue_t queue);
+	// Gets the next completed request in the queue, or blocks until one is available
+	// - If `pdeadline` is not NULL, limits the block time until the monotonic time is reached
+	// - If `pdeadline` was reached before a result was pushed, NULL is stored in pres
+	// - If `pdeadline` is before the current moment, returns immediatly.
+	// A good way to non-blockingly poll is to pass yo_monotime() to `pdeadline`
+	yo_code_t yo_queue_poll(yo_queue_t queue, const yo_time_t *pdeadline, yo_req_t *preq, yo_code_t *pcode);
 
-// Inserts a new request in the queue and returns it
-yo_req_t yo_req_new(yo_queue_t queue);
+	// Inserts a new request in the queue and returns it
+	yo_req_t yo_req_new(yo_queue_t queue);
 
-// Executes the function in a thread pool returns its value via the request
-// The function must return YO_EINTR, if it has been interrupted. This is interpreted as a cancellation
-yo_code_t yo_req_exec(yo_req_t req, yo_worker_t worker, void *pargs);
+	// Executes the function in a thread pool returns its value via the request
+	// The function must return YO_EINTR, if it has been interrupted. This is interpreted as a cancellation
+	yo_code_t yo_req_exec(yo_req_t req, yo_worker_t worker, void *pargs);
 
-// Cancels the request and removes it from the queue. If it is an IO operation, cancels it in the OS-appropriate way
-void yo_req_cancel(yo_req_t req);
-// Cancels the request and frees all associated resources
-void yo_req_free(yo_req_t req);
+	// Cancels the request and removes it from the queue. If it is an IO operation, cancels it in the OS-appropriate way
+	void yo_req_cancel(yo_req_t req);
+	// Cancels the request and frees all associated resources
+	void yo_req_free(yo_req_t req);
 
-#line 15 yaooi/io.h
-typedef enum {
-	// Opens the file in read mode
-	YO_OPEN_READ = 1,
-	// Opens the file in write mode
-	YO_OPEN_WRITE = 2,
-	// Opens the file in append mode (implies WRITE)
-	YO_OPEN_APPEND = 4,
+	#line 15 yaooi/io.h
+	typedef enum {
+		// Opens the file in read mode
+		YO_OPEN_READ = 1,
+		// Opens the file in write mode
+		YO_OPEN_WRITE = 2,
+		// Opens the file in append mode (implies WRITE)
+		YO_OPEN_APPEND = 4,
 
-	// Creates the file if it doesn't exist
-	YO_OPEN_CREATE = 8,
-	// Empties the contents of the file if it exists
-	YO_OPEN_TRUNC = 16,
-	// Opens the file in direct mode
-	YO_OPEN_DIRECT = 32,
-	// Keeps the file open after an exec() call
-	// By default, all files, not marked with this, are closed
-	YO_OPEN_SHARED = 64,
+		// Creates the file if it doesn't exist
+		YO_OPEN_CREATE = 8,
+		// Empties the contents of the file if it exists
+		YO_OPEN_TRUNC = 16,
+		// Opens the file in direct mode
+		YO_OPEN_DIRECT = 32,
+		// Keeps the file open after an exec() call
+		// By default, all files, not marked with this, are closed
+		YO_OPEN_SHARED = 64,
 
-	// Doesn't follow symlinks. Useful for statting
-	YO_OPEN_NOFOLLOW = 128,
-	// Opens the file in statting mode. Mutually-exclusive with READ, WRITE and APPEND and takes precedence over them
-	YO_OPEN_STAT= 128,
-} yo_open_flags_t;
-typedef enum {
-	// Valid on windows only, does not escape arguments
-	// Used only to allow cmd /c command. Thanks windows, very cool!
-	YO_SPAWN_NOESCAPE,
-} yo_spawn_flags_t;
-typedef enum {
-	YO_PATH_HOME,
-	YO_PATH_CONFIG,
-	YO_PATH_DATA,
-	YO_PATH_CACHE,
-	YO_PATH_RUNTIME,
-	YO_PATH_CWD,
-} yo_path_type_t;
-typedef enum {
-	YO_PROTO_TCP,
-	YO_PROTO_UDP,
-} yo_proto_t;
-typedef enum {
-	YO_TTY_NORMAL,
-	YO_TTY_RAW,
-} yo_tty_mode_t;
+		// Doesn't follow symlinks. Useful for statting
+		YO_OPEN_NOFOLLOW = 128,
+		// Opens the file in statting mode. Mutually-exclusive with READ, WRITE and APPEND and takes precedence over them
+		YO_OPEN_STAT= 128,
+	} yo_open_flags_t;
+	typedef enum {
+		// Valid on windows only, does not escape arguments
+		// Used only to allow cmd /c command. Thanks windows, very cool!
+		YO_SPAWN_NOESCAPE,
+	} yo_spawn_flags_t;
+	typedef enum {
+		YO_PATH_HOME,
+		YO_PATH_CONFIG,
+		YO_PATH_DATA,
+		YO_PATH_CACHE,
+		YO_PATH_RUNTIME,
+		YO_PATH_CWD,
+	} yo_path_type_t;
+	typedef enum {
+		YO_PROTO_TCP,
+		YO_PROTO_UDP,
+	} yo_proto_t;
+	typedef enum {
+		YO_TTY_NORMAL,
+		YO_TTY_RAW,
+	} yo_tty_mode_t;
 
-typedef struct {
-	enum {
-		YO_STAT_REG,
-		YO_STAT_DIR,
-		YO_STAT_LINK,
-		YO_STAT_SOCK,
-		YO_STAT_FIFO,
-		YO_STAT_CHAR,
-		YO_STAT_BLK,
-	} type;
-	uint32_t mode;
-	uint32_t gid;
-	uint32_t uid;
+	typedef struct {
+		enum {
+			YO_STAT_REG,
+			YO_STAT_DIR,
+			YO_STAT_LINK,
+			YO_STAT_SOCK,
+			YO_STAT_FIFO,
+			YO_STAT_CHAR,
+			YO_STAT_BLK,
+		} type;
+		uint32_t mode;
+		uint32_t gid;
+		uint32_t uid;
 
-	yo_time_t atime, mtime, ctime;
+		yo_time_t atime, mtime, ctime;
 
-	uint64_t size;
-	uint32_t blksize;
+		uint64_t size;
+		uint32_t blksize;
 
-	uint64_t inode;
-	uint32_t links;
-} yo_stat_t;
+		uint64_t inode;
+		uint32_t links;
+	} yo_stat_t;
 
-// A handle roughly equates to a fd (or a windows HANDLE/socket). Such may be an opened file, socket, tty or a pipe.
-typedef struct yo_fd *yo_fd_t;
+	// A handle roughly equates to a fd (or a windows HANDLE/socket). Such may be an opened file, socket, tty or a pipe.
+	typedef struct yo_fd *yo_fd_t;
 
-// Creates a handle from an OS-specific FD
-// If owned is false, the file won't actually be closed by yo_fd_close()
-yo_code_t yo_fd_new(yo_fd_t *pres, uint64_t fd, bool owned);
-// Cancels all requests, associated to the handle and releases all resources, used by the `req`
-void yo_fd_close(yo_fd_t fd);
+	// Creates a handle from an OS-specific FD
+	// If owned is false, the file won't actually be closed by yo_fd_close()
+	yo_code_t yo_fd_new(yo_fd_t *pres, uint64_t fd, bool owned);
+	// Cancels all requests, associated to the handle and releases all resources, used by the `req`
+	void yo_fd_close(yo_fd_t fd);
 
-// Equivalent to posix's read
-yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn);
-// Equivalent to posix's write
-yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn);
-// Equivalent to posix's sync
-yo_code_t yo_sync(yo_fd_t fd);
-// Equivalent to posix's stat
-yo_code_t yo_stat(yo_fd_t fd, yo_stat_t *buff);
+	// Equivalent to posix's read
+	yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn);
+	// Equivalent to posix's write
+	yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn);
+	// Equivalent to posix's sync
+	yo_code_t yo_sync(yo_fd_t fd);
+	// Equivalent to posix's stat
+	yo_code_t yo_stat(yo_fd_t fd, yo_stat_t *buff);
 
-typedef struct yo_tty_raw *yo_tty_raw_t;
+	typedef struct yo_tty_raw *yo_tty_raw_t;
 
-// Initializes `tty` to a refrence to `stdin`
-yo_code_t yo_tty_in(yo_fd_t *pres);
-// Initializes `tty` to a refrence to `stdout`
-yo_code_t yo_tty_out(yo_fd_t *pres);
-// Initializes `tty` to a refrence to `stderr`
-yo_code_t yo_tty_err(yo_fd_t *pres);
-// Begins a raw mode of the tty. yo_tty_rawend must be called on yo_tty_raw_t, stored in pres, to end the raw mode
-// Make sure to do that, as we are not calling that for you upon exit!
-yo_code_t yo_tty_raw(yo_fd_t tty, yo_tty_raw_t *pres);
-// Restores the given raw mode to the previous mode of the underlying TTY. This may be another raw mode
-yo_code_t yo_tty_rawend(yo_tty_raw_t rawmode);
+	// Initializes `tty` to a refrence to `stdin`
+	yo_code_t yo_tty_in(yo_fd_t *pres);
+	// Initializes `tty` to a refrence to `stdout`
+	yo_code_t yo_tty_out(yo_fd_t *pres);
+	// Initializes `tty` to a refrence to `stderr`
+	yo_code_t yo_tty_err(yo_fd_t *pres);
+	// Begins a raw mode of the tty. yo_tty_rawend must be called on yo_tty_raw_t, stored in pres, to end the raw mode
+	// Make sure to do that, as we are not calling that for you upon exit!
+	yo_code_t yo_tty_raw(yo_fd_t tty, yo_tty_raw_t *pres);
+	// Restores the given raw mode to the previous mode of the underlying TTY. This may be another raw mode
+	yo_code_t yo_tty_rawend(yo_tty_raw_t rawmode);
 
-// Deletes the given file or directory. Fails if directory is not empty
-yo_code_t yo_file_remove(const char *path);
-// Creates a symbolic link to path at target
-yo_code_t yo_file_symlink(const char *src, const char *dst);
-// Creates a hard link to the file
-yo_code_t yo_file_hardlink(const char *src, const char *dst);
-// Reads the given symlink into a malloc'd string
-yo_code_t yo_file_readlink(const char *path, char **pres);
+	// Deletes the given file or directory. Fails if directory is not empty
+	yo_code_t yo_file_remove(const char *path);
+	// Creates a symbolic link to path at target
+	yo_code_t yo_file_symlink(const char *src, const char *dst);
+	// Creates a hard link to the file
+	yo_code_t yo_file_hardlink(const char *src, const char *dst);
+	// Reads the given symlink into a malloc'd string
+	yo_code_t yo_file_readlink(const char *path, char **pres);
 
-// Although on linux, files are blocking, the file functions are async, because they may block for a long time
-// (for example, if the file lives on an NFS or FUSE filesystem)
+	// Although on linux, files are blocking, the file functions are async, because they may block for a long time
+	// (for example, if the file lives on an NFS or FUSE filesystem)
 
-// Equivalent to posix's open
-yo_code_t yo_file_open(yo_fd_t *pres, const char *path, yo_open_flags_t flags, int mode);
-// A file-specific read function
-yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *pn, size_t offset);
-// A file-specific write function
-yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *pn, size_t offset);
-// Changes the permissions of the given file
-yo_code_t yo_file_chmod(yo_fd_t fd, int mode);
-// Changes the owner of the given file
-yo_code_t yo_file_chown(yo_fd_t fd, int uid, int gid);
+	// Equivalent to posix's open
+	yo_code_t yo_file_open(yo_fd_t *pres, const char *path, yo_open_flags_t flags, int mode);
+	// A file-specific read function
+	yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *pn, size_t offset);
+	// A file-specific write function
+	yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *pn, size_t offset);
+	// Changes the permissions of the given file
+	yo_code_t yo_file_chmod(yo_fd_t fd, int mode);
+	// Changes the owner of the given file
+	yo_code_t yo_file_chown(yo_fd_t fd, int uid, int gid);
 
-typedef struct yo_dir *yo_dir_t;
-// Equivalent to posix's mkdir
-yo_code_t yo_dir_new(const char *path, int mode);
-// Equivalent to posix's opendir
-yo_code_t yo_dir_open(yo_dir_t *pres, const char *path);
-// Equivalent to posix's readdir
-yo_code_t yo_dir_next(yo_dir_t dir, char **pname);
-// Equivalent to posix's closedir
-void yo_dir_close(yo_dir_t dir);
+	typedef struct yo_dir *yo_dir_t;
+	// Equivalent to posix's mkdir
+	yo_code_t yo_dir_new(const char *path, int mode);
+	// Equivalent to posix's opendir
+	yo_code_t yo_dir_open(yo_dir_t *pres, const char *path);
+	// Equivalent to posix's readdir
+	yo_code_t yo_dir_next(yo_dir_t dir, char **pname);
+	// Equivalent to posix's closedir
+	void yo_dir_close(yo_dir_t dir);
 
-// Equivalent to connect()
-yo_code_t yo_socket_connect(yo_fd_t *pres, yo_proto_t proto, yo_addr_t addr, uint16_t port);
-// Equivalent to bind()
-yo_code_t yo_socket_bind(yo_fd_t *pres, yo_proto_t proto, yo_addr_t addr, uint16_t port, size_t max_n);
-// Equivalent to accept()
-yo_code_t yo_socket_accept(yo_fd_t server, yo_fd_t *pres, yo_addr_t *paddr, uint16_t *pport);
+	// Equivalent to connect()
+	yo_code_t yo_socket_connect(yo_fd_t *pres, yo_proto_t proto, yo_addr_t addr, uint16_t port);
+	// Equivalent to bind()
+	yo_code_t yo_socket_bind(yo_fd_t *pres, yo_proto_t proto, yo_addr_t addr, uint16_t port, size_t max_n);
+	// Equivalent to accept()
+	yo_code_t yo_socket_accept(yo_fd_t server, yo_fd_t *pres, yo_addr_t *paddr, uint16_t *pport);
 
-typedef struct {
-	size_t n;
-	yo_addr_t addr[];
-} *yo_addrinfo_t;
-typedef enum {
-	// Resolves only ipv4 (if neither this nor YO_AI_IPV6 are specified, resolves both)
-	YO_AI_IPV4 = 1,
-	// Resolves only ipv6 (this is mutually-exclusive with IPV4, and this will override IPV4)
-	YO_AI_IPV6 = 2,
-	// If no IPV6 address was found, but an IPV4 address was, resolves as an ipv6 mapping of the ipv4 address
-	YO_AI_IPV4_MAPPED = 4,
-	// Resolves to a bindable address - mostly applicable when name is NULL (equivalent to AI_PASSIVE)
-	YO_AI_BIND = 8,
-	// Resolves only IP addresses - does not make DNS requests (equivalent to AI_NUMERICHOST)
-	YO_AI_NODNS = 16,
-} yo_addrinfo_flags_t;
+	typedef struct {
+		size_t n;
+		yo_addr_t addr[];
+	} *yo_addrinfo_t;
+	typedef enum {
+		// Resolves only ipv4 (if neither this nor YO_AI_IPV6 are specified, resolves both)
+		YO_AI_IPV4 = 1,
+		// Resolves only ipv6 (this is mutually-exclusive with IPV4, and this will override IPV4)
+		YO_AI_IPV6 = 2,
+		// If no IPV6 address was found, but an IPV4 address was, resolves as an ipv6 mapping of the ipv4 address
+		YO_AI_IPV4_MAPPED = 4,
+		// Resolves to a bindable address - mostly applicable when name is NULL (equivalent to AI_PASSIVE)
+		YO_AI_BIND = 8,
+		// Resolves only IP addresses - does not make DNS requests (equivalent to AI_NUMERICHOST)
+		YO_AI_NODNS = 16,
+	} yo_addrinfo_flags_t;
 
-// Equivalent to posix's getaddrinfo (with a few simplifications)
-yo_code_t yo_dns_getaddrinfo(yo_addrinfo_t *pres, const char *name, yo_addrinfo_flags_t flags);
+	// Equivalent to posix's getaddrinfo (with a few simplifications)
+	yo_code_t yo_dns_getaddrinfo(yo_addrinfo_t *pres, const char *name, yo_addrinfo_flags_t flags);
 
-typedef struct yo_proc *yo_proc_t;
+	typedef struct yo_proc *yo_proc_t;
 
-// Equivalent to posix's fork then exec
-yo_code_t yo_proc_spawn(
-	yo_proc_t *pres, yo_spawn_flags_t flags,
-	const char **argv, const char **env, const char *cwd,
-	yo_fd_t *pin, yo_fd_t *pout, yo_fd_t *perr
-);
-// Equivalent to posix's waitpid
-// Will free all resources, associated with proc
-// psig is set to the signal that terminated the child, or -1 if not terminated by a signal
-// pcode is set to the exit code of the app, or -1 if child did not exit with a code
-yo_code_t yo_proc_wait(yo_proc_t proc, int *psig, int *pcode);
-// Immeditely releases all resources, associated with tracking the process, effectively daemonizing it.
-// On unix-like systems, this will initialize a process-wide reaper (if not initialized yet) and put the child in the reaper's list
-// Upon our process's exit, as per unix rules, the child will daemonize
-yo_code_t yo_proc_disown(yo_proc_t proc);
+	// Equivalent to posix's fork then exec
+	yo_code_t yo_proc_spawn(
+		yo_proc_t *pres, yo_spawn_flags_t flags,
+		const char **argv, const char **env, const char *cwd,
+		yo_fd_t *pin, yo_fd_t *pout, yo_fd_t *perr
+	);
+	// Equivalent to posix's waitpid
+	// Will free all resources, associated with proc
+	// psig is set to the signal that terminated the child, or -1 if not terminated by a signal
+	// pcode is set to the exit code of the app, or -1 if child did not exit with a code
+	yo_code_t yo_proc_wait(yo_proc_t proc, int *psig, int *pcode);
+	// Immeditely releases all resources, associated with tracking the process, effectively daemonizing it.
+	// On unix-like systems, this will initialize a process-wide reaper (if not initialized yet) and put the child in the reaper's list
+	// Upon our process's exit, as per unix rules, the child will daemonize
+	yo_code_t yo_proc_disown(yo_proc_t proc);
 
-// Signal handling utilities. NOTE: these won't correlate to signals 1:1, as signals have a stupid amount of historic baggage
-// Activating one logical ev signal might activate multiple OS signals, or none at all. Furthermore, the set of signals you can
-// receive has been reduced to ones you will want to receive.
+	// Signal handling utilities. NOTE: these won't correlate to signals 1:1, as signals have a stupid amount of historic baggage
+	// Activating one logical ev signal might activate multiple OS signals, or none at all. Furthermore, the set of signals you can
+	// receive has been reduced to ones you will want to receive.
 
-// On windows, signals don't exist, so they are "faked" with other facilities.
-// This means that some ev signals will never be produced on windows.
+	// On windows, signals don't exist, so they are "faked" with other facilities.
+	// This means that some ev signals will never be produced on windows.
 
-// Activates the given signal for receiving. After this call, wait_sig will receive this signal, when generated, as well
-// Internally, both this and yo_sig_off use a refcount, so the two must be called in pairs (calling off is optional,
-// but it must be called no more times than on has been called per signal)
-yo_code_t yo_sig_on(yo_signo_t sig);
-// Deactivates the given signal and restores its default semantics. After this call, wait_sig will no longer receiv eit
-yo_code_t yo_sig_off(yo_signo_t sig);
-// Blocks until the given signal is received.
-// NOTE: activating a signal and then not calling sig_wait is equivalent to ignoring it
-yo_code_t yo_sig_wait(yo_signo_t *pres);
+	// Activates the given signal for receiving. After this call, wait_sig will receive this signal, when generated, as well
+	// Internally, both this and yo_sig_off use a refcount, so the two must be called in pairs (calling off is optional,
+	// but it must be called no more times than on has been called per signal)
+	yo_code_t yo_sig_on(yo_signo_t sig);
+	// Deactivates the given signal and restores its default semantics. After this call, wait_sig will no longer receiv eit
+	yo_code_t yo_sig_off(yo_signo_t sig);
+	// Blocks until the given signal is received.
+	// NOTE: activating a signal and then not calling sig_wait is equivalent to ignoring it
+	yo_code_t yo_sig_wait(yo_signo_t *pres);
 
-// Gets a malloc'd string, representing the requested path
-yo_code_t yo_getpath(yo_path_type_t type, char **pres);
+	// Gets a malloc'd string, representing the requested path
+	yo_code_t yo_getpath(yo_path_type_t type, char **pres);
 
-// Gets an env variable from the current process
-yo_code_t yo_env_get(const char *name, char **pres);
-// Sets an env variable in the current process (if val is NULL, unsets it)
-yo_code_t yo_env_set(const char *name, const char *val);
+	// Gets an env variable from the current process
+	yo_code_t yo_env_get(const char *name, char **pres);
+	// Sets an env variable in the current process (if val is NULL, unsets it)
+	yo_code_t yo_env_set(const char *name, const char *val);
 
-typedef struct yo_enviter *yo_enviter_t;
-// Initializes an iterator of the env variables
-yo_enviter_t yo_enviter_new();
-// Gets the next env variable from the iterator
-yo_code_t yo_enviter_next(yo_enviter_t iter, const char **pres);
-void yo_enviter_close(yo_enviter_t iter);
+	typedef struct yo_enviter *yo_enviter_t;
+	// Initializes an iterator of the env variables
+	yo_enviter_t yo_enviter_new();
+	// Gets the next env variable from the iterator
+	yo_code_t yo_enviter_next(yo_enviter_t iter, const char **pres);
+	void yo_enviter_close(yo_enviter_t iter);
 
-#line 10 yaooi/ioq.h
-// Here, queue versions of some functions are presented
-// Those that don't have queue equivalents should be used only synchronously
+	#line 10 yaooi/ioq.h
+	// Here, queue versions of some functions are presented
+	// Those that don't have queue equivalents should be used only synchronously
 
-// On linux, some of these are 'technically' blocking-only. However, this design is retarded,
-// as network-based FS-es will gladly block for minutes when the underlying connection is lost.
-// If that happens, our app would block for minutes as well, rendering the queue system rather useless.
-// Underneath, blocking-only ops are run on a thread pool
+	// On linux, some of these are 'technically' blocking-only. However, this design is retarded,
+	// as network-based FS-es will gladly block for minutes when the underlying connection is lost.
+	// If that happens, our app would block for minutes as well, rendering the queue system rather useless.
+	// Underneath, blocking-only ops are run on a thread pool
 
-// Poignant language here used because i am a victim of this "great" design of linux. Thanks, linus!
+	// Poignant language here used because i am a victim of this "great" design of linux. Thanks, linus!
 
-yo_code_t yoa_read(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn);
-yo_code_t yoa_write(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn);
-yo_code_t yoa_sync(yo_req_t req, yo_fd_t fd);
-yo_code_t yoa_stat(yo_req_t req, yo_fd_t fd, yo_stat_t *buff);
+	yo_code_t yoa_read(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn);
+	yo_code_t yoa_write(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn);
+	yo_code_t yoa_sync(yo_req_t req, yo_fd_t fd);
+	yo_code_t yoa_stat(yo_req_t req, yo_fd_t fd, yo_stat_t *buff);
 
-yo_code_t yoa_file_remove(yo_req_t req, const char *path);
-yo_code_t yoa_file_symlink(yo_req_t req, const char *src, const char *dst);
-yo_code_t yoa_file_hardlink(yo_req_t req, const char *src, const char *dst);
-yo_code_t yoa_file_readlink(yo_req_t req, const char *path, char **pres);
+	yo_code_t yoa_file_remove(yo_req_t req, const char *path);
+	yo_code_t yoa_file_symlink(yo_req_t req, const char *src, const char *dst);
+	yo_code_t yoa_file_hardlink(yo_req_t req, const char *src, const char *dst);
+	yo_code_t yoa_file_readlink(yo_req_t req, const char *path, char **pres);
 
-// yo_code_t yoa_file_open(yo_req_t req, yo_filelist_t fl, yo_fd_t *pres, const char *path, yo_open_flags_t flags, int mode);
-yo_code_t yoa_file_read(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset);
-yo_code_t yoa_file_write(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset);
+	// yo_code_t yoa_file_open(yo_req_t req, yo_filelist_t fl, yo_fd_t *pres, const char *path, yo_open_flags_t flags, int mode);
+	yo_code_t yoa_file_read(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset);
+	yo_code_t yoa_file_write(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset);
 
-yo_code_t yoa_dir_new(yo_req_t req, const char *path, int mode);
-yo_code_t yoa_dir_open(yo_req_t req, yo_dir_t *pres, const char *path);
-yo_code_t yoa_dir_next(yo_req_t req, yo_dir_t dir, char **pname);
+	yo_code_t yoa_dir_new(yo_req_t req, const char *path, int mode);
+	yo_code_t yoa_dir_open(yo_req_t req, yo_dir_t *pres, const char *path);
+	yo_code_t yoa_dir_next(yo_req_t req, yo_dir_t dir, char **pname);
 
-yo_code_t yoa_socket_connect(yo_req_t req, yo_fd_t *pclient, yo_proto_t proto, yo_addr_t addr, uint16_t port);
-yo_code_t yoa_socket_accept(yo_req_t req, yo_fd_t server, yo_fd_t *pclient, yo_addr_t *paddr, uint16_t *pport);
+	yo_code_t yoa_socket_connect(yo_req_t req, yo_fd_t *pclient, yo_proto_t proto, yo_addr_t addr, uint16_t port);
+	yo_code_t yoa_socket_accept(yo_req_t req, yo_fd_t server, yo_fd_t *pclient, yo_addr_t *paddr, uint16_t *pport);
 
-yo_code_t yoa_dns_getaddrinfo(yo_req_t req, yo_addrinfo_t *pres, const char *name, yo_addrinfo_flags_t flags);
+	yo_code_t yoa_dns_getaddrinfo(yo_req_t req, yo_addrinfo_t *pres, const char *name, yo_addrinfo_flags_t flags);
 
-yo_code_t yoa_proc_wait(yo_req_t req, yo_proc_t proc, int *psig, int *pcode);
+	yo_code_t yoa_proc_wait(yo_req_t req, yo_proc_t proc, int *psig, int *pcode);
 
-yo_code_t yoa_sig_wait(yo_req_t req, yo_signo_t *pres);
-#line 344
-]];
+	yo_code_t yoa_sig_wait(yo_req_t req, yo_signo_t *pres);
+	#line 344
+	]];
+end
 
-ffi.cdef [[
-typedef enum {
-	YO_OK = 0,
-	YO_EPERM = -1,
-	YO_ENOENT = -2,
-	YO_ESRCH = -3,
-	YO_EINTR = -4,
-	YO_EIO = -5,
-	YO_ENXIO = -6,
-	YO_E2BIG = -7,
-	YO_ENOEXEC = -8,
-	YO_EBADF = -9,
-	YO_ECHILD = -10,
-	YO_EAGAIN = -11,
-	YO_ENOMEM = -12,
-	YO_EACCES = -13,
-	YO_EFAULT = -14,
-	YO_ENOTBLK = -15,
-	YO_EBUSY = -16,
-	YO_EEXIST = -17,
-	YO_EXDEV = -18,
-	YO_ENODEV = -19,
-	YO_ENOTDIR = -20,
-	YO_EISDIR = -21,
-	YO_EINVAL = -22,
-	YO_ENFILE = -23,
-	YO_EMFILE = -24,
-	YO_ENOTTY = -25,
-	YO_ETXTBSY = -26,
-	YO_EFBIG = -27,
-	YO_ENOSPC = -28,
-	YO_ESPIPE = -29,
-	YO_EROFS = -30,
-	YO_EMLINK = -31,
-	YO_EPIPE = -32,
-	YO_EDOM = -33,
-	YO_ERANGE = -34,
-	YO_EDEADLK = -35,
-	YO_ENAMETOOLONG = -36,
-	YO_ENOLCK = -37,
-	YO_ENOSYS = -38,
-	YO_ENOTEMPTY = -39,
-	YO_ELOOP = -40,
-	YO_EUNATCH = -49,
-	YO_ENODATA = -61,
-	YO_ENONET = -64,
-	YO_ECOMM = -70,
-	YO_EPROTO = -71,
-	YO_EOVERFLOW = -75,
-	YO_ENOTUNIQ = -76,
-	YO_ELIBBAD = -80,
-	YO_EILSEQ = -84,
-	YO_ENOTSOCK = -88,
-	YO_EDESTADDRREQ = -89,
-	YO_EMSGSIZE = -90,
-	YO_EPROTOTYPE = -91,
-	YO_ENOPROTOOPT = -92,
-	YO_EPROTONOSUPPORT = -93,
-	YO_ESOCKTNOSUPPORT = -94,
-	YO_ENOTSUP = -95,
-	YO_EPFNOSUPPORT = -96,
-	YO_EAFNOSUPPORT = -97,
-	YO_EADDRINUSE = -98,
-	YO_EADDRNOTAVAIL = -99,
-	YO_ENETDOWN = -100,
-	YO_ENETUNREACH = -101,
-	YO_ECONNABORTED = -103,
-	YO_ECONNRESET = -104,
-	YO_ENOBUFS = -105,
-	YO_EISCONN = -106,
-	YO_ENOTCONN = -107,
-	YO_ESHUTDOWN = -108,
-	YO_ETIMEDOUT = -110,
-	YO_ECONNREFUSED = -111,
-	YO_EHOSTDOWN = -112,
-	YO_EHOSTUNREACH = -113,
-	YO_EALREADY = -114,
-	YO_EREMOTEIO = -121,
-	YO_ENOMEDIUM = -123,
-	YO_ECANCELED = -125,
-	YO_EAI_BADFLAGS = -1001,
-	YO_EAI_NONAME = -1002,
-	YO_EAI_AGAIN = -1003,
-	YO_EAI_FAIL = -1004,
-	YO_EAI_NODATA = -1005,
-	YO_EAI_FAMILY = -1006,
-	YO_EAI_SOCKTYPE = -1007,
-	YO_EAI_SERVICE = -1008,
-	YO_EAI_ADDRFAMILY = -1009,
-	YO_EAI_MEMORY = -1010,
-	YO_EAI_OVERFLOW = -1012,
-	YO_EAI_CANCELED = -1101,
-	YO_ECHARSET = -2001,
-	YO_EUNKNOWN = -3000,
-} yo_code_t;
-]];
+local yaooi = {
+	[require "std.package.strongtag"] = true,
+	has_lib = has_lib,
+};
+
 local errmap = {
-	[libyaooi.YO_EINTR] = errors.cancelled,
-	[libyaooi.YO_ENOMEM] = errors.nomem,
-	[libyaooi.YO_EPIPE] = errors.eof,
-	[libyaooi.YO_ENOSYS] = errors.notimpl,
-	[libyaooi.YO_EAI_MEMORY] = errors.nomem,
-	[libyaooi.YO_EAI_CANCELED] = errors.cancelled,
+	[-2 --[[YO_ECANCELED]]] = errors.cancelled,
+	[-4 --[[YO_EOF]]] = errors.eof,
+	[-9 --[[YO_ENOTIMPL]]] = errors.notimpl,
+	-- Included here so that no memory is allocated for an out of memory error, as we already appear to not have much of it
+	[-34 --[[YO_ENOMEM]]] = errors.nomem,
 };
 
 local function toerr(code)
-	if errmap[code] then
+	if errmap[code] == false then
+		return false;
+	elseif errmap[code] then
 		return errmap[code];
 	else
 		return ffi.string(libyaooi.yo_strerr(code));
@@ -479,7 +389,12 @@ local function timenum(time)
 end
 
 local function yo_assert(code)
-	if code ~= 0 then error(toerr(code)) end
+	if code == 0 then return end
+
+	local err = toerr(code);
+	if not err then return end
+
+	error(err);
 end
 
 --- @class nat.libyaooi.req: ffi.cdata*
@@ -490,10 +405,13 @@ yaooi.req.__metatable = "nat.libyaooi.req";
 local req_type = ffi.metatype("struct yo_req", yaooi.req);
 local req_udata = field();
 local req_getres = field();
+local req_geteof = field();
 
 --- @param getres fun(): ...
-local function req_prep(req, getres)
+--- @param geteof? fun(): ...
+local function req_prep(req, getres, geteof)
 	req_getres:set(tonumber(ffi.cast("size_t", req)), getres);
+	req_geteof:set(tonumber(ffi.cast("size_t", req)), geteof);
 	return req;
 end
 
@@ -565,7 +483,12 @@ function yaooi.queue:poll(deadline)
 	if code == 0 then
 		return req, true, req_getres:get(tonumber(ffi.cast("size_t", req)))();
 	else
-		return req, false, toerr(code), code;
+		local err = toerr(code);
+		if err == errors.eof then
+			local geteof = req_geteof:get(tonumber(ffi.cast("size_t", req)));
+			if geteof then return req, true, geteof() end
+		end
+		return req, false, err, code;
 	end
 end
 --- @return nat.libyaooi.queue
@@ -631,10 +554,16 @@ function yaooi.fd:read(req, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_read, req_prep(req, function ()
-		objects.del(hnd);
-		return tonumber(pn[0]);
-	end), self, buff, pn);
+	return yo_sync_call(libyaooi.yoa_read, req_prep(req,
+		function ()
+			objects.del(hnd);
+			return tonumber(pn[0]);
+		end,
+		function ()
+			objects.del(hnd);
+			return 0;
+		end
+	), self, buff, pn);
 end
 --- @param req nat.libyaooi.req
 --- @param n integer
@@ -646,10 +575,16 @@ function yaooi.fd:write(req, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_write, req_prep(req, function ()
-		objects.del(hnd);
-		return tonumber(pn[0]);
-	end), self, buff, pn);
+	return yo_sync_call(libyaooi.yoa_write, req_prep(req,
+		function ()
+			objects.del(hnd);
+			return tonumber(pn[0]);
+		end,
+		function ()
+			objects.del(hnd);
+			return 0;
+		end
+	), self, buff, pn);
 end
 --- @param req nat.libyaooi.req
 --- @param offset integer
@@ -662,10 +597,16 @@ function yaooi.fd:pread(req, offset, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_file_read, req_prep(req, function ()
-		objects.del(hnd);
-		return tonumber(pn[0]);
-	end), self, buff, pn, offset);
+	return yo_sync_call(libyaooi.yoa_file_read, req_prep(req,
+		function ()
+			objects.del(hnd);
+			return tonumber(pn[0]);
+		end,
+		function ()
+			objects.del(hnd);
+			return 0;
+		end
+	), self, buff, pn, offset);
 end
 --- @param req nat.libyaooi.req
 --- @param offset integer
@@ -678,10 +619,16 @@ function yaooi.fd:pwrite(req, offset, buff, n)
 	-- local new_buff = libc.malloc_gc(n);
 	-- ffi.copy(new_buff, buff, n);
 	local hnd = objects.add(buff);
-	return yo_sync_call(libyaooi.yoa_file_write, req_prep(req, function ()
-		objects.del(hnd);
-		return tonumber(pn[0]);
-	end), self, buff, pn, offset);
+	return yo_sync_call(libyaooi.yoa_file_write, req_prep(req,
+		function ()
+			objects.del(hnd);
+			return tonumber(pn[0]);
+		end,
+		function ()
+			objects.del(hnd);
+			return 0;
+		end
+	), self, buff, pn, offset);
 end
 
 --- @param req nat.libyaooi.req
