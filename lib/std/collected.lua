@@ -18,8 +18,9 @@ local th = loop.fork(function ()
 		end
 		queue_cond:wait();
 	end
-end);
-th:name "Collector";
+end)
+	:name "Collector"
+	:daemon(true);
 
 -- TODO: this seems to work by pure magic
 

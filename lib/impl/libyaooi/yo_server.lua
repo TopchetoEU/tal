@@ -11,7 +11,7 @@ yo_server.__index = yo_server;
 yo_server.__metatable = "impl.libyaooi.server";
 
 function yo_server:next(udata)
-	if self.closed then return true, nil, "closed" end
+	if self.closed then return nil, false, "closed" end
 
 	return libyaooi.socket_accept(libyaooi.req.new(self.queue, process_args.wrap_udata(udata, function (client, ip, port)
 		return yo_fd(self.queue, client), ip, port;

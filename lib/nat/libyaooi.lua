@@ -408,6 +408,7 @@ end
 --- @param func function
 --- @param req nat.libyaooi.req
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return ...
 local function yo_sync_call(func, req, ...)
 	yo_assert(func(req, ...));
@@ -464,7 +465,7 @@ function yaooi.queue:poll(deadline)
 	end
 
 	local code = libyaooi.yo_queue_poll(self, pdeadline, preq, pcode);
-	if code == -110 then return nil end
+	if code == -3 then return nil end
 	if code ~= 0 then error(toerr(code)) end
 
 	--- @type nat.libyaooi.req
@@ -533,6 +534,7 @@ end
 --- @param n integer
 --- @param buff? ffi.cdata*
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.fd:read(req, buff, n)
 	local pn = ffi.new("size_t[1]", n);
@@ -548,6 +550,7 @@ end
 --- @param n integer
 --- @param buff ffi.cdata* | string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.fd:write(req, buff, n)
 	local pn = ffi.new("size_t[1]", n);
@@ -564,6 +567,7 @@ end
 --- @param n integer
 --- @param buff ffi.cdata*
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.fd:pread(req, offset, buff, n)
 	local pn = ffi.new("size_t[1]", n);
@@ -580,6 +584,7 @@ end
 --- @param n integer
 --- @param buff ffi.cdata* | string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.fd:pwrite(req, offset, buff, n)
 	local pn = ffi.new("size_t[1]", n);
@@ -594,12 +599,14 @@ end
 
 --- @param req nat.libyaooi.req
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return true
 function yaooi.fd:sync(req)
 	return yo_sync_call(libyaooi.yoa_sync, req_prep(req, function () return true end), self);
 end
 --- @param req nat.libyaooi.req
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return std.io.stat
 function yaooi.fd:stat(req)
 	local pres = ffi.new("yo_stat_t[1]");
@@ -637,6 +644,7 @@ end
 --- @param req nat.libyaooi.req
 --- @param mode integer
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return true?
 function yaooi.fd:chmod(req, mode)
 	yo_assert(libyaooi.yo_file_chmod(self,mode));
@@ -646,6 +654,7 @@ end
 --- @param uid integer
 --- @param gid integer
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return true?
 function yaooi.fd:chown(req, uid, gid)
 	yo_assert(libyaooi.yo_file_chown(self, uid, gid));
@@ -671,9 +680,9 @@ local dir_type = ffi.metatype("struct yo_dir", yaooi.dir);
 --- @param path string
 --- @param mode? integer | string
 --- @return fun()? cancel
---- @return true
+--- @return boolean? ok
 function yaooi.dir.new(req, path, mode)
-	return yo_sync_call(libyaooi.yoa_dir_new, req_prep(req, function () return true end), path, mode);
+	return yo_sync_call(libyaooi.yoa_dir_new, req_prep(req, function () end), path, mode);
 end
 --- @param path string
 --- @return nat.libyaooi.dir dir
@@ -684,6 +693,7 @@ function yaooi.dir.open(path)
 end
 --- @param req nat.libyaooi.req
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return string name
 function yaooi.dir:next(req)
 	local pres = ffi.new "char*[1]";
@@ -760,6 +770,7 @@ function yaooi.proc.spawn(argv, env, cwd, stdin, stdout, stderr, windowssucks)
 end
 --- @param req nat.libyaooi.req
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer sig_or_code
 function yaooi.proc:wait(req)
 	local pcode = ffi.new "int[1]";
@@ -843,6 +854,7 @@ end
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.file_symlink(req, src, dst)
 	return yo_sync_call(libyaooi.yoa_file_symlink, req_prep(req, function () return true end), src, dst);
@@ -851,6 +863,7 @@ end
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.file_hardlink(req, src, dst)
 	return yo_sync_call(libyaooi.yoa_file_hardlink, req_prep(req, function () return true end), src, dst);
@@ -858,6 +871,7 @@ end
 --- @param req nat.libyaooi.req
 --- @param path string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.file_readlink(req, path)
 	local pres = ffi.new "char*[1]";
@@ -870,6 +884,7 @@ end
 --- @param req nat.libyaooi.req
 --- @param path string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer n
 function yaooi.file_remove(req, path)
 	return yo_sync_call(libyaooi.yoa_file_remove, req_prep(req, function () return true end), path);
@@ -902,6 +917,7 @@ end
 --- @param req nat.libyaooi.req
 --- @param fd nat.libyaooi.fd
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return nat.libyaooi.fd client
 --- @return string ip
 --- @return integer port
@@ -919,6 +935,7 @@ end
 --- @param port integer
 --- @param prot? "tcp" | "udp" = tcp
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return nat.libyaooi.fd client
 function yaooi.socket_connect(req, addr, port, prot)
 	prot = prot or "tcp";
@@ -943,6 +960,7 @@ end
 --- @param name string
 --- @param flags? std.os.net.addrinfo_flags
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return string[] names
 function yaooi.dns_getaddrinfo(req, name, flags)
 	local real_flags = 0;
@@ -989,6 +1007,7 @@ function yaooi.sig_off(sig)
 end
 --- @param req nat.libyaooi.req
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer sig
 function yaooi.sig_wait(req)
 	local pres = ffi.new "yo_signo_t[1]";

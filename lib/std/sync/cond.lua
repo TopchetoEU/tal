@@ -1,4 +1,5 @@
 local loop = require "std.loop";
+local errors = require "std.errors";
 
 --- @class std.sync.cond
 --- @field _waiters thread[]

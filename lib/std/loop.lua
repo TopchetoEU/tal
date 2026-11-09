@@ -30,19 +30,23 @@ local loop_th;
 local run_loop;
 
 --- @return boolean, ...
-local function process_handle(next, timeout, cb, is_err, ...)
+local function process_handle(next, timeout, cb, is_ok, ...)
 	if cb == nil then
-		if not timeout then return false end
+		return next();
 	elseif cb == coroutine.running() then
-		return true, ...;
+		if is_ok then
+			return true, ...;
+		else
+			error(...);
+		end
 	else
 		loop_th = coroutine.running();
 		local ok, e;
 		if type(cb) == "function" then
-			if is_err then error(...) end
+			if not is_ok then error(...) end
 			ok, e = errors.spcall(cb, ...);
 		else
-			ok, e = cb:resume(is_err, ...);
+			ok, e = cb:resume(is_ok, ...);
 		end
 		loop_th = nil;
 
@@ -78,13 +82,17 @@ end
 local function task_next()
 	local task = table.remove(queue, 1);
 	if task then
-		return process_handle(task_next, nil, task.cb, table.unpack(task, 1, task.n));
+		return process_handle(task_next, nil, task.cb, task.ok, table.unpack(task, 1, task.n));
 	end
 
 	local timeout;
 	if #sleeps > 0 then timeout = sleeps[#sleeps].time end
 
-	return process_handle(run_loop, timeout, impl:next(timeout));
+	if timeout or next(cancels) then
+		return process_handle(run_loop, timeout, impl:next(timeout));
+	end
+
+	return false;
 end
 --- @return boolean, ...
 function run_loop()
@@ -125,7 +133,7 @@ end
 local function await_fin_main(th, ok, status, ...)
 	cancels[th] = nil;
 	if not ok then error(status) end
-	if not status then errors.throw(errors.never) end
+	if not status then errors.throw "loop finished execution early" end
 	return ...;
 end
 --- @param ok boolean
@@ -167,7 +175,7 @@ end
 function loop.fork(main, ...)
 	local fork_trace = debug.traceback(nil, 2);
 
-	local th = coroutine.create(function (...)
+	local th = coroutine.create(function (_, ...)
 		local ok, err = errors.spcall(...);
 		if not ok then
 			if errors.is(err, errors.cancelled) then return end
@@ -198,11 +206,15 @@ function loop.wait_until(ts, cb, ...)
 	end
 
 	local pack = table.pack(...);
+	pack.ok = true;
 	pack.cb = cb;
 	pack.time = ts;
 	table.insert(sleeps, f, pack);
 
-	return function () table.delete(sleeps, pack) end;
+	return function ()
+		table.delete(sleeps, pack);
+		loop.reject(cb, errors.cancelled);
+	end;
 end
 function loop.run()
 	if loop_th then return true end
@@ -227,7 +239,10 @@ function loop.cancel(th)
 		end
 	end
 
-	cancels[th]();
+	if cancels[th] then
+		cancels[th]();
+		cancels[th] = nil;
+	end
 end
 
 return loop;

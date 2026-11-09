@@ -55,13 +55,13 @@ function yo_impl:open(udata, path, flags, mode)
 
 	mode = sig.optnum(mode, "mode", 0x1FF);
 
-	return nil, yo_fd(self.queue, libyaooi.file_open(path, flags, mode));
+	return nil, true, yo_fd(self.queue, libyaooi.file_open(path, flags, mode));
 end
 function yo_impl:mkdir(udata, path, mode)
 	return libyaooi.dir.new(libyaooi.req.new(self.queue, udata), path, mode);
 end
 function yo_impl:opendir(udata, path)
-	return nil, yo_dir(self.queue, libyaooi.dir.open(path));
+	return nil, true, yo_dir(self.queue, libyaooi.dir.open(path));
 end
 
 function yo_impl:symlink(udata, path, target)
@@ -78,7 +78,7 @@ function yo_impl:remove(udata, path)
 end
 
 function yo_impl:bind(udata, addr, port, protocol, max_n)
-	return nil, yo_server(self.queue, libyaooi.socket_bind(addr, port, protocol, max_n));
+	return nil, true, yo_server(self.queue, libyaooi.socket_bind(addr, port, protocol, max_n));
 end
 function yo_impl:connect(udata, addr, port, protocol)
 	return libyaooi.socket_connect(
@@ -111,7 +111,7 @@ end
 
 function yo_impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr, windowssucks)
 	local res, stdin, stdout, stderr = libyaooi.proc.spawn(argv, env, cwd, stdin, stdout, stderr, windowssucks);
-	return nil,
+	return nil, true,
 		yo_proc(self.queue, res),
 		stdin and yo_fd(self.queue, stdin),
 		stdout and yo_fd(self.queue, stdout),
@@ -125,6 +125,7 @@ function yo_impl:sig_off(sig)
 	return libyaooi.sig_off(sig_table[sig] --[[@as number]]);
 end
 --- @return fun()? cancel
+--- @return boolean ok
 --- @return string sig
 function yo_impl:sig_wait(udata)
 	return libyaooi.sig_wait(libyaooi.req.new(self.queue, process_args.wrap_udata(udata, function (sig) return sig_table[sig] end))) --[[@as any]];
@@ -133,6 +134,7 @@ end
 local function next_processargs(req, ok, ...)
 	if not req then return nil end
 	local udata = req:udata();
+
 
 	if is(udata, process_args.tag) then
 		if not ok then return udata.udata, false, ... end

@@ -9,7 +9,7 @@ yo_dir.__index = yo_dir;
 yo_dir.__metatable = "impl.libyaooi.dir";
 
 function yo_dir:next(udata)
-	if self.closed then return "closed" end
+	if self.closed then return nil, false, "closed" end
 	return self.fd:next(libyaooi.req.new(self.queue, udata));
 end
 function yo_dir:close()

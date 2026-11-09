@@ -9,7 +9,7 @@ yo_proc.__index = yo_proc;
 yo_proc.__metatable = "impl.libyaooi.proc";
 
 function yo_proc:wait(udata)
-	if self.closed then return "closed" end
+	if self.closed then return nil, false, "closed" end
 	return (function (...)
 		if ... then self.closed = true end
 		return ...;

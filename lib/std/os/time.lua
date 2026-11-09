@@ -19,7 +19,7 @@ end
 
 --- @param timestamp number
 function time.sleep_until(timestamp)
-	return loop.await(loop.wait_until(timestamp, coroutine.running(), true));
+	return loop.await(loop.wait_until(timestamp, coroutine.running()));
 end
 --- @param secs number
 function time.sleep(secs)
