@@ -1,5 +1,6 @@
 local path = require "std.path";
 local argp = require "std.argp";
+local readline;
 local cli = {};
 
 function cli.load_eval(src, name, env)
@@ -12,6 +13,7 @@ function cli.load_eval(src, name, env)
 end
 
 function cli.repl(prefix, eot)
+	readline = readline or require_alt "nat.libedit";
 	prefix = prefix or "";
 	-- TODO: uncomment when libreadline is made concurrent
 	-- assert(signal.on "INT");
@@ -35,7 +37,7 @@ function cli.repl(prefix, eot)
 				local done = false;
 				local f;
 
-				local line = require "nat.libedit"(src == "" and (prefix .. "> ") or "... ");
+				local line = readline(src == "" and (prefix .. "> ") or "... ");
 				if line == eot then
 					cont = false;
 					return;
