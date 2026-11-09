@@ -9,16 +9,28 @@ local loop = {};
 
 local fork_i = 1;
 
---- @type { cb: thread | function, n: integer, [integer]: ... }[]
+--- @class std.loop.task
+--- @field cb thread | function
+--- @field ok boolean
+--- @field n integer
+--- @field [integer] any
+
+--- @class std.loop.wait_task: std.loop.task
+--- @field time number
+
+--- @type table<thread, fun()>
+local cancels = setmetatable({}, { __mode = "k" });
+--- @type std.loop.task[]
 local queue = {};
---- @type { time: number, cb: thread | function, n: integer, [integer]: ... }[]
+--- @type std.loop.wait_task[]
 local sleeps = {};
 --- @type thread?
 local loop_th;
 
 local run_loop;
 
-local function process_handle(next, timeout, cb, ...)
+--- @return boolean, ...
+local function process_handle(next, timeout, cb, is_err, ...)
 	if cb == nil then
 		if not timeout then return false end
 	elseif cb == coroutine.running() then
@@ -27,9 +39,10 @@ local function process_handle(next, timeout, cb, ...)
 		loop_th = coroutine.running();
 		local ok, e;
 		if type(cb) == "function" then
+			if is_err then error(...) end
 			ok, e = errors.spcall(cb, ...);
 		else
-			ok, e = cb:resume(...);
+			ok, e = cb:resume(is_err, ...);
 		end
 		loop_th = nil;
 
@@ -47,20 +60,21 @@ local function has_non_daemons()
 			return true;
 		end
 	end
-
 	for i = 1, #queue do
 		if type(queue[i].cb) == "thread" and not queue[i].cb:is_daemon() then
 			return true;
 		end
 	end
-
-	for th in pairs(coroutine.get_cancels()) do
-		th:cancel();
+	for th in pairs(cancels) do
+		if not th:is_daemon() then
+			return true;
+		end
 	end
 
 	return false;
 end
 
+--- @return boolean, ...
 local function task_next()
 	local task = table.remove(queue, 1);
 	if task then
@@ -72,92 +86,82 @@ local function task_next()
 
 	return process_handle(run_loop, timeout, impl:next(timeout));
 end
+--- @return boolean, ...
 function run_loop()
 	local now = impl:time "mono";
 
-	local f, l = 1, #sleeps;
-	local result = nil;
-
-	if not non_daemons then
-		for i = 1, #sleeps do
-			if type(sleeps[i].cb) == "thread" then
-				sleeps[i].cb:cancel();
-			end
+	if has_non_daemons() then
+		while #sleeps > 0 and sleeps[#sleeps].time <= now do
+			table.insert(queue, table.remove(sleeps));
 		end
+	else
+		table.clear(sleeps);
 		for i = 1, #queue do
 			if type(queue[i].cb) == "thread" then
 				queue[i].cb:cancel();
 			end
 		end
-		for th in pairs(coroutine.get_cancels()) do
+		for th in pairs(cancels) do
 			th:cancel();
-		end
-	end
-
-	while f <= l do
-		local mid = math.floor((f + l) / 2)
-		if sleeps[mid].time <= now then
-			result = mid;
-			l = mid - 1;
-		else
-			f = mid + 1;
-		end
-	end
-
-	if result then
-		for i = #sleeps, result, -1 do
-			table.insert(queue, table.remove(sleeps, i));
 		end
 	end
 
 	return task_next();
 end
 
---- @return ...
-local function await_fin(status, ...)
-	if status == nil then
-		errors.throw(...);
-	elseif status == false then
-		errors.throw(errors.never);
-	else
-		return ...;
-	end
-end
-
 --- @param task thread
-function loop.push(task, ...)
+function loop.resolve(task, ...)
 	local pack = table.pack(...);
 	pack.cb = task;
+	pack.ok = true;
 	table.insert(queue, pack);
 end
-function loop.rest()
-	loop.push((coroutine.running()));
-	return loop.await();
-end
---- If no loop is running, runs the loop in the call. Otherwise, yields
---- @return ...
-function loop.await()
-	if not loop_th then
-		return await_fin(run_loop());
-	else
-		assert(loop_th ~= coroutine.running(), "how?!?!");
-		return coroutine.yield();
-	end
+--- @param err any
+function loop.reject(task, err)
+	table.insert(queue, { cb = task, n = 1, ok = false, err });
 end
 
-local function sync_ret_handle(ok, ...)
-	coroutine.set_cancel(nil, nil);
-	if not ok then errors.throw(...) end
+--- @return ...
+local function await_fin_main(th, ok, status, ...)
+	cancels[th] = nil;
+	if not ok then error(status) end
+	if not status then errors.throw(errors.never) end
 	return ...;
 end
-
---- @param cancel? fun()
+--- @param ok boolean
+--- @return ...
+local function await_fin_yield(th, ok, ...)
+	cancels[th] = nil;
+	if not ok then error((...)) end
+	return ...;
+end
+--- If no loop is running, runs the loop in the call. Otherwise, yields
+--- @param cancel? fun() If nil, directly returns/throws the other arguments
+--- @param ok? boolean Upon a sync return, if true, returns the varargs, if false throws them
 --- @param ... any
---- @return any ...
-function loop.sync_ret(cancel, ...)
-	if not cancel then return ... end
-	coroutine.set_cancel(nil, cancel);
-	return sync_ret_handle(loop.await());
+--- @return ...
+function loop.await(cancel, ok, ...)
+	if not cancel then
+		if ok then
+			return ...;
+		else
+			error((...));
+		end
+	end
+
+	local th = coroutine.running();
+	cancels[th] = cancel or function () loop.reject(th, errors.cancelled) end;
+
+	if not loop_th then
+		return await_fin_main(th, pcall(run_loop));
+	else
+		assert(loop_th ~= th);
+		return await_fin_yield(th, coroutine.yield());
+	end
+end
+function loop.rest()
+	loop.resolve((coroutine.running()));
+	return loop.await(function () end);
 end
 
 function loop.fork(main, ...)
@@ -172,7 +176,7 @@ function loop.fork(main, ...)
 	end);
 
 	th:name("Fork " .. fork_i);
-	loop.push(th, main, ...);
+	loop.resolve(th, main, ...);
 	loop.rest();
 
 	fork_i = fork_i + 1;
@@ -211,6 +215,19 @@ function loop.run()
 	else
 		return false, e;
 	end
+end
+
+--- Not like coroutine.cancel, this only cancels an action that blocks a thread that the loop manages
+--- @param th thread
+function loop.cancel(th)
+	for i = #sleeps, 1, -1 do
+		if sleeps[i].cb == th then
+			table.remove(sleeps[i]);
+			loop.resolve(th);
+		end
+	end
+
+	cancels[th]();
 end
 
 return loop;

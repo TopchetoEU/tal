@@ -35,7 +35,7 @@ function os.time(arg)
 end
 --- @param path string
 function os.remove(path)
-	loop.sync_ret(impl:remove(coroutine.running(), path));
+	loop.await(impl:remove(coroutine.running(), path));
 	return true;
 end
 

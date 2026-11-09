@@ -11,33 +11,33 @@ file_impl.__metatable = "std.os.fs.impl.file";
 
 function file_impl:_read(ptr, n)
 	if not self._seek then
-		return loop.sync_ret(self._backend:read(coroutine.running(), ptr, n));
+		return loop.await(self._backend:read(coroutine.running(), ptr, n));
 	end
 
-	local read_n = loop.sync_ret(self._backend:pread(coroutine.running(), self._ptr, ptr, n));
+	local read_n = loop.await(self._backend:pread(coroutine.running(), self._ptr, ptr, n));
 	self._ptr = self._ptr + read_n;
 	return read_n;
 end
 function file_impl:_write(ptr, n)
 	if not self._seek then
-		return loop.sync_ret(self._backend:write(coroutine.running(), ptr, n));
+		return loop.await(self._backend:write(coroutine.running(), ptr, n));
 	end
 
-	local write_n = loop.sync_ret(self._backend:pwrite(coroutine.running(), self._ptr, ptr, n));
+	local write_n = loop.await(self._backend:pwrite(coroutine.running(), self._ptr, ptr, n));
 	self._ptr = self._ptr + write_n;
 	return write_n;
 end
 
 function file_impl:_flush() end
 function file_impl:_stat()
-	return loop.sync_ret(self._backend:stat((coroutine.running())));
+	return loop.await(self._backend:stat((coroutine.running())));
 end
 
 function file_impl:_chmod(mode)
-	return loop.sync_ret(self._backend:chmod(coroutine.running(), mode));
+	return loop.await(self._backend:chmod(coroutine.running(), mode));
 end
 function file_impl:_chown(uid, gid)
-	return loop.sync_ret(self._backend:chown(coroutine.running(), uid, gid));
+	return loop.await(self._backend:chown(coroutine.running(), uid, gid));
 end
 
 function file_impl:_close()
@@ -62,7 +62,7 @@ function file_seek_impl:_seek(whence, offset)
 	elseif whence == "cur" then
 		self._ptr = self._ptr + offset;
 	elseif whence == "end" then
-		local stat = loop.sync_ret(self._backend:stat(coroutine.running()));
+		local stat = loop.await(self._backend:stat(coroutine.running()));
 		self._ptr = self._ptr + stat.size;
 	end
 

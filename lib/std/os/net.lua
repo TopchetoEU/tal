@@ -23,7 +23,7 @@ server.__metatable = "std.os.net.server";
 --- @return string ip
 --- @return integer port
 function server:next()
-	local res, ip, port = loop.sync_ret(self._fd:next((coroutine.running())));
+	local res, ip, port = loop.await(self._fd:next((coroutine.running())));
 	return str.new(res), ip, port;
 end
 function server:iter()
@@ -42,7 +42,7 @@ server.__gc = server.close;
 --- @param max_n? integer = 32
 --- @return std.os.net.server
 function net.bind(addr, port, protocol, max_n)
-	local f = loop.sync_ret(impl:bind(coroutine.running(), addr, port, protocol or "tcp", max_n or 32));
+	local f = loop.await(impl:bind(coroutine.running(), addr, port, protocol or "tcp", max_n or 32));
 	return collected(setmetatable({ _fd = f, _mngd = true }, server));
 end
 --- @param addr string
@@ -50,7 +50,7 @@ end
 --- @param protocol? "tcp" | "udp" = "tcp"
 --- @return std.str
 function net.connect(addr, port, protocol)
-	local f = loop.sync_ret(impl:connect(coroutine.running(), addr, port, protocol or "tcp"));
+	local f = loop.await(impl:connect(coroutine.running(), addr, port, protocol or "tcp"));
 	return str.new(f);
 end
 --- @param name string
@@ -77,7 +77,7 @@ end
 --- @param flags std.os.net.addrinfo_flags
 --- @return string[]
 function net.getaddrinfo(name, flags)
-	return loop.sync_ret(impl:getaddrinfo(coroutine.running(), name, flags));
+	return loop.await(impl:getaddrinfo(coroutine.running(), name, flags));
 end
 
 return net;

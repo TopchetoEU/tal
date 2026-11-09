@@ -11,7 +11,7 @@ dir.__metatable = "std.os.fs.dir";
 --- @return string?
 function dir:read()
 	if self.closed then return nil end
-	return loop.sync_ret(self.hnd:next(coroutine.running()));
+	return loop.await(self.hnd:next(coroutine.running()));
 end
 function dir:iter()
 	return function (self)

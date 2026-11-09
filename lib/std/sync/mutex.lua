@@ -14,8 +14,12 @@ function mutex:trylock()
 end
 function mutex:lock()
 	while self._locked do
-		table.insert(self._waiters, (coroutine.running()));
-		loop.await();
+		local th = coroutine.running();
+		table.insert(self._waiters, th);
+		loop.await(function ()
+			table.delete(self._waiters, th);
+			loop.reject(th, errors.cancelled);
+		end);
 	end
 
 	self._locked = true;
@@ -25,7 +29,7 @@ function mutex:unlock()
 
 	self._locked = false;
 	local next = table.remove(self._waiters, 1);
-	if next then loop.push(next) end
+	if next then loop.resolve(next) end
 end
 
 function mutex.new()

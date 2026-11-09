@@ -46,7 +46,7 @@ end
 --- @param ... integer | string
 --- @return std.str
 function fs.open(path, flags, ...)
-	local fd = loop.sync_ret(impl:open(coroutine.running(), path, flags, str.parsechmod(...)));
+	local fd = loop.await(impl:open(coroutine.running(), path, flags, str.parsechmod(...)));
 	local append = flags:find "a";
 	return impl_file.new(fd, append and true or false); -- TODO: detect seekability of files
 end
@@ -86,7 +86,7 @@ end
 --- @param ... integer | string mode
 function fs.mkdir(path, ...)
 	path = sig.str(path, "path");
-	loop.sync_ret(impl:mkdir(coroutine.running(), path, str.parsechmod(...)));
+	loop.await(impl:mkdir(coroutine.running(), path, str.parsechmod(...)));
 end
 --- @param path string
 --- @param ... integer | string mode
@@ -106,7 +106,7 @@ end
 function fs.opendir(path)
 	path = sig.str(path, "path");
 
-	local fd = loop.sync_ret(impl:opendir(coroutine.running(), path));
+	local fd = loop.await(impl:opendir(coroutine.running(), path));
 	return dir.new(fd);
 end
 function fs.readdir(path)
@@ -118,20 +118,20 @@ end
 --- @param dst string
 --- @return true?, string?
 function fs.symlink(src, dst)
-	loop.sync_ret(impl:symlink((coroutine.running()), src, dst));
+	loop.await(impl:symlink((coroutine.running()), src, dst));
 end
 --- @param src string
 --- @param dst string
 function fs.hardlink(src, dst)
-	loop.sync_ret(impl:hardlink((coroutine.running()), src, dst));
+	loop.await(impl:hardlink((coroutine.running()), src, dst));
 end
 --- @param path string
 function fs.readlink(path)
-	return loop.sync_ret(impl:readlink((coroutine.running()), path));
+	return loop.await(impl:readlink((coroutine.running()), path));
 end
 --- @param path string
 function fs.remove(path)
-	loop.sync_ret(impl:remove((coroutine.running()), path));
+	loop.await(impl:remove((coroutine.running()), path));
 end
 
 --- @param type? std.os.fs.path = "cwd"

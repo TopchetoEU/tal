@@ -11,8 +11,12 @@ function cond:wait()
 	-- if self._pending then
 	-- 	self._pending = false;
 	-- else
-		table.insert(self._waiters, (coroutine.running()));
-		loop.await();
+		local th = coroutine.running();
+		table.insert(self._waiters, th);
+		loop.await(function ()
+			table.delete(self._waiters, th);
+			loop.reject(th, errors.cancelled);
+		end);
 	-- end
 end
 --- @param all? boolean
@@ -24,12 +28,12 @@ function cond:signal(all)
 
 	if all then
 		for i = 1, #self._waiters do
-			loop.push(self._waiters[i]);
+			loop.resolve(self._waiters[i]);
 		end
 		table.clear(self._waiters);
 	else
 		local next = table.remove(self._waiters, 1);
-		if next then loop.push(next) end
+		if next then loop.resolve(next) end
 	end
 end
 

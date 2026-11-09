@@ -28,7 +28,7 @@ function signal.off(sig)
 end
 --- @return std.signal
 function signal.wait()
-	return loop.sync_ret(impl:sig_wait((coroutine.running())));
+	return loop.await(impl:sig_wait((coroutine.running())));
 end
 
 return signal;

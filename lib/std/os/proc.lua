@@ -41,7 +41,7 @@ function proc:wait()
 	if self._closed then error(errors.closed) end
 
 	--- @type integer
-	local code = loop.sync_ret(self._fd:wait(coroutine.running()));
+	local code = loop.await(self._fd:wait(coroutine.running()));
 
 	self._closed = true;
 	self._mng = nil;
@@ -139,7 +139,7 @@ function proc.new(opts)
 		end
 	end
 
-	local res, stdin, stdout, stderr = loop.sync_ret(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks));
+	local res, stdin, stdout, stderr = loop.await(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks));
 
 	local self = collected(setmetatable({
 		_fd = res,

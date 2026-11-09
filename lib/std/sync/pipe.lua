@@ -11,20 +11,28 @@ pipe.__metatable = "std.sync.pipe";
 
 function pipe:read()
 	local writer = table.remove(self._writers, 1);
-	if writer then loop.push(writer) end
+	if writer then loop.resolve(writer) end
 
-	table.insert(self._readers, (coroutine.running()));
-	return loop.await();
+	local th = coroutine.running();
+	table.insert(self._readers, th);
+	return loop.await(function ()
+		table.delete(self._readers, th);
+		loop.reject(th, errors.cancelled);
+	end);
 end
 function pipe:write(...)
 	while true do
 		local reader = table.remove(self._readers, 1);
 		if reader then
-			loop.push(reader, ...);
+			loop.resolve(reader, ...);
 			return loop.rest();
 		else
-			table.insert(self._writers, (coroutine.running()));
-			loop.await();
+			local th = coroutine.running();
+			table.insert(self._writers, th);
+			loop.await(function ()
+				table.delete(self._writers);
+				loop.reject(th, errors.cancelled);
+			end);
 		end
 	end
 end

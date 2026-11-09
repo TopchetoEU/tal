@@ -11,20 +11,20 @@ str_impl.__metatable = "std.os.fs.impl.str";
 
 function str_impl:_read(ptr, n)
 	if self._closed then error(errors.closed) end
-	return loop.sync_ret(self._backend:read(coroutine.running(), ptr, n));
+	return loop.await(self._backend:read(coroutine.running(), ptr, n));
 end
 function str_impl:_write(ptr, n)
 	if self._closed then error(errors.closed) end
-	return loop.sync_ret(self._backend:write(coroutine.running(), ptr, n));
+	return loop.await(self._backend:write(coroutine.running(), ptr, n));
 end
 function str_impl:_flush()
 	if self._closed then error(errors.closed) end
-	-- return loop.sync_ret(self._backend:flush((coroutine.running())));
+	-- return loop.await(self._backend:flush((coroutine.running())));
 	return self;
 end
 function str_impl:_stat()
 	if self._closed then error(errors.closed) end
-	return loop.sync_ret(self._backend:stat((coroutine.running())));
+	return loop.await(self._backend:stat((coroutine.running())));
 end
 function str_impl:_close()
 	if not self._closed then
