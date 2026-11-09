@@ -1,4 +1,5 @@
 local loop --[[= require "loop"]];
+local require_alt = require;
 
 --- @class thread: coroutinelib
 
@@ -15,7 +16,9 @@ local names = setmetatable({}, { __mode = "k" });
 local daemons = setmetatable({}, { __mode = "k" });
 
 --- @param self thread
---- @param name? string
+--- @param name string
+--- @return thread
+--- @overload fun(self: thread): string
 function coroutine:name(name)
 	if name then
 		names[self] = name;
