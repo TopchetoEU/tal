@@ -1,4 +1,4 @@
-_TAL = "0.4.8-beta";
+_TAL = "0.5.0-beta DEV";
 _G._ENV = _G;
 
 -- First, we import package to load all further packages using our require functions
