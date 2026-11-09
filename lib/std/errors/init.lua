@@ -1,6 +1,7 @@
 local tag = require "std.tag";
 local traced_err = require "std.errors.traced_err";
 local aggr = require "std.errors.aggr_err";
+local debug = require "std.basic.debug";
 local is = require "std.basic.is";
 local error = error;
 local pcall = pcall;
@@ -161,5 +162,7 @@ errors.notimpl = errors.msg "not implemented yet";
 
 errors.nomem = errors.msg "out of memory";
 errors.nostack = errors.msg "stack overflow";
+
+debug.blacklist[errors.throw] = true;
 
 return errors;

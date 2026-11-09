@@ -37,6 +37,11 @@ local debug = {
 
 --- @class debug.registry
 debug.registry = debug.getregistry();
+debug.blacklist = {
+	[pcall] = true,
+	[xpcall] = true,
+	[error] = true,
+};
 
 --- @return thread?, ...
 local function fix_args(...)
@@ -205,7 +210,7 @@ function debug.traceback(...)
 		end
 		if not info then break end
 
-		if info.func ~= pcall and info.func ~= xpcall and info.func ~= error then
+		if not debug.blacklist[info.func] then
 			res:put("\n\t", debug.readabletrace(info) or "<internal>");
 
 			if info.istailcall then

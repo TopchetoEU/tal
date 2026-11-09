@@ -1,10 +1,10 @@
 --- @diagnostic disable: duplicate-set-field
 
-local buffer = require "string.buffer";
 local load = require "std.compiler.load";
 local pkgpath = require "std.package.path";
 local table = require "std.basic.table";
 local path_err = require "std.package.path_err";
+local debug = require "std.basic.debug";
 local error = error;
 
 --- @class packagelib
@@ -137,4 +137,6 @@ end
 local errors = package.require "std.errors";
 error = errors.throw;
 
+debug.blacklist[package.require] = true;
+debug.blacklist[package.load] = true;
 return package;
