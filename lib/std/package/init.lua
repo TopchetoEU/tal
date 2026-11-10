@@ -139,4 +139,5 @@ error = errors.throw;
 
 debug.blacklist[package.require] = true;
 debug.blacklist[package.load] = true;
+debug.blacklist[package.search] = true;
 return package;
