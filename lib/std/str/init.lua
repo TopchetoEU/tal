@@ -249,7 +249,7 @@ end
 ---@return integer n
 ---@return boolean has_c If true, the output was trimmed to the newline char
 function str:readline(ptr, n, char)
-	n = self:fullread(ptr, n);
+	n = self:read(ptr, n);
 
 	local c_i = libc.strnchr(ptr, char, n);
 	if c_i then

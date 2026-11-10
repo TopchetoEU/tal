@@ -140,7 +140,7 @@ function http.read_body(conn, hdr)
 
 		function self:_readto(dst)
 			if not self.str then error(errors.closed) end
-			if self.done then return 0 end
+			if self.done then error(errors.eof) end
 
 			local buff = buffer.new();
 
@@ -176,7 +176,7 @@ function http.read_body(conn, hdr)
 		function self:_read(ptr, n)
 			if not self.str then error(errors.closed) end
 			if n > self.n then n = self.n end
-			if self.n == 0 then return 0 end
+			if self.n == 0 then error(errors.eof) end
 
 			local res_n = self.str:read(ptr, n);
 			self.n = self.n - res_n;
