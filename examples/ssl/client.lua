@@ -4,17 +4,19 @@ local json = require "std.fmt.json";
 local net = require "std.os.net";
 local signal = require "std.os.signal";
 local ssl = require "std.proto.ssl";
+local pipe = require "std.sync.pipe";
 
 local utils = require "examples.ssl.utils";
 
 return function (...)
-	signal.on "INT";
-	signal.on "BADPIPE";
+	local sigs = pipe.new();
+	signal.mute "BADPIPE";
+	signal.on("INT", sigs);
+
 	loop.fork(function ()
-		for sig in signal.wait do
-			if sig == "INT" then error "interrupted" end
-		end
-	end):name "INT listener";
+		sigs:read();
+		error "interrupted";
+	end):name "INT listener":daemon(true);
 
 	local argv = argp.new(...);
 
@@ -45,14 +47,7 @@ return function (...)
 		username = io.stdin:read "l";
 	end
 
-	loop.fork(function ()
-		for raw in utils.read_string, conn do
-			local cmd = json.parse(raw);
-			utils.print_event(cmd);
-		end
-	end);
-
-	loop.fork(function ()
+	local sender = loop.fork(function ()
 		utils.write_string(conn, username);
 		conn:flush();
 
@@ -72,5 +67,14 @@ return function (...)
 			conn:flush();
 		end
 		conn:close();
+	end);
+
+	loop.fork(function ()
+		for raw in utils.read_string, conn do
+			local cmd = json.parse(raw);
+			utils.print_event(cmd);
+		end
+
+		sender:cancel();
 	end);
 end

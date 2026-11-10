@@ -10,13 +10,17 @@ local signal = require "std.os.signal";
 local utils = require "examples.ssl.utils";
 
 return function (...)
-	signal.on "INT";
-	signal.on "BADPIPE";
+	local sigs = pipe.new();
+	signal.on("INT", sigs);
+	signal.on("BADPIPE", sigs);
+
 	loop.fork(function ()
-		for sig in signal.wait do
+		for sig in sigs:iter() do
 			if sig == "INT" then error "interrupted" end
 		end
-	end):name "INT listener";
+	end)
+		:name "INT listener"
+		:daemon(true);
 
 	local argv = argp.new(...);
 
