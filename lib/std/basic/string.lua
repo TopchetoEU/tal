@@ -1,5 +1,6 @@
 --- @diagnostic disable: duplicate-set-field
 local lex;
+local require_alt = require;
 
 --- @param self string
 --- @param sep? string

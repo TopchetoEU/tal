@@ -1,4 +1,5 @@
 local loop --[[= require "loop"]];
+local errors = require "std.errors";
 local require_alt = require;
 
 --- @class thread: coroutinelib
@@ -46,6 +47,7 @@ function coroutine:cancel()
 	cancel_flag[self] = true;
 end
 --- @param self? thread
+--- @overload fun()
 function coroutine:cancelpt()
 	self = self or coroutine.running();
 
