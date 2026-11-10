@@ -149,6 +149,8 @@ end
 --- @param ... any
 --- @return ...
 function loop.await(cancel, ok, ...)
+	coroutine.cancelpt();
+
 	if not cancel then
 		if ok then
 			return ...;
@@ -219,13 +221,9 @@ end
 function loop.run()
 	if loop_th then return true end
 
-	local status, e = run_loop();
+	local status = run_loop();
 	if status == true then
 		return false, "unexpected result from loop run";
-	elseif status == false then
-		return true;
-	else
-		return false, e;
 	end
 end
 
@@ -239,10 +237,9 @@ function loop.cancel(th)
 		end
 	end
 
-	if cancels[th] then
-		cancels[th]();
-		cancels[th] = nil;
-	end
+	local cancel = cancels[th];
+	cancels[th] = nil;
+	if cancel then cancel() end
 end
 
 return loop;

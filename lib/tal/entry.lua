@@ -50,14 +50,11 @@ return function (entry_mod, ...)
 			entry(...);
 		end
 
-		local ok, e = loop.run();
-		if not ok then errors.throw(e) end
+		loop.run();
 
-		-- Run one more time to collect __gc tables
-		collectgarbage();
+		-- Not sure about this  one...
 
-		local ok, e = loop.run();
-		if not ok then errors.throw(e) end
+		-- loop.run();
 	end, ...);
 
 	if not ok then
