@@ -15,7 +15,7 @@ if [ "$1" = "--gdb" ]; then
 	exec gdb --args "$LUAJIT" $LUAJIT_ARGS "$ROOT/lib/tal.lua" "$@"
 elif [ "$1" = "--valgrind" ]; then
 	shift 1
-	exec valgrind --tool=memcheck "$LUAJIT" $LUAJIT_ARGS "$ROOT/lib/tal.lua" "$@"
+	exec valgrind --tool=memcheck --track-origins=yes "$LUAJIT" $LUAJIT_ARGS "$ROOT/lib/tal.lua" "$@"
 elif [ "$1" = "--helgrind" ]; then
 	shift 1
 	exec valgrind --tool=helgrind "$LUAJIT" $LUAJIT_ARGS "$ROOT/lib/tal.lua" "$@"
