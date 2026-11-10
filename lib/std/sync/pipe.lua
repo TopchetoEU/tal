@@ -38,6 +38,38 @@ function pipe:write(...)
 	end
 end
 
+function pipe:iter()
+	return self.read, self;
+end
+--- @generic T
+--- @param iter fun(self, i): any, T?
+--- @param iself? any
+--- @param init? any
+--- @return T[]
+function pipe:ifrom(iter, iself, init)
+	local res = {};
+
+	for _, el in iter, iself, init do
+		self:write(el);
+	end
+
+	return res;
+end
+--- @generic T
+--- @param iter fun(iself, i): T?
+--- @param iself? any
+--- @param init? any
+--- @return T[]
+function pipe:from(iter, iself, init)
+	local res = {};
+
+	for el in iter, iself, init do
+		self:write(el);
+	end
+
+	return res;
+end
+
 function pipe.new()
 	return setmetatable({ _readers = {}, _writers = {} }, pipe);
 end
