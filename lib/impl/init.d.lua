@@ -49,6 +49,7 @@ function file:close() end
 local dir = {};
 
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return string name
 function dir:next(udata) end
 function dir:close() end
@@ -56,6 +57,7 @@ function dir:close() end
 --- @class impl.server
 local server = {};
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return impl.fd client
 --- @return string ip
 --- @return integer port
@@ -71,6 +73,7 @@ function iterenv:close() end
 --- @class impl.process
 local process = {};
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return integer code
 function process:wait(udata) end
 -- TODO: add close()
@@ -96,41 +99,45 @@ function impl:openfd(fd, owned) end
 --- @param flags std.io.open_flags
 --- @param mode integer
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return impl.fd file
 function impl:open(udata, path, flags, mode) end
 --- @param path string
 --- @param mode integer
 --- @return fun()? cancel
---- @return true ok
+--- @return boolean? ok
 function impl:mkdir(udata, path, mode) end
 --- @param path string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return impl.dir dir
 function impl:opendir(udata, path) end
 
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
---- @return true ok
+--- @return boolean? ok
 function impl:symlink(udata, src, dst) end
 --- @param src string
 --- @param dst string
 --- @return fun()? cancel
---- @return true ok
+--- @return boolean? ok
 function impl:hardlink(udata, src, dst) end
 --- @param path string
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return string res
 function impl:readlink(udata, path) end
 --- @param path string
 --- @return fun()? cancel
---- @return true ok
+--- @return boolean? ok
 function impl:remove(udata, path) end
 
 --- @param addr string
 --- @param port integer
 --- @param protocol "tcp" | "udp"
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return impl.fd client
 function impl:connect(udata, addr, port, protocol) end
 --- @param addr string
@@ -138,11 +145,13 @@ function impl:connect(udata, addr, port, protocol) end
 --- @param protocol "tcp" | "udp"
 --- @param max_n integer
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return impl.server server
 function impl:bind(udata, addr, port, protocol, max_n) end
 --- @param name string
 --- @param flags std.os.net.addrinfo_flags
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return string[] addrs
 function impl:getaddrinfo(udata, name, flags) end
 
@@ -152,8 +161,10 @@ function impl:getaddrinfo(udata, name, flags) end
 --- @param stdin? boolean
 --- @param stdout? boolean
 --- @param stderr? boolean
---- @return fun()? cancel
---- @return { proc: impl.process, stdin?: impl.fd, stdout?: impl.fd, stder?: impl.fd }
+--- @return impl.process proc
+--- @return impl.fd? stdin
+--- @return impl.fd? stdout
+--- @return impl.fd? stderr
 function impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr) end
 
 --- @param signal std.signal
@@ -163,6 +174,7 @@ function impl:sig_on(signal) end
 --- @return true
 function impl:sig_off(signal) end
 --- @return fun()? cancel
+--- @return boolean? ok
 --- @return std.signal
 function impl:sig_wait(udata) end
 

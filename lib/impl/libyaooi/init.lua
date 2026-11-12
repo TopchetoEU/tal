@@ -111,11 +111,11 @@ end
 
 function yo_impl:spawn(udata, argv, env, cwd, stdin, stdout, stderr, windowssucks)
 	local res, stdin, stdout, stderr = libyaooi.proc.spawn(argv, env, cwd, stdin, stdout, stderr, windowssucks);
-	return nil, true,
+	return
 		yo_proc(self.queue, res),
-		stdin and yo_fd(self.queue, stdin),
-		stdout and yo_fd(self.queue, stdout),
-		stderr and yo_fd(self.queue, stderr);
+		stdin and yo_fd(self.queue, stdin) or nil,
+		stdout and yo_fd(self.queue, stdout) or nil,
+		stderr and yo_fd(self.queue, stderr) or nil;
 end
 
 function yo_impl:sig_on(sig)

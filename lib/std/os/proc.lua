@@ -139,7 +139,7 @@ function proc.new(opts)
 		end
 	end
 
-	local res, stdin, stdout, stderr = loop.await(impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks));
+	local res, stdin, stdout, stderr = impl:spawn(coroutine.running(), opts.argv, opts.env, opts.cwd, opts.stdin, opts.stdout, opts.stderr, opts.windowssucks);
 
 	local self = collected(setmetatable({
 		_fd = res,
