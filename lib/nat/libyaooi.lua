@@ -1,8 +1,9 @@
-local field = require "std.field";
 local ffi = require "nat.ffi";
 local libc = require "nat.libc";
-local errors = require "std.errors";
 local objects = require "nat.utils.objects";
+
+local field = require "std.field";
+local errors = require "std.errors";
 local sig = require "std.sig";
 local error = errors.throw;
 
