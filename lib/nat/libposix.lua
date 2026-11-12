@@ -1,9 +1,6 @@
-local field = require "std.field";
 local ffi = require "nat.ffi";
 local libc = require "nat.libc";
 local errors = require "std.errors";
-local objects = require "nat.utils.objects";
-local sig = require "std.sig";
 local error = errors.throw;
 
 local libposix = ffi.C;
@@ -35,9 +32,13 @@ end
 ffi.cdef [[
 typedef struct DIR DIR;
 
+int unlink(const char *path);
+
 int open(const char *path, int flags, ...);
 int close(int fd);
 
+int mkdir(const char *path, unsigned mode);
+int rmdir(const char *path);
 DIR *opendir(const char *name);
 int closedir(DIR *fd);
 struct dirent *readdir(DIR *fd);
@@ -49,6 +50,29 @@ extern int errno;
 ]]
 
 local posix = { [require "std.package.strongtag"] = true };
+
+--- @class nat.libposix.error
+--- @field msg string
+--- @field errno integer
+posix.error = {};
+posix.error.__index = posix.error;
+posix.error.__metatable = "nat.libposix.error";
+
+function posix.error:__tostring()
+	return self.msg;
+end
+
+--- @param errno? integer
+--- @param msg? string
+function posix.error.new(errno, msg)
+	errno = errno or libposix.errno --[[@as integer]];
+	msg = msg or ffi.string(libposix.strerror(errno));
+
+	return setmetatable({
+		errno = errno,
+		msg = msg,
+	}, posix.error);
+end
 
 posix.open_flags = {
 	WRONLY = 0x01,
@@ -91,7 +115,7 @@ local function posix_assert(res)
 		if errmap[err] then
 			throw(errmap[err]);
 		else
-			throw(libposix.strerror(err));
+			throw(posix.error.new(err));
 		end
 	end
 
@@ -109,7 +133,20 @@ end
 function posix.close(fd)
 	posix_assert(libposix.close(fd));
 end
+--- @param path string
+function posix.unlink(path)
+	posix_assert(libposix.unlink(path));
+end
 
+--- @param path string
+--- @param mode integer
+function posix.mkdir(path, mode)
+	posix_assert(libposix.mkdir(path, mode));
+end
+--- @param path string
+function posix.rmdir(path)
+	posix_assert(libposix.rmdir(path));
+end
 --- @param path string
 --- @return ffi.cdata*
 function posix.opendir(path)
@@ -139,6 +176,13 @@ function posix.readdir(fd)
 	return ffi.string(entry.d_name, libc.strlen(entry.d_name)), assert(tonumber(entry.d_ino));
 end
 
+--- @param path string
+function posix.remove(path)
+	if libposix.rmdir(path) == 0 then return end
+	if libposix.errno ~= 20 then error(posix.error.new()) end
+	posix_assert(libposix.unlink(path));
+end
+
 function posix.environ()
 	return libposix.environ --[[@as ffi.cdata*]];
 end
@@ -157,6 +201,5 @@ end
 function posix.unsetenv(name)
 	posix_assert(libposix.unsetenv(name));
 end
-
 
 return posix;

@@ -1,4 +1,4 @@
-local libyaooi = require "nat.libyaooi";
+local libposix = require "nat.libposix";
 
 --- @class impl.unix.dir: impl.dir
 --- @field impl impl.unix
@@ -10,7 +10,7 @@ yo_dir.__metatable = "impl.unix.dir";
 
 function yo_dir:next(udata)
 	if self.closed then return "closed" end
-	return self.fd:next(libyaooi.req.new(self.queue, udata));
+	return nil, true, (libposix.readdir(self.fd));
 end
 function yo_dir:close()
 	if self.closed then return end
