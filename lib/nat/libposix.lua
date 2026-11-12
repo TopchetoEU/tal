@@ -7,13 +7,45 @@ local sig = require "std.sig";
 local error = errors.throw;
 
 local libposix = ffi.C;
+
+if jit.os == "Linux" then
+	ffi.cdef [[
+		struct dirent {
+			long d_ino;
+			long d_off;
+			unsigned short d_reclen;
+			unsigned char d_type;
+			char d_name[256];
+		};
+	]];
+elseif jit.os == "BSD" or jit.os == "OSX" then
+	ffi.cdef [[
+		struct dirent {
+			long d_ino;
+			long d_off;
+			uint16_t d_reclen;
+			uint8_t	d_type;
+			uint8_t	d_namlen;
+			uint32_t d_pad0;
+			char d_name[256];
+		};
+	]];
+end
+
 ffi.cdef [[
+typedef struct DIR DIR;
+
 int open(const char *path, int flags, ...);
 int close(int fd);
+
+DIR *opendir(const char *name);
+int closedir(DIR *fd);
+struct dirent *readdir(DIR *fd);
 
 char *strerror(int errnum);
 
 extern char **environ;
+extern int errno;
 ]]
 
 local posix = { [require "std.package.strongtag"] = true };
@@ -44,6 +76,7 @@ posix.open_flags = {
 
 local errmap = {
 	-- Included here so that no memory is allocated for an out of memory error, as we already appear to not have much of it
+	[4 --[[EINTR]]] = errors.cancelled,
 	[12 --[[ENOMEM]]] = errors.nomem,
 	[32 --[[EPIPE]]] = errors.eof,
 	[38 --[[ENOSYS]]] = errors.notimpl,
@@ -54,10 +87,11 @@ local errmap = {
 --- @param res integer
 local function posix_assert(res)
 	if res < 0 then
-		if errmap[res] then
-			throw(errmap[res]);
+		local err = tonumber(libposix.errno);
+		if errmap[err] then
+			throw(errmap[err]);
 		else
-			throw(libposix.strerror(res));
+			throw(libposix.strerror(err));
 		end
 	end
 
@@ -74,6 +108,35 @@ end
 --- @param fd integer
 function posix.close(fd)
 	posix_assert(libposix.close(fd));
+end
+
+--- @param path string
+--- @return ffi.cdata*
+function posix.opendir(path)
+	local dir = libposix.opendir(path);
+	if dir == libc.NULL then posix_assert(-1) end
+
+	return dir;
+end
+--- @param fd ffi.cdata*
+function posix.closedir(fd)
+	posix_assert(libposix.closedir(fd));
+end
+--- @param fd ffi.cdata*
+--- @return string name
+--- @return integer ino
+function posix.readdir(fd)
+	libposix.errno = 0;
+	local entry = libposix.readdir(fd);
+	if entry == libc.NULL then
+		if libposix.errno == 0 then
+			error(errors.eof);
+		else
+			posix_assert(-1);
+		end
+	end
+
+	return ffi.string(entry.d_name, libc.strlen(entry.d_name)), assert(tonumber(entry.d_ino));
 end
 
 function posix.environ()
@@ -94,5 +157,6 @@ end
 function posix.unsetenv(name)
 	posix_assert(libposix.unsetenv(name));
 end
+
 
 return posix;
