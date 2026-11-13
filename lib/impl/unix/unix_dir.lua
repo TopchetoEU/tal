@@ -14,7 +14,7 @@ function yo_dir:next(udata)
 end
 function yo_dir:close()
 	if self.closed then return end
-	self.fd:close();
+	libposix.closedir(self.fd);
 	self.closed = true;
 end
 
