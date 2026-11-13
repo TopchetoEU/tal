@@ -1,5 +1,6 @@
 local loop = require "std.loop";
 local collected = require "std.collected";
+local errors = require "std.errors";
 
 --- @class std.os.fs.dir
 --- @field hnd impl.dir
@@ -10,13 +11,21 @@ dir.__metatable = "std.os.fs.dir";
 
 --- @return string?
 function dir:read()
-	if self.closed then return nil end
+	if self.closed then error(errors.closed) end
 	return loop.await(self.hnd:next(coroutine.running()));
 end
 function dir:iter()
 	return function (self)
-		local res = self:read();
-		if not res then self:close() end
+		local ok, res = errors.spcall(self.read, self);
+		if not ok then
+			if errors.is(res, errors.eof) then
+				self:close();
+				return nil;
+			else
+				error(res);
+			end
+		end
+
 		return res;
 	end, self;
 end
