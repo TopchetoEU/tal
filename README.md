@@ -1,3 +1,9 @@
+# Posix branch
+
+This is an experiment to support what libyaooi does directly from the ffi. However, posix's structs are not well-defined, so we can't declare them well. For some, we can't even check the OS, as different libc impls define structs differently.
+
+This is why this experiment, for now, is abandoned
+
 # TAL - TopchetoEU's Atrocious Lua
 
 A runtime, based on luajit. This runtime adds the following features:
