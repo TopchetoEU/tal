@@ -37,6 +37,9 @@ int unlink(const char *path);
 int open(const char *path, int flags, ...);
 int close(int fd);
 
+long read(int fd, void *buf, size_t count);
+long write(int fd, void *buf, size_t count);
+
 int mkdir(const char *path, unsigned mode);
 int rmdir(const char *path);
 DIR *opendir(const char *name);
@@ -136,6 +139,23 @@ end
 --- @param path string
 function posix.unlink(path)
 	posix_assert(libposix.unlink(path));
+end
+
+--- @param fd integer
+--- @param buff ffi.cdata*
+--- @param n integer
+function posix.read(fd, buff, n)
+	local res = posix_assert(libposix.read(fd, buff, n));
+	if n ~= 0 and res == 0 then error(errors.eof) end
+	return res;
+end
+--- @param fd integer
+--- @param buff ffi.cdata*
+--- @param n integer
+function posix.write(fd, buff, n)
+	local res = posix_assert(libposix.write(fd, buff, n));
+	if n ~= 0 and res == 0 then error(errors.eof) end
+	return res;
 end
 
 --- @param path string
