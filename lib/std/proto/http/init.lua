@@ -157,6 +157,7 @@ function http.read_body(conn, hdr)
 			end
 
 			self.str:fullread(dst:reserve(len), len);
+			dst:commit(len);
 
 			local line = self.str:readlineto(buff):get();
 			if #line == 0 then error(errors.eof) end
