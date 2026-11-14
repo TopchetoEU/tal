@@ -112,6 +112,8 @@ local function pmain(k)
 
 		io.stderr:write(ansi.gen_pos_set(row, col));
 	end
+
+	io.stderr:write(ansi.gen_pos_set(#lines + 1, 1));
 end
 
 return function ()
