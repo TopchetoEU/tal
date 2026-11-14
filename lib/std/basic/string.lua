@@ -1,5 +1,6 @@
 --- @diagnostic disable: duplicate-set-field
 local lex;
+local path --[[ = require "std.path"]];
 local require_alt = require;
 
 --- @param self string
@@ -58,6 +59,14 @@ function string:quotesh()
 	return "'" .. self:gsub("[*?~$&|;<>%(%)%[%]%{%}\\\'\"`%z\x01-\x1F]", "\\%1") .. "'";
 end
 
+function string:__div(other)
+	path = path or require_alt "std.path";
+	return path.join(self, other);
+end
+
+string.__index = string;
 string.__metatable = "string";
+
+debug.setmetatable("", string);
 
 return string;
