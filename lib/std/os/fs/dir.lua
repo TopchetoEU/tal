@@ -15,6 +15,8 @@ function dir:read()
 	return loop.await(self.hnd:next(coroutine.running()));
 end
 function dir:iter()
+	--- @param self std.os.fs.dir
+	--- @return string?
 	return function (self)
 		local ok, res = errors.spcall(self.read, self);
 		if not ok then
