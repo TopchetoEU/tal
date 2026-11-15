@@ -76,7 +76,7 @@ local function fetch(arg)
 	if not arg.no_ratelimit and res.code == 429 then
 		local retry_after = tonumber(res.headers:get "Retry-After");
 		if retry_after then
-
+			arg.waitfn(retry_after);
 			arg.max_depth -= 1;
 			return fetch(arg);
 		end
