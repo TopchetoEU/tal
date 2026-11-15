@@ -82,7 +82,7 @@ local function fetch(arg)
 		end
 	end
 
-	if not arg.no_redirect and (res.code // 100) == 3 then
+	if not arg.no_redirect and (res.code == 301 or res.code == 302) then
 		local location = res.headers:get "Location";
 		if location then
 			local rel_url = url.parse(location);
