@@ -16,6 +16,7 @@ local path= require "std.path"
 --- @field no_redirect? boolean
 --- @field no_ratelimit? boolean
 --- @field no_ua? boolean
+--- @field no_error? boolean
 --- @field max_depth? integer
 ---
 --- @field waitfn? fun(time: number)
@@ -109,6 +110,11 @@ local function fetch(arg)
 			arg.url = url.stringify(new_url);
 			return fetch(arg);
 		end
+	end
+
+	if not arg.no_error and (res.code // 100) >= 4 then
+		if res.body then res.body:close() end
+		error("http code " .. res.code);
 	end
 
 	return res;
