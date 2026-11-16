@@ -212,7 +212,7 @@ function str:fullread(ptr, n)
 		if n <= 0 then break end
 	end
 
-	if eof and res == 0 then error(errors.eof) end
+	if eof and n > 0 and res == 0 then error(errors.eof) end
 	return res;
 end
 --- Performs consequtive writes until the whole buffer is written
@@ -238,7 +238,7 @@ function str:fullwrite(ptr, n)
 		if n <= 0 then break end
 	end
 
-	if eof and res == 0 then error(errors.eof) end
+	if eof and n > 0 and res == 0 then error(errors.eof) end
 	return res;
 end
 --- Reads until `char` is encountered, the buffer is filled or EOF is reached
