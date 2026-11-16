@@ -1,5 +1,6 @@
 local buffer = require "string.buffer";
 local sig = require "std.sig";
+local path = require "std.path";
 
 --- @class std.path.url
 --- @field scheme? string
@@ -151,7 +152,7 @@ function url.parse(raw)
 				password = password,
 				host = host,
 				port = tonumber(port),
-				path = "/",
+				path = "",
 				params = {}
 			};
 		end
@@ -186,7 +187,7 @@ function url.stringify(parsed)
 	if parsed.host then
 		res:put("//");
 		if parsed.username and parsed.password then
-			res:put(parsed.username, ":", parsed.password "@");
+			res:put(parsed.username, ":", parsed.password, "@");
 		end
 
 		res:put(parsed.host);
@@ -196,7 +197,7 @@ function url.stringify(parsed)
 		end
 	end
 
-	if not parsed.path:find "^/" then
+	if parsed.path ~= "" and not parsed.path:find "^/" then
 		res:put("/");
 	end
 
@@ -208,6 +209,37 @@ function url.stringify(parsed)
 	end
 
 	return tostring(res);
+end
+
+--- @param curr std.path.url | string
+--- @param new std.path.url | string
+function url.navigate(curr, new)
+	if type(curr) == "string" then
+		curr = url.parse(curr);
+	end
+	if type(new) == "string" then
+		new = url.parse(new);
+	end
+
+	local new_url = {
+		path = path.cwd(curr.path, new.path),
+		params = new.params,
+		scheme = new.scheme or curr.scheme,
+		host = curr.host,
+		port = curr.port,
+		password = curr.password,
+		username = curr.username,
+	};
+
+	if new.host then
+		new_url.host = new.host;
+		new_url.port = new.port;
+		new_url.password = new.password;
+		new_url.username = new.username;
+		new_url.path = new.path;
+	end
+
+	return new_url;
 end
 
 return url;

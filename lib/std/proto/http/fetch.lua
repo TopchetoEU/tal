@@ -76,7 +76,10 @@ local function fetch(arg)
 	if not arg.no_ratelimit and res.code == 429 then
 		local retry_after = tonumber(res.headers:get "Retry-After");
 		if retry_after then
+			res.body:close();
+
 			arg.waitfn(retry_after);
+
 			arg.max_depth -= 1;
 			return fetch(arg);
 		end
@@ -85,29 +88,10 @@ local function fetch(arg)
 	if not arg.no_redirect and (res.code == 301 or res.code == 302) then
 		local location = res.headers:get "Location";
 		if location then
-			local rel_url = url.parse(location);
-			local new_url = {
-				path = path.cwd(parsed.path, rel_url.path),
-				params = rel_url.params,
-				scheme = rel_url.scheme or parsed.scheme,
-				host = parsed.host,
-				port = parsed.port,
-				password = parsed.password,
-				username = parsed.username,
-			};
-
-			if rel_url.host then
-				new_url.host = rel_url.host;
-				new_url.port = rel_url.port;
-				new_url.password = rel_url.password;
-				new_url.username = rel_url.username;
-				new_url.path = rel_url.path;
-			end
-
 			res.body:close();
 
 			arg.max_depth -= 1;
-			arg.url = url.stringify(new_url);
+			arg.url = url.stringify(url.navigate(parsed, location));
 			return fetch(arg);
 		end
 	end
