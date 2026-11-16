@@ -356,6 +356,7 @@ local errmap = {
 	[-9 --[[YO_ENOTIMPL]]] = errors.notimpl,
 	-- Included here so that no memory is allocated for an out of memory error, as we already appear to not have much of it
 	[-34 --[[YO_ENOMEM]]] = errors.nomem,
+	[-107 --[[YO_ECONNRESET]]] = errors.eof,
 };
 
 local function toerr(code)
