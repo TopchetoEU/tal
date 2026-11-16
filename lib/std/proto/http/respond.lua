@@ -43,7 +43,7 @@ return function (conn, code, hdrs, body, req_hdrs)
 
 	local body_out = http.write_res(conn, { code = code or 200, headers = hdrs }, body ~= nil);
 
-	if body_out and body then body_out:to_text():pipe(body):close() end
+	if body_out and body then body_out:to_text():pipe(body, true):close() end
 
 	conn:close();
 	return true;
