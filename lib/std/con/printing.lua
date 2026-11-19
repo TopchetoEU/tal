@@ -62,14 +62,13 @@ local function stringify_int(obj, n, codes, passed, hit, max_line)
 		local rawmeta = debug.getmetatable(obj);
 		local meta = getmetatable(obj);
 
+		if type(meta) == "string" then
+			prefix = prefix .. codes.func .. meta .. codes.reset .. " ";
+			prefix_n = prefix_n + #meta + 1;
+		end
+
 		if rawmeta and rawmeta.__tostring then
-			if type(meta) == "string" then
-				prefix = prefix .. codes.func .. meta .. codes.reset .. " ";
-				prefix_n = prefix_n + #meta + 1;
-			end
-
 			local str = tostring(obj);
-
 			return prefix .. str, prefix_n + #str;
 		end
 
