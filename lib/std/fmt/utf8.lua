@@ -239,10 +239,20 @@ end
 --- A table version of utf8.char (use this, as varargs are not optimizable by luajit)
 --- @param vals integer[]
 --- @param lax? boolean = false
-function utf8.tchar(vals, lax)
-	local res = buffer.new(#vals);
+--- @param f? integer
+--- @param l? integer
+function utf8.tchar(vals, lax, f, l)
+	f = table.absindex(vals, f or 1);
+	l = table.absindex(vals, l or -1);
+	if f < 1 then f = 1 end
+	if f > #vals then f = #vals end
+	if l < 1 then l = 1 end
+	if l > #vals then l = #vals end
+	if l < f then return "" end
 
-	for i = 1, #vals do
+	local res = buffer.new(l - f);
+
+	for i = f, l do
 		res:put(utf8.encode(vals[i], lax));
 	end
 
