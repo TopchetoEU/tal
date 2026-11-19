@@ -227,4 +227,14 @@ function debug.debug()
 	return require_alt "tal.cli".repl("debug", "cont");
 end
 
+--- @generic T: table
+--- @param self T
+--- @return T
+function debug.unlock(self)
+	local meta = debug.getmetatable(self);
+	if not meta or not meta[table.locktag] then return self end
+
+	return meta.__index;
+end
+
 return debug;

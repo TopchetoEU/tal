@@ -1,3 +1,4 @@
+local tag = require "std.tag"
 --- @diagnostic disable: duplicate-set-field
 
 --- @alias array<T> T[] | tablelib
@@ -128,6 +129,41 @@ end
 --- @return array<T>
 function tablelib.mk(val)
 	return setmetatable(val, tablelib)
+end
+
+tablelib.locktag = tag.new "std.table.lock";
+
+--- @generic T: table
+--- @param self T
+--- @return T
+function tablelib.lock(self)
+	if tablelib.islocked(self) then return self end
+	local meta = debug.getmetatable(self) or {};
+	return setmetatable({}, {
+		[tablelib.locktag] = true,
+		__metatable = getmetatable(self) or false,
+		__index = self,
+		__newindex = function (t, k, v) error "table locked" end,
+		__pairs = function () return pairs(self) end,
+		__ipairs = function () return ipairs(self) end,
+		__len = function () return #self end,
+		__add = meta.__add and function (_, b) return self + b end,
+		__sub = meta.__sub and function (_, b) return self - b end,
+		__mul = meta.__mul and function (_, b) return self * b end,
+		__div = meta.__div and function (_, b) return self / b end,
+		__mod = meta.__mod and function (_, b) return self % b end,
+		__concat = meta.__concat and function (_, b) return self .. b end,
+		__call = meta.__call and function (_, ...) return self(...) end,
+		__eq = meta.__eq and function (_, b) return self == b end,
+		__le = meta.__le and function (_, b) return self <= b end,
+		__lt = meta.__lt and function (_, b) return self < b end,
+		__tostring = meta.__tostring and function () return tostring(self) end,
+		__unm = meta.__unm and function (_) return -self end,
+	})
+end
+function tablelib.islocked(self)
+	local meta = debug.getmetatable(self);
+	return meta and meta[tablelib.locktag] ~= nil;
 end
 
 return tablelib;
