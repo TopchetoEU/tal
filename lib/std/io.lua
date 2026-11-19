@@ -80,7 +80,7 @@ function io.popen(prog, mode)
 		if not p then return nil, err end
 	end
 
-	return p:to_stream();
+	return p:to_stream():to_text();
 end
 
 --- @param fmt std.io.readmode
