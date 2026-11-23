@@ -146,7 +146,7 @@ local function parse_fmt(fmt, fmt_i)
 		local inner_align;
 		fmt_i, inner_align = parse_fmt(fmt, fmt_i + 1);
 		return fmt_i, inner_align;
-	elseif c == "{" then
+	elseif c == "{" or c == "(" then
 		fmt_i += 1;
 		--- @type integer?
 		local size = 0;
@@ -156,8 +156,13 @@ local function parse_fmt(fmt, fmt_i)
 			if c == "{" and fmt:at(fmt_i) == "}" then break end
 			if c == "(" and fmt:at(fmt_i) == ")" then break end
 
+			if fmt:at(fmt_i) == "$" then
+				fmt_i = fmt:match("^%$.-:()", fmt_i);
+				assert(fmt_i, "malformed gvariant format");
+			end
+
 			local inner_align, inner_size;
-			fmt_i, inner_align, inner_size = parse_fmt(fmt, fmt_i + 1);
+			fmt_i, inner_align, inner_size = parse_fmt(fmt, fmt_i);
 
 			if not inner_size then
 				size = nil;
@@ -209,8 +214,9 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 	elseif c == "r" then
 		return fmt_i + 1, (buf:sub(s, e):gsub(".", function (c) return ("%02x"):format(string.byte(c)) end));
 	elseif c == "v" then
-		local inner_e, format = buf:sub(s, e):match "()\0([^\0]+)$";
-		return fmt_i + 1, read_fmt(format, 1, buf, s, inner_e);
+		local format = buf:sub(s, e):match "%z([^%z]+)$";
+		local _, res = read_fmt(format, 1, buf, s, e - 1 - #format);
+		return fmt_i + 1, res;
 	elseif c == "m" then
 		local fmt_j, inner_align, inner_size = parse_fmt(fmt, fmt_i);
 
@@ -243,6 +249,7 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 		else
 			local offset_size = get_offset_size(s, e);
 			n = ((e - s + 1) - read_offset(buf, s, e, 1)) / offset_size;
+			pprint((e - s + 1)-  read_offset(buf, s, e, 1));
 		end
 		local curr_s = s;
 
@@ -277,6 +284,8 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 		local fmt_j, align = parse_fmt(fmt, fmt_i);
 		if s > e then return fmt_j, {} end
 
+		fmt_i += 1;
+
 		s = alignof(s, align);
 
 		local offset_size = get_offset_size(s, e);
@@ -292,22 +301,21 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 
 			local name = #res + 1;
 
-			if c == "<" then
+			if fmt:at(fmt_i) == "$" then
 				fmt_i += 1;
-				name = fmt:match("^(.-)>", fmt_i);
+				name = fmt:match("^(.-):", fmt_i);
 				assert(name, "invalid gvariant syntax");
 				fmt_i += #name + 1;
 			end
 
 			local fmt_j, inner_align, inner_size = parse_fmt(fmt, fmt_i);
-			fmt_i = fmt_j;
 
 			curr_s = alignof(curr_s, inner_align);
 			local curr_e;
 
 			if inner_size then
 				curr_e = curr_s + inner_size;
-			elseif fmt:at(fmt_i):find "[)}]" then
+			elseif fmt:at(fmt_j):find "[)}]" then
 				curr_e = e - offset_size * offset_i;
 			else
 				offset_i += 1;
@@ -316,10 +324,11 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 
 			assert(curr_e - curr_s + 1 >= 0, "negative length segment");
 
-			local _, val = read_fmt(fmt, fmt_i, buf, s, e);
+			local fmt_j, val = read_fmt(fmt, fmt_i, buf, curr_s, curr_e);
 			res[name] = val;
 
 			curr_s = curr_e + 1;
+			fmt_i = fmt_j;
 		end
 
 		fmt_i += 1;
@@ -333,6 +342,6 @@ end
 --- @param fmt string
 --- @param buf string
 return function (fmt, buf)
-	local _, res = read_fmt("(" .. fmt .. ")", 1, buf, 1, #buf);
-	return table.unpack(res);
+	local _, res = read_fmt("(" .. fmt:gsub("[%s,]", "") .. ")", 1, buf, 1, #buf);
+	return res;
 end
