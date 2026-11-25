@@ -136,6 +136,7 @@ end
 --- @param src ffi.cdata*
 --- @param src_n integer
 --- @param eof? boolean = false
+--- @return boolean? eof
 --- @return integer write_n
 --- @return integer read_n
 function zlib_stream:next(kind, dst, dst_n, src, src_n, eof)
@@ -155,6 +156,7 @@ function zlib_stream:next(kind, dst, dst_n, src, src_n, eof)
 	if icode ~= libz.Z_BUF_ERROR then zassert(icode) end
 
 	return
+		icode == libz.Z_STREAM_END,
 		number.new(dst_n - self.avail_out),
 		number.new(src_n - self.avail_in);
 end

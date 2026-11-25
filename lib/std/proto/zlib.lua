@@ -29,6 +29,7 @@ zlib.reader.__metatable = "std.proto.zlib.reader";
 function zlib.reader:_readto(dst)
 	local src = buffer.new();
 	local read_n, write_n = 0, 0;
+	local eof;
 
 	local dst_ptr, dst_n = dst:reserve(str.chunksize);
 
@@ -36,16 +37,17 @@ function zlib.reader:_readto(dst)
 		if read_n == 0 then self._backend:readto(src, str.chunksize) end
 
 		local src_ptr, src_n = ffi.toptr_unsafe(src);
-		write_n, read_n = self._ptr:next(self._kind, dst_ptr, dst_n, src_ptr, src_n, #src == 0);
+		eof, write_n, read_n = self._ptr:next(self._kind, dst_ptr, dst_n, src_ptr, src_n, #src == 0);
 
 		src:skip(read_n);
-	until write_n ~= 0 or read_n == 0;
+	until write_n ~= 0 or read_n == 0 or eof;
 
 	while write_n ~= 0 do
 		dst:commit(write_n);
+		if eof then error(errors.eof) end
 
 		local dst_ptr, dst_n = dst:reserve(str.chunksize);
-		write_n = self._ptr:next(self._kind, dst_ptr, dst_n, libc.NULL, 0, #src == 0);
+		eof, write_n = self._ptr:next(self._kind, dst_ptr, dst_n, libc.NULL, 0, #src == 0);
 	end
 end
 function zlib.reader:_close()
@@ -74,12 +76,13 @@ function zlib.writer:_write(ptr, n)
 	local dst_buff = ffi.new("char[?]", str.chunksize);
 
 	while true do
-		local write_n, read_n = self._ptr:next(self._kind, dst_buff, str.chunksize, ptr, n);
+		local eof, write_n, read_n = self._ptr:next(self._kind, dst_buff, str.chunksize, ptr, n);
 
 		ptr = ptr + read_n;
 		n = n - read_n;
 
 		if write_n > 0 then self._backend:write(dst_buff, write_n) end
+		if eof then error(errors.eof) end
 		if n == 0 then break end
 	end
 
@@ -89,9 +92,9 @@ function zlib.writer:_close()
 	local buff = ffi.new("char[?]", str.chunksize);
 
 	while true do
-		local write_n = self._ptr:next(self._kind, buff, str.chunksize, libc.NULL, 0, true);
-		if write_n == 0 then break end
-		self._backend:write(buff, write_n);
+		local eof, write_n = self._ptr:next(self._kind, buff, str.chunksize, libc.NULL, 0, true);
+		if write_n > 0 then self._backend:write(buff, write_n) end
+		if eof then break end
 	end
 
 	if self._owned then
