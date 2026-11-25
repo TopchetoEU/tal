@@ -126,10 +126,13 @@ zlib_stream.__index = zlib_stream;
 zlib_stream.__metatable = "nat.libz.stream";
 local zlib_stream_type = ffi.metatype("z_stream", zlib_stream);
 
-function zlib_stream:__gc()
+function zlib_stream:inflate_end()
 	libz.inflateEnd(self);
 end
 
+function zlib_stream:deflate_end()
+	libz.deflateEnd(self);
+end
 --- @param kind "inflate" | "deflate"
 --- @param dst ffi.cdata*
 --- @param dst_n integer
@@ -176,6 +179,7 @@ function zlib_stream.new_inflate(opts)
 
 	zassert(libz.inflateInit2_(res, window, "1.3.2", ffi.sizeof(zlib_stream_type)));
 
+	ffi.gc(res, zlib_stream.inflate_end);
 	return res;
 end
 --- @param opts? nat.libz.deflate_opts
@@ -200,6 +204,7 @@ function zlib_stream.new_deflate(opts)
 
 	zassert(libz.deflateInit2_(res, level, libz.Z_DEFLATED, window, 8, istrategy, "1.3.2", ffi.sizeof(zlib_stream_type)));
 
+	ffi.gc(res, zlib_stream.deflate_end);
 	return res;
 end
 
