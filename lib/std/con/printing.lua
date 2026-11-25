@@ -2,6 +2,7 @@ local debug = require "std.basic.debug";
 local errors = require "std.errors";
 local ansi = require "std.con.ansi";
 local no_ansi = require "std.con.noansi";
+local is = require "std.basic.is";
 
 local str_escape_codes = {
 	["\x00"] = "\\0",
@@ -178,9 +179,13 @@ local function stringify_int(obj, n, codes, passed, hit, max_line)
 		end
 
 		return res, res_len;
+	elseif is(obj, "buffer") then
+		local res, res_n = stringify_int(obj:tostring(), n, codes, passed, hit, max_line);
+		return codes.func .. "buffer" .. codes.reset .. " " .. res, 6 + 1 + res_n;
 	elseif kind == "string" then
-		local escaped, n = obj:gsub("[%z\x01-\x1F\"\\\x7F\xFF]", str_escape_codes);
-		if n > 4 and n > #obj / 80 then
+		local escaped, n = obj:gsub("[\n\r\t\"\\\x7F\xFF]", str_escape_codes);
+		local escaped, n_unprintable = escaped:gsub("[%z\x01-\x1F]", str_escape_codes);
+		if n > 4 and n > #obj / 80 and n_unprintable == 0 then
 			local marker = obj:match "%](%=*)%]";
 
 			for curr in obj:gmatch "%](%=*)%]" do
