@@ -234,7 +234,7 @@ local function parse_entity(entity)
 end
 
 local function skip_spaces(raw, i)
-	local next_i = raw:find("[^%s]", i);
+	local next_i = raw:find("%S", i);
 	if next_i then return next_i end
 
 	if raw:find("^%s", i) then
@@ -282,6 +282,8 @@ local function parse_tag(raw, i, state)
 					break;
 				end
 			end
+		else
+			break;
 		end
 	end
 
@@ -324,7 +326,7 @@ local function parse_part(raw, i, state)
 		tag, i = parse_tag(raw, i, state);
 
 		if tag then
-			if raw:sub(i, i + 1) == "!>" then
+			if raw:sub(i, i + 1) == "?>" then
 				i = i + 2;
 
 				return { type = "version", tag = tag.tag, attribs = tag.attribs }, i;
