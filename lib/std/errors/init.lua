@@ -117,26 +117,57 @@ function errors.assert(val, ...)
 	return val, ...;
 end
 
-local function spcall_catch(e)
-	if e == "stack overflow" then return errors.nostack end
-	if e == "not enough memory" then return errors.nomem end
-	return traced_err.new(e, nil, 0);
+local function spcall_fin(ok, ...)
+	if not ok then
+		local err = (...).err;
+		local stack = (...).stack;
+
+		local n = 4;
+		while true do
+			if not debug.getinfo(n, "Snlf") then break end
+			table.remove(stack);
+			n = n + 1;
+		end
+
+		return false, traced_err.new(err, nil, debug.traceback_from(stack));
+	end
+
+	return ok, ...;
+end
+local function spcall_catch(err)
+	if err == "stack overflow" then return errors.nostack end
+	if err == "not enough memory" then return errors.nomem end
+
+	local stack = {};
+	local i = 3;
+
+	while true do
+		local frame = debug.getinfo(i, "Snlf");
+		if not frame then break end
+
+		table.insert(stack, frame);
+		i = i + 1;
+	end
+
+	table.remove(stack, #stack - 1);
+
+	return { stack = stack, err = err };
 end
 
 --- Calls the given function with xpcall and captures a stack trace on an error. It is returned alongside the unmodified error
 --- @param f function
 function errors.spcall(f, ...)
-	return xpcall(f, spcall_catch, ...);
+	return spcall_fin(xpcall(f, spcall_catch, ...));
 end
 --- Calls the given function with xpcall and captures a stack trace on an error. It is returned alongside the unmodified error
 --- @param f function
 --- @param hnd fun(err: any): any, boolean The second boolean return, if true, doesn't emit a stack
 function errors.sxpcall(f, hnd, ...)
-	return xpcall(f, function (err)
+	return spcall_fin(xpcall(f, function (err)
 		local err, trace = hnd(err);
 		if trace then return err end
 		return spcall_catch(err);
-	end, ...);
+	end, ...));
 end
 
 errors.xpcall = xpcall;
@@ -164,5 +195,7 @@ errors.nomem = errors.msg "out of memory";
 errors.nostack = errors.msg "stack overflow";
 
 debug.blacklist[errors.throw] = true;
+debug.blacklist[errors.spcall] = true;
+debug.blacklist[errors.sxpcall] = true;
 
 return errors;

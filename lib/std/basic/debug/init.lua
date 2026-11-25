@@ -223,6 +223,24 @@ function debug.traceback(...)
 
 	return tostring(res);
 end
+--- @param list debuginfo
+function debug.traceback_from(list)
+	local res = buffer.new();
+
+	for i = 1, #list do
+		local info = list[i];
+
+		if not debug.blacklist[info.func] then
+			res:put("\n\t", debug.readabletrace(info) or "<internal>");
+
+			if info.istailcall then
+				res:put("\n\t(...tail calls)");
+			end
+		end
+	end
+
+	return tostring(res);
+end
 function debug.debug()
 	return require_alt "tal.cli".repl("debug", "cont");
 end
