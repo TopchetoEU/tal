@@ -9,7 +9,10 @@ mem.__index = mem;
 mem.__metatable = "std.str.mem";
 
 function mem:_read(ptr, n)
-	if n > #self.data then n = #self.data end
+	if n > #self.data then
+		n = #self.data;
+		if n == 0 then error(errors.eof) end
+	end
 	ffi.copy(ptr, self.data, n);
 	self.data:skip(n);
 	return n;
