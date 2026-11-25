@@ -34,11 +34,10 @@ function zlib.reader:_readto(dst)
 	local src_eof = false;
 	local read_n, write_n = 0, 0;
 	local eof;
-
-	local dst_ptr, dst_n = dst:reserve(str.chunksize);
+	local has_output = false;
 
 	repeat
-		if read_n == 0 then
+		if not has_output and #src == 0 then
 			local ok, err = spcall(self._backend.readto, self._backend, src, str.chunksize);
 			if not ok then
 				if errors.is(err, errors.eof) then
@@ -49,6 +48,7 @@ function zlib.reader:_readto(dst)
 			end
 		end
 
+		local dst_ptr, dst_n = dst:reserve(str.chunksize);
 		if src_eof then
 			eof, write_n, read_n = self._ptr:next(self._kind, dst_ptr, dst_n, libc.NULL, 0, true);
 		else
@@ -57,20 +57,17 @@ function zlib.reader:_readto(dst)
 		end
 
 		src:skip(read_n);
-	until write_n ~= 0 or read_n == 0 or eof;
 
-	while write_n ~= 0 do
-		dst:commit(write_n);
-		if eof then
-			self._done = true;
-			break;
+		if write_n > 0 then
+			has_output = true;
+			dst:commit(write_n);
 		end
 
-		local dst_ptr, dst_n = dst:reserve(str.chunksize);
-		eof, write_n = self._ptr:next(self._kind, dst_ptr, dst_n, libc.NULL, 0, #src == 0);
-	end
-
-	if src_eof then self._done = true end
+		if eof then
+			self._done = true;
+			return;
+		end
+	until read_n == 0 and write_n == 0;
 end
 function zlib.reader:_close()
 	if self._owned then
