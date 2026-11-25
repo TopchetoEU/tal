@@ -139,7 +139,7 @@ local function spcall_catch(err)
 	if err == "not enough memory" then return errors.nomem end
 
 	local stack = {};
-	local i = 3;
+	local i = 2;
 
 	while true do
 		local frame = debug.getinfo(i, "Snlf");
