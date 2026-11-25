@@ -2,56 +2,90 @@ local ffi = require "nat.ffi";
 
 --- @param str string
 --- @param i integer
-local function read_u8(str, i)
+local function read_u8_le(str, i)
+	if i > #str then error("out of range read " .. i .. " in #" .. #str) end
 	return str:byte(i);
 end
 --- @param str string
 --- @param i integer
-local function read_u16(str, i)
-	return read_u8(str, i) | read_u8(str, i + 1) << 8;
+local function read_u16_le(str, i)
+	local a = read_u8_le(str, i);
+	local b = read_u8_le(str, i + 1);
+	return a | b << 8;
 end
 --- @param str string
 --- @param i integer
-local function read_u32(str, i)
-	return tonumber(ffi.cast("uint32_t", read_u16(str, i)) | ffi.cast("uint32_t", read_u16(str, i + 2)) << 16);
-end
---- @param str string
---- @param i integer
---- @return ffi.cdata*
-local function read_u64(str, i)
-	return ffi.cast("uint64_t", read_u32(str, i)) | (ffi.cast("uint64_t", read_u32(str, i + 4)) << 32);
+local function read_u32_le(str, i)
+	local a = ffi.cast("uint32_t", read_u16_le(str, i));
+	local b = ffi.cast("uint32_t", read_u16_le(str, i + 2));
+	return tonumber(a | b << 16);
 end
 
 --- @param str string
 --- @param i integer
-local function read_i8(str, i)
-	local res = read_u8(str, i);
+local function read_u8_be(str, i)
+	if i > #str then error("out of range read " .. i .. " in #" .. #str) end
+	return str:byte(i);
+end
+--- @param str string
+--- @param i integer
+local function read_u16_be(str, i)
+	local a = read_u8_be(str, i);
+	local b = read_u8_be(str, i + 1);
+	return a << 8 | b;
+end
+--- @param str string
+--- @param i integer
+local function read_u32_be(str, i)
+	local a = ffi.cast("uint32_t", read_u16_be(str, i));
+	local b = ffi.cast("uint32_t", read_u16_be(str, i + 2));
+	return tonumber(a << 16 | b);
+end
+
+--- @param str string
+--- @param i integer
+--- @return ffi.cdata* | integer
+local function read_u64_be(str, i)
+	local a = ffi.cast("uint64_t", read_u32_be(str, i));
+	local b = ffi.cast("uint64_t", read_u32_be(str, i + 4));
+	local res = a << 32 | b;
+
+	if res < 0x10000000000000 then return assert(tonumber(res)) end
+	return res;
+end
+
+--- @param str string
+--- @param i integer
+local function read_i8_be(str, i)
+	local res = read_u8_le(str, i);
 	if res > 127 then res -= 256 end
 	return res;
 end
 --- @param str string
 --- @param i integer
-local function read_i16(str, i)
-	local res = read_u16(str, i);
+local function read_i16_be(str, i)
+	local res = read_u16_le(str, i);
 	if res > (1 << 15) - 1 then res -= 1 << 15 end
 	return res;
 end
 --- @param str string
 --- @param i integer
-local function read_i32(str, i)
-	return tonumber(ffi.cast("int32_t", read_u32(str, i))) --[[@as integer]];
+local function read_i32_be(str, i)
+	return tonumber(ffi.cast("int32_t", read_u32_le(str, i))) --[[@as integer]];
 end
 --- @param str string
 --- @param i integer
---- @return ffi.cdata*
-local function read_i64(str, i)
-	return ffi.cast("int64_t", read_u64(str, i));
+--- @return ffi.cdata* | integer
+local function read_i64_be(str, i)
+	local res = ffi.cast("int64_t", read_u64_be(str, i));
+	if res > -0x10000000000000 and res < 0x10000000000000 then return assert(tonumber(res)) end
+	return res;
 end
 
 --- @param str string
 --- @param i integer
-local function read_f64(str, i)
-	local data = read_u64(str, i);
+local function read_f64_be(str, i)
+	local data = read_u64_be(str, i);
 
 	local sign = data >> 63 ~= 0;
 	local exp = tonumber((data >> 52) & 0x7FF);
@@ -88,13 +122,13 @@ end
 --- @param i integer
 local function read_offset(buf, s, e, i)
 	if e - s + 1 < 256 then
-		local res = read_u8(buf, e - i + 1);
+		local res = read_u8_le(buf, e - i + 1);
 		return res;
 	elseif e - s + 1 < 65536 then
-		local res = read_u16(buf, e - i * 2 + 1);
+		local res = read_u16_le(buf, e - i * 2 + 1);
 		return res;
 	else
-		local res = read_u32(buf, e - i * 4 + 1);
+		local res = read_u32_le(buf, e - i * 4 + 1);
 		return res;
 	end
 end
@@ -106,7 +140,7 @@ local function get_offset_size(s, e)
 	elseif e - s + 1 < 65536 then
 		return 2;
 	else
-		return 3;
+		return 4;
 	end
 end
 
@@ -167,7 +201,7 @@ local function parse_fmt(fmt, fmt_i)
 			if not inner_size then
 				size = nil;
 			else
-				size = alignof(size + 1, inner_align) - 1 + inner_size;
+				size = alignof(inner_size + 1, inner_align) - 1 + inner_size;
 			end
 
 			if align < inner_align then align = inner_align end
@@ -194,21 +228,21 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 	if c == "b" then
 		return fmt_i + 1, buf:byte(s) == 1;
 	elseif c == "y" then
-		return fmt_i + 1, read_u8(buf, s);
+		return fmt_i + 1, read_u8_be(buf, s);
 	elseif c == "n" then
-		return fmt_i + 1, read_i16(buf, s);
+		return fmt_i + 1, read_i16_be(buf, s);
 	elseif c == "q" then
-		return fmt_i + 1, read_u16(buf, s);
+		return fmt_i + 1, read_u16_be(buf, s);
 	elseif c == "i" then
-		return fmt_i + 1, read_i32(buf, s);
+		return fmt_i + 1, read_i32_be(buf, s);
 	elseif c == "u" then
-		return fmt_i + 1, read_u32(buf, s);
+		return fmt_i + 1, read_u32_be(buf, s);
 	elseif c == "x" then
-		return fmt_i + 1, read_i64(buf, s);
+		return fmt_i + 1, read_i64_be(buf, s);
 	elseif c == "t" then
-		return fmt_i + 1, read_u64(buf, s);
+		return fmt_i + 1, read_u64_be(buf, s);
 	elseif c == "d" then
-		return fmt_i + 1, read_f64(buf, s);
+		return fmt_i + 1, read_f64_be(buf, s);
 	elseif c == "s" or c == "o" or c == "g" then
 		return fmt_i + 1, buf:sub(s, e - 1);
 	elseif c == "r" then
@@ -249,7 +283,6 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 		else
 			local offset_size = get_offset_size(s, e);
 			n = ((e - s + 1) - read_offset(buf, s, e, 1)) / offset_size;
-			pprint((e - s + 1)-  read_offset(buf, s, e, 1));
 		end
 		local curr_s = s;
 
@@ -314,7 +347,7 @@ local function read_fmt(fmt, fmt_i, buf, s, e)
 			local curr_e;
 
 			if inner_size then
-				curr_e = curr_s + inner_size;
+				curr_e = curr_s + inner_size - 1;
 			elseif fmt:at(fmt_j):find "[)}]" then
 				curr_e = e - offset_size * offset_i;
 			else
