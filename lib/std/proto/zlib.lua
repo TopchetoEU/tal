@@ -22,33 +22,55 @@ local zlib = {};
 --- @field _owned boolean
 --- @field _ptr nat.libz.stream
 --- @field _kind "inflate" | "deflate"
+--- @field _done boolean
 zlib.reader = setmetatable({}, str);
 zlib.reader.__index = zlib.reader;
 zlib.reader.__metatable = "std.proto.zlib.reader";
 
 function zlib.reader:_readto(dst)
+	if self._done then error(errors.eof) end
+
 	local src = buffer.new();
+	local src_eof = false;
 	local read_n, write_n = 0, 0;
 	local eof;
 
 	local dst_ptr, dst_n = dst:reserve(str.chunksize);
 
 	repeat
-		if read_n == 0 then self._backend:readto(src, str.chunksize) end
+		if read_n == 0 then
+			local ok, err = spcall(self._backend.readto, self._backend, src, str.chunksize);
+			if not ok then
+				if errors.is(err, errors.eof) then
+					src_eof = true;
+				else
+					error(err);
+				end
+			end
+		end
 
-		local src_ptr, src_n = ffi.toptr_unsafe(src);
-		eof, write_n, read_n = self._ptr:next(self._kind, dst_ptr, dst_n, src_ptr, src_n, #src == 0);
+		if src_eof then
+			eof, write_n, read_n = self._ptr:next(self._kind, dst_ptr, dst_n, libc.NULL, 0, true);
+		else
+			local src_ptr, src_n = ffi.toptr_unsafe(src);
+			eof, write_n, read_n = self._ptr:next(self._kind, dst_ptr, dst_n, src_ptr, src_n, false);
+		end
 
 		src:skip(read_n);
 	until write_n ~= 0 or read_n == 0 or eof;
 
 	while write_n ~= 0 do
 		dst:commit(write_n);
-		if eof then error(errors.eof) end
+		if eof then
+			self._done = true;
+			break;
+		end
 
 		local dst_ptr, dst_n = dst:reserve(str.chunksize);
 		eof, write_n = self._ptr:next(self._kind, dst_ptr, dst_n, libc.NULL, 0, #src == 0);
 	end
+
+	if src_eof then self._done = true end
 end
 function zlib.reader:_close()
 	if self._owned then
@@ -67,11 +89,14 @@ end
 --- @field _ptr nat.libz.stream
 --- @field _kind "inflate" | "deflate"
 --- @field _owned boolean
+--- @field _done boolean
 zlib.writer = setmetatable({}, str);
 zlib.writer.__index = zlib.writer;
 zlib.writer.__metatable = "std.proto.zlib.writer";
 
 function zlib.writer:_write(ptr, n)
+	if self._done then error(errors.eof) end
+
 	local res_n = n;
 	local dst_buff = ffi.new("char[?]", str.chunksize);
 
@@ -82,7 +107,11 @@ function zlib.writer:_write(ptr, n)
 		n = n - read_n;
 
 		if write_n > 0 then self._backend:write(dst_buff, write_n) end
-		if eof then error(errors.eof) end
+		if eof then
+			self._done = true;
+			break;
+		end
+
 		if n == 0 then break end
 	end
 
@@ -91,10 +120,10 @@ end
 function zlib.writer:_close()
 	local buff = ffi.new("char[?]", str.chunksize);
 
-	while true do
+	while not self._done do
 		local eof, write_n = self._ptr:next(self._kind, buff, str.chunksize, libc.NULL, 0, true);
 		if write_n > 0 then self._backend:write(buff, write_n) end
-		if eof then break end
+		if eof then self._done = true end
 	end
 
 	if self._owned then
