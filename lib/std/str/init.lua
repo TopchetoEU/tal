@@ -450,4 +450,11 @@ function str:to_text()
 	return text.new(self);
 end
 
+--- Reads the file and closes it
+function str:to_string()
+	local res = self:readto(buffer.new()):get();
+	self:close();
+	return res;
+end
+
 return str;
