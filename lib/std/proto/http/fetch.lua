@@ -4,8 +4,7 @@ local headers = require "std.proto.http.headers";
 local http = require "std.proto.http";
 local ssl = require "std.proto.ssl";
 local sig = require "std.sig";
-local time= require "std.os.time"
-local path= require "std.path"
+local time = require "std.os.time";
 
 --- @class std.proto.http.fetch_opts
 --- @field url string
