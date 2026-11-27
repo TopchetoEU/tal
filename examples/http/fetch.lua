@@ -47,8 +47,9 @@ return function (...)
 	};
 
 	for k in res.headers:keys() do
-		print(k .. ": " .. table.concat({ res.headers:get(k) }, "; "));
+		io.stdout:write(k .. ": " .. table.concat({ res.headers:get(k) }, "; ") .. "\n");
 	end
 
 	if res.body then io.stdout:pipe(res.body, true) end
+	io.stdout:flush();
 end

@@ -215,7 +215,9 @@ function loop.wait_until(ts, cb, ...)
 
 	return function ()
 		table.delete(sleeps, pack);
-		loop.reject(cb, errors.canceled);
+		if type(cb) ~= "function" then
+			loop.reject(cb, errors.canceled);
+		end
 	end;
 end
 function loop.run()

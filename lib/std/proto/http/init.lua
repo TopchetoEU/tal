@@ -119,8 +119,9 @@ function http.read_headers(conn)
 end
 --- @param conn std.str
 --- @param hdr std.proto.http.headers
+--- @param closefn? fun(str: std.str) | false
 --- @return std.str?
-function http.read_body(conn, hdr)
+function http.read_body(conn, hdr, closefn)
 	local len = tonumber((hdr:get "content-length"));
 	local chunked = false;
 
@@ -136,7 +137,7 @@ function http.read_body(conn, hdr)
 	end
 
 	if chunked then
-		local self = setmetatable({ str = conn, done = false, _rstack = {} }, str);
+		local self = setmetatable({ str = conn, done = false, closefn = closefn, _rstack = {} }, str);
 
 		function self:_readto(dst)
 			if not self.str then error(errors.closed) end
@@ -152,6 +153,7 @@ function http.read_body(conn, hdr)
 
 			local len = tonumber(slen, 16);
 			if len == 0 then
+				self.str:readto(nil, 2);
 				self.done = true;
 				return 0;
 			end
@@ -166,13 +168,15 @@ function http.read_body(conn, hdr)
 			return len;
 		end
 		function self:_close()
-			self.str:close();
+			if self.closefn ~= false then
+				(self.closefn or self.str.close)(self.str);
+			end
 			self.str = nil;
 		end
 
 		return self;
 	elseif len then
-		local self = setmetatable({ str = conn, done = false, n = len }, str);
+		local self = setmetatable({ str = conn, done = false, closefn = closefn, n = len }, str);
 
 		function self:_read(ptr, n)
 			if not self.str then error(errors.closed) end
@@ -184,7 +188,9 @@ function http.read_body(conn, hdr)
 			return res_n;
 		end
 		function self:_close()
-			self.str:close();
+			if self.closefn ~= false then
+				(self.closefn or self.str.close)(self.str);
+			end
 			self.str = nil;
 		end
 
@@ -195,7 +201,8 @@ function http.read_body(conn, hdr)
 end
 --- @param conn std.str
 --- @return std.proto.http.req? head
-function http.read_req(conn)
+--- @param closefn? fun(str: std.str) | false
+function http.read_req(conn, closefn)
 	local line = conn:readlineto(buffer.new()):get();
 	if #line == 0 then return nil end
 
@@ -204,13 +211,14 @@ function http.read_req(conn)
 	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
 	local hdr = assert(http.read_headers(conn), "bad HTTP headers");
-	local body = http.read_body(conn, hdr);
+	local body = http.read_body(conn, hdr, closefn);
 
 	return { method = type, path = path, headers = hdr, body = body };
 end
 --- @param conn std.str
+--- @param closefn? fun(str: std.str) | false
 --- @return std.proto.http.res? code
-function http.read_res(conn)
+function http.read_res(conn, closefn)
 	local line = conn:readlineto(buffer.new()):get();
 	if #line == 0 then return nil end
 
@@ -219,7 +227,7 @@ function http.read_res(conn)
 	if version ~= "1.1" and version ~= "1.0" then error("bad HTTP version " .. version) end
 
 	local hdr = assert(http.read_headers(conn), "bad HTTP headers");
-	local body = http.read_body(conn, hdr);
+	local body = http.read_body(conn, hdr, closefn);
 
 	return {
 		code = tonumber(code),
