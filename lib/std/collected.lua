@@ -1,26 +1,33 @@
-local loop = require "std.loop";
 local cond = require "std.sync.cond";
 local errors = require "std.errors";
 local is = require "std.basic.is";
+local loop;
+local require_alt = require;
 require "std.basic.coroutine";
 
+local th;
 local queue = {};
 local queue_cond = cond.new();
 local kys = false;
-local th = loop.fork(function ()
-	while not kys do
-		while #queue > 0 do
-			local func, obj = table.unpack(table.remove(queue));
-			loop.fork(function (func, obj)
-				local ok, err = errors.spcall(func, obj);
-				if not ok then eprint(err, "in finalizer") end
-			end, func, obj);
+
+local function start()
+	loop = loop or require_alt "std.loop";
+	th = th or loop.fork(function ()
+		while not kys do
+			while #queue > 0 do
+				local func, obj = table.unpack(table.remove(queue));
+				loop.fork(function (func, obj)
+					local ok, err = errors.spcall(func, obj);
+					if not ok then eprint(err, "in finalizer") end
+				end, func, obj);
+			end
+			queue_cond:wait();
 		end
-		queue_cond:wait();
-	end
-end)
-	:name "Collector"
-	:daemon(true);
+	end)
+		:name "Collector"
+		:daemon(true);
+
+end
 
 -- TODO: this seems to work by pure magic
 
@@ -66,5 +73,6 @@ return function (tab, func)
 	end
 	-- This will break pairs(), oh well...
 	tab[meta_proxy] = token;
+	start();
 	return tab;
 end
