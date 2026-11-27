@@ -25,5 +25,10 @@ end
 function mem.new()
 	return setmetatable({ data = buffer.new() }, mem);
 end
+function mem.from(data)
+	local res = mem.new();
+	res.data:set(data);
+	return res;
+end
 
 return mem;
