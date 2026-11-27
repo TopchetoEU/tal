@@ -351,7 +351,7 @@ local yaooi = {
 };
 
 local errmap = {
-	[-2 --[[YO_ECANCELED]]] = errors.cancelled,
+	[-2 --[[YO_ECANCELED]]] = errors.canceled,
 	[-4 --[[YO_EOF]]] = errors.eof,
 	[-9 --[[YO_ENOTIMPL]]] = errors.notimpl,
 	-- Included here so that no memory is allocated for an out of memory error, as we already appear to not have much of it

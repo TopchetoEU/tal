@@ -53,7 +53,7 @@ function coroutine:cancelpt()
 
 	if cancel_flag[self] then
 		cancel_flag[self] = nil;
-		error(errors.cancelled);
+		error(errors.canceled);
 	end
 end
 

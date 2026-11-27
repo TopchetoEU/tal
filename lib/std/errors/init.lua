@@ -183,7 +183,7 @@ errors.pcall = pcall;
 
 -- Common, pre-defined errors
 
-errors.cancelled = errors.msg "cancelled";
+errors.canceled = errors.msg "canceled";
 errors.closed = errors.msg "closed";
 errors.eof = errors.msg "eof";
 errors.never = errors.msg "unreachable path exectued";

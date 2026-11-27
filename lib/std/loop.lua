@@ -160,7 +160,7 @@ function loop.await(cancel, ok, ...)
 	end
 
 	local th = coroutine.running();
-	cancels[th] = cancel or function () loop.reject(th, errors.cancelled) end;
+	cancels[th] = cancel or function () loop.reject(th, errors.canceled) end;
 
 	if not loop_th then
 		return await_fin_main(th, pcall(run_loop));
@@ -180,7 +180,7 @@ function loop.fork(main, ...)
 	local th = coroutine.create(function (_, ...)
 		local ok, err = errors.spcall(...);
 		if not ok then
-			if errors.is(err, errors.cancelled) then return end
+			if errors.is(err, errors.canceled) then return end
 			errors.throw(traced_err.new(err, "fork", fork_trace));
 		end
 	end);
@@ -215,7 +215,7 @@ function loop.wait_until(ts, cb, ...)
 
 	return function ()
 		table.delete(sleeps, pack);
-		loop.reject(cb, errors.cancelled);
+		loop.reject(cb, errors.canceled);
 	end;
 end
 function loop.run()

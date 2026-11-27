@@ -16,7 +16,7 @@ function cond:wait()
 		table.insert(self._waiters, th);
 		loop.await(function ()
 			table.delete(self._waiters, th);
-			loop.reject(th, errors.cancelled);
+			loop.reject(th, errors.canceled);
 		end);
 	-- end
 end

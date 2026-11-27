@@ -18,7 +18,7 @@ function pipe:read()
 	table.insert(self._readers, th);
 	return loop.await(function ()
 		table.delete(self._readers, th);
-		loop.reject(th, errors.cancelled);
+		loop.reject(th, errors.canceled);
 	end);
 end
 function pipe:write(...)
@@ -32,7 +32,7 @@ function pipe:write(...)
 			table.insert(self._writers, th);
 			loop.await(function ()
 				table.delete(self._writers);
-				loop.reject(th, errors.cancelled);
+				loop.reject(th, errors.canceled);
 			end);
 		end
 	end

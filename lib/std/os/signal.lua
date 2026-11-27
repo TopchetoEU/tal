@@ -70,7 +70,7 @@ function signal.mute(sig)
 		end);
 
 		if ok then return end
-		if not errors.is(err, errors.cancelled) then throw(err) end
+		if not errors.is(err, errors.canceled) then throw(err) end
 
 		signal.off(sig, p);
 	end):daemon(true);
